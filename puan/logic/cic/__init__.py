@@ -1,5 +1,7 @@
-import typing 
+import ast
+import itertools
 import operator
+import typing 
 
 """
     # Condition-Implies-Consequence (cic)
@@ -137,43 +139,53 @@ class cicE(list):
             return all_variables_set, any_variables_chunks
 
         if len(condition) == 0:
-            return [{}]
-
-        condition_type = type(condition)
-        if condition_type == tuple:
-            all_variables_set, any_variables_chunks = collect_allany_variables(condition)
-            return list(
-                itertools.starmap(
-                    set.union,
-                    zip(
-                        itertools.cycle([all_variables_set]),
-                        map(
-                            puancore.comp.compose(list, set),
-                            itertools.product(*any_variables_chunks)
+            result = [{}]
+        else:
+            condition_type = type(condition)
+            if condition_type == tuple:
+                all_variables_set, any_variables_chunks = collect_allany_variables(condition)
+                result = list(
+                    itertools.starmap(
+                        set.union,
+                        zip(
+                            itertools.cycle([all_variables_set]),
+                            map(
+                                puancore.comp.compose(list, set),
+                                itertools.product(*any_variables_chunks)
+                            )
                         )
                     )
                 )
-            )
 
-        elif condition_type == list:
-            all_variables_set, any_variables_chunks = collect_allany_variables(
-                condition,
-                all_type=list,
-                any_type=tuple
-            )
-            return list(
-                map(
-                    lambda x: set(x) if type(x) != str else set([x]),
-                    operator.add(
-                        list(all_variables_set),
-                        any_variables_chunks
+            elif condition_type == list:
+                all_variables_set, any_variables_chunks = collect_allany_variables(
+                    condition,
+                    all_type=list,
+                    any_type=tuple
+                )
+                result = list(
+                    map(
+                        lambda x: set(x) if type(x) != str else set([x]),
+                        operator.add(
+                            list(all_variables_set),
+                            any_variables_chunks
+                        )
                     )
                 )
+            
+            elif condition_type == str:
+                result = [{condition}]
+            else:
+                raise Exception(f"condition must be wrapped with `( )` or `[ ]` but found: {condition}")
+
+        return list(
+            map(
+                lambda cnd: [
+                    cnd, self[1], self[2], self[3] if len(self) == 4 else []
+                ],
+                result
             )
-        elif condition_type == str:
-            return [{condition}]
-        else:
-            raise Exception(f"condition must be wrapped with `( )` or `[ ]` but found: {condition}")
+        )
 
     def _expload_rule_type(self) -> typing.List[cicE]:
         """
@@ -194,7 +206,7 @@ class cicE(list):
             return list(
                 map(
                     lambda x: [
-                        self[0], x, self[1], self[2] if len(self) == 2 else []
+                        self[0], x, self[1], self[2] if len(self) == 4 else []
                     ],
                     cicE._rule_map.get(self[1])
                 )
@@ -202,15 +214,103 @@ class cicE(list):
 
         return [self]
     
-    def to_cicR(self) -> cicR:
+    def to_cicRs(self) -> typing.List[cicR]:
 
         """
-            Converts a cicE into a cicR.
+            Converts a cicE into a list of cicRs.
 
             Return:
-                cicR
+                list[cicR]
         """
-        pass
+        return list(
+            itertools.chain(
+                *map(
+                    cicE._expload_rule_type,
+                    itertools.chain(*self._expload_condition())
+                )
+            )
+        )
+    
+    @staticmethod
+    def from_string(cicE_str: str) -> "cicE":
+
+        """
+            Convert from string into a cicE.
+
+            Example:
+                input: "(('a','b'),'REQUIRES_EXCLUSIVELY',('x','y','z'), ('y',))"
+                output: [("a", "b"), "REQUIRES_EXCSLUIVELY", ("x", "y", "z"), ("y")]
+
+            Return:
+                cicE
+        """
+        return cicE(ast.literal_eval(cicE_str))
+
+    @staticmethod
+    def from_json(json_rule: dict, id_ident: str = "id") -> "cicE":
+
+        """
+            Converts a cicE on json into a interal cicE data type.
+
+            Example:
+                Input:
+                    json_rule = {
+                        "condition": {
+                            "relation": "ALL",
+                            "subConditions": [
+                                {
+                                    "relation": "ANY",
+                                    "components": [
+                                        {"id": "x"},
+                                        {"id": "y"}
+                                    ]
+                                },
+                                {
+                                    "relation": "ANY",
+                                    "components": [
+                                        {"id": "a"},
+                                        {"id": "b"}
+                                    ]
+                                }
+                            ]
+                        },
+                        "consequence": {
+                            "ruleType": "REQUIRES_ALL",
+                            "components": [
+                                {"id": "m"},
+                                {"id": "n"},
+                                {"id": "o"},
+                            ]
+                        }
+                    }
+
+                    id_ident = "id"
+
+                Output:
+                    "(['x','y'],['a','b']),'REQUIRES_ALL',('m','n','o')"
+                    "(['x','y'],['a','b']),'REQUIRES_ALL',('m','n','o')"
+
+            Return:
+                cicE
+        """
+        return cicE([
+            (tuple if json_rule['condition']['relation'] == "ALL" else list)(
+                [
+                    (tuple if sub_condition['relation'] == "ALL" else list)(
+                        [
+                            component[id_ident]
+                            for component in sub_condition['components']
+                        ]
+                    )
+                    for sub_condition in json_rule['condition']['subConditions']
+                ]
+            ),
+            json_rule['consequence']['ruleType'],
+            tuple(
+                [x[id_ident] for x in json_rule['consequence']['components']]
+            ),
+            tuple(json_rule['consequence'].get("preferred", ()))
+        ])
 
 class cicEs(list):
     
