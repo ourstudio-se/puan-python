@@ -318,3 +318,192 @@ class cicEs(list):
         Is a conjunction-list of `cicE` -items. 
     """
     pass
+
+class cicJE(dict):
+
+    """
+        Is a Condition-Implies-Consequence data type represented on json-format.
+        The J is for Json and E is for Expressive. It contains same data as a cicE and thus
+        has a one-to-one mapping into a cicE. 
+
+        Example data: 
+        
+            cicJE_instance = {
+                "condition": {
+                    "relation": "ALL",
+                    "subConditions": [
+                        {
+                            "relation": "ANY",
+                            "components": [
+                                {"id": "a"},
+                                {"id": "b"}
+                            ]
+                        },
+                        {
+                            "relation": "ANY",
+                            "components": [
+                                {"id": "c"},
+                                {"id": "d"}
+                            ]
+                        }
+                    ]
+                },
+                "consequence": {
+                    "ruleType": "REQUIRES_EXCLUSIVELY",
+                    "components": [
+                        {"id": "x"},
+                        {"id": "y"},
+                        {"id": "z"}
+                    ]
+                },
+                "preferred": [{"id": "z"}]
+            }
+    """
+
+    def to_cicE(self, id_ident: str = "id") -> cicE:
+        """
+            Convert into a cicE.
+
+            Example:
+                Input: {
+                    "condition": {
+                        "relation": "ALL",
+                        "subConditions": [
+                            {
+                                "relation": "ANY",
+                                "components": [
+                                    {"id": "a"},
+                                    {"id": "b"}
+                                ]
+                            },
+                            {
+                                "relation": "ANY",
+                                "components": [
+                                    {"id": "c"},
+                                    {"id": "d"}
+                                ]
+                            }
+                        ]
+                    },
+                    "consequence": {
+                        "ruleType": "REQUIRES_EXCLUSIVELY",
+                        "components": [
+                            {"id": "x"},
+                            {"id": "y"},
+                            {"id": "z"}
+                        ]
+                    },
+                    "preferred": [{"id": "z"}]
+                }
+
+                Output: [
+                    (["a","b"], ["c","d"]),
+                    "REQUIRES_EXCLUSIVELY",
+                    ("x","y","z"),
+                    ("z")
+                ]
+
+            Return:
+                cicE
+        """
+        return cicE.from_json(self, id_ident)
+
+class cicJEs(list):
+
+    """
+        A conjunction of cicJE's.
+    """
+
+    @staticmethod
+    def _merge_consequences(rule1: dict, rule2: dict, id_ident: str = "id") -> tuple:
+        """
+        Merges the consequences of rule2 with rule1 if the rule logic for both rules will be preserved,
+        i.e. if the condition is the same and the rule type allows for maintenability of the rule logic.
+        """
+        rule_merged = False
+        def sort_subcondition_components(subconditions: list):
+            for subcondition in subconditions:
+                subcondition['components'] = sorted(subcondition['components'], key=lambda x: x[id_ident])
+
+        # Performing this operation here will mean that we will sort already sorted rules from time to time.
+        # Better way to handle this to increase performance?
+        sort_subcondition_components(puancore.misc.or_get(rule1['condition'], ['subConditions', 'sub_conditions'], []))
+        sort_subcondition_components(puancore.misc.or_get(rule2['condition'], ['subConditions', 'sub_conditions'], []))
+
+        if rule_type_get(rule1) == rule_type_get(rule2) and rule1['condition'] == rule2['condition']:
+            for component in rule2['consequence']['components']:
+                if not component in rule1['consequence']['components']:
+                    rule1['consequence']['components'].append(component)
+            rule_merged = True
+        return (rule1, rule_merged)
+
+    @staticmethod
+    def _rule_can_be_merged(rule: dict) -> bool:
+        could_be_merged = {'REQUIRES_ALL': True,
+                            'FORBIDS_ALL': True,
+                            'PREFERRED': True,
+                            'ONE_OR_NONE': False,
+                            'REQUIRES_EXCLUSIVELY': False,
+                            'REQUIRES_ANY': False}
+        rule_type = lambda x: "REQUIRES_ALL" if (rule_type_get(x) in ['REQUIRES_EXCLUSIVELY', 'REQUIRES_ANY'] and len(x['consequence']['components']) <= 1) else rule_type_get(x)
+        rule_type_key = 'ruleType' if 'ruleType' in rule['consequence'].keys() else 'rule_type'
+        rule['consequence'][rule_type_key] = rule_type(rule)
+        return could_be_merged[rule_type(rule)]
+
+    def compress(self: list, id_ident: str= "id") -> "cicJEs":
+        compressed_ruleset = []
+        while self:
+            current_rule = rules.pop()
+            rules_to_remove = []
+            if not cicJEs._rule_can_be_merged(current_rule):
+                compressed_ruleset.append(current_rule)
+                continue
+            # Search remaining rules to merge with current rule
+            for rule in self:
+                if not cicJEs._rule_can_be_merged(rule):
+                    rules_to_remove.append(rule)
+                    compressed_ruleset.append(rule)
+                    continue
+                merged = False
+                current_rule, merged = cicJEs._merge_consequences(rule1=current_rule, rule2=rule, id_ident=id_ident)
+                if merged:
+                    rules_to_remove.append(rule)
+            compressed_ruleset.append(current_rule)
+            rules = [rule for rule in rules if not rule in rules_to_remove]
+        
+        return cicJEs(compressed_ruleset)
+
+    def split(self: list, id_ident: str="id") -> typing.List["cicJEs"]:
+        """
+            Splits a ruleset into subsets of independet rules, i.e. the configuration can be solved for each ruleset separately.
+
+            Return:
+            List[List(rules)]
+        """
+        rule_indices = list(range(len(self)))
+        unexamined_rules = [rule_indices.pop(0)]
+        examined_rules = []
+        rules_in_relation_list = []
+        while unexamined_rules:
+            currently_examined_rule_index = unexamined_rules.pop()
+            rule_type = rule_type_get(self[currently_examined_rule_index])
+            for i in rule_indices:
+                if rule_type in ["REQUIRES_ALL", "REQUIRES_ANY", "PREFERRED"] and rule_type_get(self[i]) in ["REQUIRES_ALL", "REQUIRES_ANY", "PREFERRED"] or\
+                    (rule_type == "FORBIDS_ALL" and rule_type_get(self[i]) == "FORBIDS_ALL"):
+                    if set(rule2variables(self[currently_examined_rule_index], id_ident)) & set(rule_condition2variables(self[i]['condition'], id_ident)) or\
+                        set(rule_condition2variables(self[currently_examined_rule_index]['condition'], id_ident)) & set(rule2variables(self[i], id_ident)):
+                        unexamined_rules.append(i)
+                else:
+                    if set(rule2variables(self[currently_examined_rule_index], id_ident)) & set(rule2variables(self[i], id_ident)):
+                        unexamined_rules.append(i)
+            rule_indices = [i for i in rule_indices if not i in unexamined_rules]
+            if currently_examined_rule_index not in examined_rules:
+                examined_rules.append(currently_examined_rule_index)
+            if not unexamined_rules:
+                rules_in_relation_list.append(examined_rules)
+                examined_rules = []
+                if rule_indices:
+                    unexamined_rules = [rule_indices[0]]
+                    rule_indices.pop(0)
+                    
+        return [cicJEs([self[index] for index in indices]) for indices in rules_in_relation_list]
