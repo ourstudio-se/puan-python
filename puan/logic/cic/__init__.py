@@ -408,6 +408,92 @@ class cicJE(dict):
         """
         return cicE.from_json(self, id_ident)
 
+    @staticmethod
+    def _condition2variables(condition: dict, id_ident: str = "id"):
+
+        """
+            Returns a list of unique variables from a rule condition.
+            A variable is component[id_ident].
+
+            Return:
+                List[str]
+        """
+
+        return list(
+            set(
+                itertools.chain(
+                    *map(
+                        lambda sub_condition: map(
+                            operator.itemgetter(id_ident),
+                            sub_condition.get("components", [])
+                        ),
+                        puancore.misc.or_get(
+                            condition,
+                            ["subConditions", "sub_conditions"],
+                            [],
+                        )
+                    )
+                )
+            )
+        )
+
+    @staticmethod
+    def _consequence2variables(consequence: dict, id_ident: str = "id"):
+
+        """
+            Returns a list of unique variables from a rule consequence.
+            A variable is component[id_ident].
+
+            Return:
+                List[str]
+        """
+        return list(
+            set(
+                map(
+                    lambda component: component[id_ident],
+                    consequence.get('components', [])
+                )
+            )
+        )
+
+    def rule_type_get(self: dict) -> str:
+
+        """
+            Gets rule type of rule.
+
+            Return:
+                str
+        """
+        return puan.misc.or_get(self['consequence'], ['rule_type', 'ruleType'])
+
+    def sub_conditions_get(self: dict) -> str:
+
+        """
+            Gets sub conditions of rule.
+
+            Return:
+                str
+        """
+        return puan.misc.or_get(self['condition'], ['sub_conditions', 'subConditions'], [])
+
+    def variables(self: dict, id_ident: str = "id") -> list:
+
+        """
+            Returns a list of unique variables from a rule. The variable is
+            the component[id_ident] in this case.
+
+            Return:
+                List[str]
+        """
+        return list(
+            set(
+                operator.add(
+                    cicJE._condition2variables(rule.get('condition', {}), id_ident),
+                    cicJE._consequence2variables(rule.get('consequence', {}), id_ident)
+                )
+            )
+        )
+
 class cicJEs(list):
 
     """
@@ -430,7 +516,7 @@ class cicJEs(list):
         sort_subcondition_components(puancore.misc.or_get(rule1['condition'], ['subConditions', 'sub_conditions'], []))
         sort_subcondition_components(puancore.misc.or_get(rule2['condition'], ['subConditions', 'sub_conditions'], []))
 
-        if rule_type_get(rule1) == rule_type_get(rule2) and rule1['condition'] == rule2['condition']:
+        if cicJE.rule_type_get(rule1) == cicJE.rule_type_get(rule2) and rule1['condition'] == rule2['condition']:
             for component in rule2['consequence']['components']:
                 if not component in rule1['consequence']['components']:
                     rule1['consequence']['components'].append(component)
@@ -445,7 +531,7 @@ class cicJEs(list):
                             'ONE_OR_NONE': False,
                             'REQUIRES_EXCLUSIVELY': False,
                             'REQUIRES_ANY': False}
-        rule_type = lambda x: "REQUIRES_ALL" if (rule_type_get(x) in ['REQUIRES_EXCLUSIVELY', 'REQUIRES_ANY'] and len(x['consequence']['components']) <= 1) else rule_type_get(x)
+        rule_type = lambda x: "REQUIRES_ALL" if (cicJE.rule_type_get(x) in ['REQUIRES_EXCLUSIVELY', 'REQUIRES_ANY'] and len(x['consequence']['components']) <= 1) else cicJE.rule_type_get(x)
         rule_type_key = 'ruleType' if 'ruleType' in rule['consequence'].keys() else 'rule_type'
         rule['consequence'][rule_type_key] = rule_type(rule)
         return could_be_merged[rule_type(rule)]
@@ -486,15 +572,15 @@ class cicJEs(list):
         rules_in_relation_list = []
         while unexamined_rules:
             currently_examined_rule_index = unexamined_rules.pop()
-            rule_type = rule_type_get(self[currently_examined_rule_index])
+            rule_type = cicJE.rule_type_get(self[currently_examined_rule_index])
             for i in rule_indices:
-                if rule_type in ["REQUIRES_ALL", "REQUIRES_ANY", "PREFERRED"] and rule_type_get(self[i]) in ["REQUIRES_ALL", "REQUIRES_ANY", "PREFERRED"] or\
-                    (rule_type == "FORBIDS_ALL" and rule_type_get(self[i]) == "FORBIDS_ALL"):
-                    if set(rule2variables(self[currently_examined_rule_index], id_ident)) & set(rule_condition2variables(self[i]['condition'], id_ident)) or\
-                        set(rule_condition2variables(self[currently_examined_rule_index]['condition'], id_ident)) & set(rule2variables(self[i], id_ident)):
+                if rule_type in ["REQUIRES_ALL", "REQUIRES_ANY", "PREFERRED"] and cicJE.rule_type_get(self[i]) in ["REQUIRES_ALL", "REQUIRES_ANY", "PREFERRED"] or\
+                    (rule_type == "FORBIDS_ALL" and cicJE.rule_type_get(self[i]) == "FORBIDS_ALL"):
+                    if set(cicJE.variables(self[currently_examined_rule_index], id_ident)) & set(cicJE._condition2variables(self[i]['condition'], id_ident)) or\
+                        set(cicJE._condition2variables(self[currently_examined_rule_index]['condition'], id_ident)) & set(cicJE.variables(self[i], id_ident)):
                         unexamined_rules.append(i)
                 else:
-                    if set(rule2variables(self[currently_examined_rule_index], id_ident)) & set(rule2variables(self[i], id_ident)):
+                    if set(cicJE.variables(self[currently_examined_rule_index], id_ident)) & set(cicJE.variables(self[i], id_ident)):
                         unexamined_rules.append(i)
             rule_indices = [i for i in rule_indices if not i in unexamined_rules]
             if currently_examined_rule_index not in examined_rules:
