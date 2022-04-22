@@ -18,7 +18,7 @@ import typing
                     This format has a one-to-one mapping into a linear programming constraint.
         - cicE:     A more Expressive format where the condition can be written either as a DNF or a CNF.
                     also "REQUIRES_EXCLUSIVELY" rule type exist here.
-        - cicEs:    String version of cicE
+        - cicJE:    JSON version of cicE
 
 """
 
@@ -56,8 +56,8 @@ class cicRs(list):
 
             Parameters:
                 self:                   : list = a cicR-list
-                variable_map            : dict = a dict mapping variables to integers
-                support_variable_index  : int  = index representing the support variable in a ge_polytope
+                variable_map            : dict = a function f(str)->int mapping variable strings to integers
+                support_variable_index  : int  = index representing the support variable index in a ge_polytope (default 0)
             
             Return:
                 dict: value_map
