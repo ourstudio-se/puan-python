@@ -359,35 +359,40 @@ class integer_ndarray(numpy.ndarray):
                 numpy.ndarray (1d)
         """
         if self.ndim > 2:
-            return integer_ndarray._truncate(
+            return integer_ndarray.truncate(
                 integer_ndarray(
                     list(
                         map(
-                            integer_ndarray._truncate,
+                            integer_ndarray.truncate,
                             self
                         )
                     )
                 )
             )
         elif self.ndim == 2:
-            self_abs = numpy.abs(self)
-            neg_value_msk = self < 0
-            row_value_offset = numpy.pad(
-                    numpy.cumsum(
-                        self_abs.sum(axis=1)
-                    ), 
-                    (1,0)
-                )[:-1].reshape(-1,1) * (self != 0)
-            offset_abs = (self_abs + row_value_offset)
-            offset_ord = offset_abs * ~neg_value_msk + offset_abs * neg_value_msk * -1
-            offset_ord_rev = offset_ord[::-1]
-            min_non_zero_row_idx = (offset_ord_rev != 0).argmax(axis=0)
-            truncated = offset_ord_rev[min_non_zero_row_idx, numpy.arange(offset_abs.shape[1])]
-            truncated_neg_msk = truncated < 0
-            truncated_abs = numpy.abs(truncated)
-            truncated_abs_norm = truncated_abs - (truncated_abs[numpy.nonzero(truncated_abs)].min()-1)
-            truncated_norm = truncated_abs_norm * ~truncated_neg_msk + truncated_abs_norm * truncated_neg_msk * -1
-            return truncated_norm
+            # self_abs = numpy.abs(self)
+            # neg_value_msk = self < 0
+            # row_value_offset = numpy.pad(
+            #         numpy.cumsum(
+            #             self_abs.sum(axis=1)
+            #         ), 
+            #         (1,0)
+            #     )[:-1].reshape(-1,1) * (self != 0)
+            # offset_abs = (self_abs + row_value_offset)
+            # offset_ord = offset_abs * ~neg_value_msk + offset_abs * neg_value_msk * -1
+            # offset_ord_rev = offset_ord[::-1]
+            # min_non_zero_row_idx = (offset_ord_rev != 0).argmax(axis=0)
+            # truncated = offset_ord_rev[min_non_zero_row_idx, numpy.arange(offset_abs.shape[1])]
+            # truncated_neg_msk = truncated < 0
+            # truncated_abs = numpy.abs(truncated)
+            # non_zeros = numpy.nonzero(truncated_abs)
+            # if non_zeros[0].size > 0:
+            #     truncated_abs_norm = truncated_abs - (truncated_abs[non_zeros].min()-1)
+            # else:
+            #     truncated_abs_norm = truncated_abs
+            # truncated_norm = truncated_abs_norm * ~truncated_neg_msk + truncated_abs_norm * truncated_neg_msk * -1
+            # return truncated_norm
+            return integer_ndarray.truncate(self.flatten()).reshape()
         elif self.ndim == 1:
             return self
         else:

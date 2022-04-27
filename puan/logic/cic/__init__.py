@@ -1,7 +1,12 @@
 import ast
+import maz
+import functools
 import itertools
 import operator
-import typing 
+import typing
+import puan.misc as msc
+import puan.vmap as vmap
+import puan
 
 """
     # Condition-Implies-Consequence (cic)
@@ -22,11 +27,11 @@ import typing
 
 """
 
-class cicR(list):
+class cicR(tuple):
     """
         Condition-Implies-Consequence RAW (cicR) is a variant of cic logical rule defining relationship
         between variables. It consist of four parameters: condition, rule type, consequence
-        and preferred. The data type is a list requiring at least three of these four parameters. The RAW
+        and preferred. The data type is a tuple requiring at least three of these four parameters. The RAW
         stands for the most atomic level of a cic, meaning "and" is implied in condition and consequence.
 
         Parameters:
@@ -35,8 +40,24 @@ class cicR(list):
             consequence: a set of variables (strings) where "and" -relation is implied between the variables.
             preferred: when ambivalence exists, this parameter tells which variable to prefer over the others
     """
-    pass
 
+    def __new__(self, condition, rule_type, consequence, preferred: tuple = ()):
+        return tuple.__new__(cicE, (set(condition), rule_type, set(consequence), preferred))
+
+    def __new__(self, as_tuple: tuple):
+        return tuple.__new__(cicE, (set(as_tuple[0]), as_tuple[1], set(as_tuple[2]), as_tuple[3] if len(as_tuple) == 4 else ()))
+
+    
+    def variables(self) -> list:
+        """
+            Returns variables in this cicR
+
+            Return:
+                List[str]
+        """
+        return list(set(self[0]).union(self[2]))
+
+    
 class cicRs(list):
 
     """
@@ -49,7 +70,10 @@ class cicRs(list):
         "ONE_OR_NONE":  lambda n_cond, n_cons: (-n_cons, -1, -n_cons*n_cond-1), # one-or-none
     }
 
-    def to_value_map(self: typing.List[cic], variable_map: callable, support_variable_index: int = 0) -> dict:
+    def __new__(cls, lst):
+        return list.__new__(cicRs, map(cicR, lst))
+
+    def _to_value_map(self: typing.List[cicR], variable_map: callable) -> vmap.value_map:
 
         """
             Converts a list of cicR's into a value map.
@@ -57,18 +81,31 @@ class cicRs(list):
             Parameters:
                 self:                   : list = a cicR-list
                 variable_map            : dict = a function f(str)->int mapping variable strings to integers
-                support_variable_index  : int  = index representing the support variable index in a ge_polytope (default 0)
+                
+            NOTE support index defaults to index 0. The support index representing the support variable vector in a ge_polytope
             
             Return:
                 dict: value_map
         """
+        support_variable_index : int = 0
+
+        variable_mapper = maz.compose(
+            list, 
+            functools.partial(
+                map, 
+                maz.compose(
+                    functools.partial(operator.add, 1),
+                    variable_map
+                )
+            )
+        )
 
         value_map = {}
         for i, (condition_col_idxs, rule_type, consequence_col_idxs) in enumerate(
             zip(
-                map(variable_map, filter(operator.itemgetter(0), self)),
-                filter(operator.itemgetter(1), self),
-                map(variable_map, filter(operator.itemgetter(2), self))
+                map(variable_mapper, map(operator.itemgetter(0), self)),
+                map(operator.itemgetter(1), self),
+                map(variable_mapper, map(operator.itemgetter(2), self))
             )
         ):
             (condition_constant, consequence_constant, support_constant) = self._rule_conjunction_constants_map[rule_type](
@@ -90,9 +127,40 @@ class cicRs(list):
                 value_map[support_constant][0] += [i]
                 value_map[support_constant][1] += [support_variable_index]
 
-        return value_map
+        return vmap.value_map(value_map)
 
-class cicE(list):
+    def to_ge_polytope(self, index_predicate) -> puan.ge_polytope:
+
+        """
+            Converts into a ge_polytope.
+
+            index_predicate: a function[str] -> int, mapping variable strings to index
+
+            Return:
+                ge_polytope
+        """
+        return puan.ge_polytope(cicRs._to_value_map(self, index_predicate).to_matrix())
+
+    def variables(self) -> list:
+
+        """
+            Collects variables in cicRs
+
+            Return:
+                List[str]
+        """
+        return list(
+            set(
+                itertools.chain(
+                    *map(
+                        cicR.variables,
+                        self
+                    )
+                )
+            )
+        )
+
+class cicE(tuple):
 
     """
         Condition-Implies-Consequence EXPRESSIVE (cicE) is a variant of cic logical rule defining relationship
@@ -101,13 +169,21 @@ class cicE(list):
         stands for a expressive variant of a cic, meaning 
             - the condition can be formed as combinations of "or" and "and" relations
             - the rule types are extended with "REQUIRES_EXCLUSIVELY"
+
+        (*expressive condition*, *expressive rule type*, *consequence variables*)
     """
 
     _rule_map: dict = {
         "REQUIRES_EXCLUSIVELY": ["REQUIRES_ANY", "ONE_OR_NONE"]
     }
 
-    def _expload_condition(self) -> typing.List[cicE]:
+    def __new__(self, condition, rule_type, consequence, preferred: tuple = ()):
+        return tuple.__new__(cicE, (condition, rule_type, set(consequence), preferred))
+
+    def __new__(self, as_tuple: tuple):
+        return tuple.__new__(cicE, (as_tuple[0], as_tuple[1], set(as_tuple[2]), as_tuple[3] if len(as_tuple) == 4 else ()))
+
+    def _expload_condition(self) -> typing.List["cicE"]:
 
         """
             Converts data type condition into a DNF.
@@ -121,6 +197,7 @@ class cicE(list):
             Return:
                 List[Set[str]]
         """
+        condition = self[0]
         def collect_allany_variables(sub_conditions, all_type = tuple, any_type = list):
             all_variables_set = set()
             any_variables_chunks = []
@@ -150,7 +227,7 @@ class cicE(list):
                         zip(
                             itertools.cycle([all_variables_set]),
                             map(
-                                puancore.comp.compose(list, set),
+                                maz.compose(list, set),
                                 itertools.product(*any_variables_chunks)
                             )
                         )
@@ -180,17 +257,21 @@ class cicE(list):
 
         return list(
             map(
-                lambda cnd: [
-                    cnd, self[1], self[2], self[3] if len(self) == 4 else []
-                ],
+                lambda cnd: cicE(
+                    (cnd, self[1], self[2], self[3] if len(self) == 4 else ())
+                ),
                 result
             )
         )
 
-    def _expload_rule_type(self) -> typing.List[cicE]:
+    def _expload_rule_type_intermediate_type(self) -> typing.List["cicE"]:
         """
             Exploads rule types into many rules satisfying
             cicR's rule types.
+
+            NOTE: The intermediate data type means a data type between a cicR and a cicE
+            which has the set types for the variables in condition and consequence BUT
+            can have expressive rule types such as REQUIRES_EXCLUSIVELY
 
             Example:
                 input: [..., "REQUIRES_EXCLUSIVELY", ...]
@@ -202,12 +283,12 @@ class cicE(list):
             Return:
                 list[cicE]
         """
-        if self[1] in cicRs._rule_conjunction_constants_map:
+        if self[1] in cicE._rule_map:
             return list(
                 map(
-                    lambda x: [
-                        self[0], x, self[1], self[2] if len(self) == 4 else []
-                    ],
+                    lambda x: cicE(
+                        (self[0], x, self[2], self[3] if len(self) == 4 else ())
+                    ),
                     cicE._rule_map.get(self[1])
                 )
             )
@@ -222,11 +303,11 @@ class cicE(list):
             Return:
                 list[cicR]
         """
-        return list(
+        return cicRs(
             itertools.chain(
                 *map(
-                    cicE._expload_rule_type,
-                    itertools.chain(*self._expload_condition())
+                    cicE._expload_rule_type_intermediate_type,
+                    self._expload_condition()
                 )
             )
         )
@@ -317,7 +398,42 @@ class cicEs(list):
     """
         Is a conjunction-list of `cicE` -items. 
     """
-    pass
+
+    def __new__(cls, lst):
+        return list.__new__(cicEs, map(cicE, lst))
+
+    @staticmethod
+    def from_strings(strs: list) -> "cicEs":
+
+        """
+            Convert cicEs on string format into cicEs
+
+            Return:
+                cicEs
+        """
+        return cicEs(
+            map(
+                cicE.from_string,
+                strs
+            )
+        )
+    
+    def to_cicRs(self) -> cicRs:
+
+        """
+            Converts into cicRs data format.
+
+            Return:
+                cicRs
+        """
+        return cicRs(
+            itertools.chain(
+                *map(
+                    cicE.to_cicRs,
+                    self
+                )
+            )
+        )
 
 class cicJE(dict):
 
@@ -427,7 +543,7 @@ class cicJE(dict):
                             operator.itemgetter(id_ident),
                             sub_condition.get("components", [])
                         ),
-                        puancore.misc.or_get(
+                        msc.or_get(
                             condition,
                             ["subConditions", "sub_conditions"],
                             [],
@@ -464,7 +580,7 @@ class cicJE(dict):
             Return:
                 str
         """
-        return puan.misc.or_get(self['consequence'], ['rule_type', 'ruleType'])
+        return msc.or_get(self['consequence'], ['rule_type', 'ruleType'])
 
     def sub_conditions_get(self: dict) -> str:
 
@@ -474,7 +590,7 @@ class cicJE(dict):
             Return:
                 str
         """
-        return puan.misc.or_get(self['condition'], ['sub_conditions', 'subConditions'], [])
+        return msc.or_get(self['condition'], ['sub_conditions', 'subConditions'], [])
 
     def variables(self: dict, id_ident: str = "id") -> list:
 
@@ -488,8 +604,8 @@ class cicJE(dict):
         return list(
             set(
                 operator.add(
-                    cicJE._condition2variables(rule.get('condition', {}), id_ident),
-                    cicJE._consequence2variables(rule.get('consequence', {}), id_ident)
+                    cicJE._condition2variables(self.get('condition', {}), id_ident),
+                    cicJE._consequence2variables(self.get('consequence', {}), id_ident)
                 )
             )
         )
@@ -513,8 +629,8 @@ class cicJEs(list):
 
         # Performing this operation here will mean that we will sort already sorted rules from time to time.
         # Better way to handle this to increase performance?
-        sort_subcondition_components(puancore.misc.or_get(rule1['condition'], ['subConditions', 'sub_conditions'], []))
-        sort_subcondition_components(puancore.misc.or_get(rule2['condition'], ['subConditions', 'sub_conditions'], []))
+        sort_subcondition_components(msc.or_get(rule1['condition'], ['subConditions', 'sub_conditions'], []))
+        sort_subcondition_components(msc.or_get(rule2['condition'], ['subConditions', 'sub_conditions'], []))
 
         if cicJE.rule_type_get(rule1) == cicJE.rule_type_get(rule2) and rule1['condition'] == rule2['condition']:
             for component in rule2['consequence']['components']:
@@ -539,7 +655,7 @@ class cicJEs(list):
     def compress(self: list, id_ident: str= "id") -> "cicJEs":
         compressed_ruleset = []
         while self:
-            current_rule = rules.pop()
+            current_rule = self.pop()
             rules_to_remove = []
             if not cicJEs._rule_can_be_merged(current_rule):
                 compressed_ruleset.append(current_rule)
@@ -555,7 +671,7 @@ class cicJEs(list):
                 if merged:
                     rules_to_remove.append(rule)
             compressed_ruleset.append(current_rule)
-            rules = [rule for rule in rules if not rule in rules_to_remove]
+            self = [rule for rule in self if not rule in rules_to_remove]
         
         return cicJEs(compressed_ruleset)
 
@@ -593,3 +709,74 @@ class cicJEs(list):
                     rule_indices.pop(0)
                     
         return [cicJEs([self[index] for index in indices]) for indices in rules_in_relation_list]
+
+    def variables(self, id_ident: str = "id") -> list:
+
+        """
+            Return variables as a set from this list of cicJE's.
+
+            Params:
+                id_ident: str = is the id-property in component objects.
+
+            Return:
+                Set[str]
+        """
+
+        return list(
+            set(
+                itertools.chain(
+                    *map(
+                        functools.partial(
+                            cicJE.variables, 
+                            id_ident=id_ident,
+                        ), 
+                        self
+                    )
+                )
+            )
+        )
+
+    def to_cicRs(self, id_ident: str = "id") -> cicRs:
+        
+        """
+            Converts directly to cicRs data type (cicE data types in between).
+
+            Return:
+                cicRs
+        """
+
+        return cicRs(
+            itertools.chain(
+                *map(
+                    cicE.to_cicRs,
+                    map(
+                        functools.partial(
+                            cicJE.to_cicE,
+                            id_ident=id_ident,
+                        ),
+                        self
+                    )
+                )
+            )
+        )
+
+    def to_cicEs(self, id_ident: str = "id") -> cicEs:
+
+        """
+            Converts to cicEs data type.
+
+            Return:
+                cicEs
+        """
+
+        return cicRs(
+            itertools.chain(
+                *map(
+                    functools.partial(
+                        cicJE.to_cicE,
+                        id_ident=id_ident,
+                    ),
+                    self
+                )
+            )
+        )

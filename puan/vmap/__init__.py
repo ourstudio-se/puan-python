@@ -3,6 +3,11 @@ import numpy
 
 class value_map(dict):
 
+    """
+        `value_map` is a dict and a way of storing matrix-data more compressed.
+        Each key
+    """
+
     def to_matrix(self: dict, m_max: int = 0, dtype = numpy.int16) -> numpy.ndarray:
 
         """
@@ -45,21 +50,21 @@ class value_map(dict):
                 dict (value map): value -> [[row_idxs], [col_idxs]]
         """
         if len(value_maps) == 0:
-            return {}
+            return value_map({})
 
         if len(value_maps) == 1:
-            return value_maps[0]
+            return value_map(value_maps[0])
 
         value_map_list = list(value_maps)
         value_map_left, value_map_right = value_map_list[0], value_map_list[1]
         if value_map_left == {} and value_map_right == {}:
-            return {}
+            return value_map({})
 
         elif value_map_left == {}:
-            return value_map_right
+            return value_map(value_map_right)
 
         elif value_map_right == {}:
-            return value_map_left
+            return value_map(value_map_left)
 
         highest_idx = 0
         for _, (row_idxs, _) in value_map_left.items():
@@ -73,7 +78,7 @@ class value_map(dict):
             merged_value_map[value][0] += [highest_idx+row_idx+1 for row_idx in row_idxs]
             merged_value_map[value][1] += col_idxs
 
-        return merge_value_maps(merged_value_map, *value_map_list[2:])
+        return value_map.merge(merged_value_map, *value_map_list[2:])
 
 """
     Function binding to function variables

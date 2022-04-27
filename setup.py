@@ -11,19 +11,20 @@ if __name__ == "__main__":
         install_requires=[
             "numpy",
             "more-itertools",
-            "scipy"
+            "scipy",
+            "maz"
         ],
-        packages=['puancore'],
+        packages=['puan'],
         url = "https://puan.io",
         long_description = "",
-        ext_modules=[
-            Extension(
-                'puancore/ufunc',
-                ['puancore/uFuncs/optimized_bit_allocation_64.c'],
-                include_dirs=[
-                    '/opt/homebrew/Frameworks/Python.framework/Headers', 
-                    '/opt/homebrew/Cellar/numpy/1.22.3_1/lib/python3.9/site-packages/numpy/core/include/'
-                ]
-            )
-        ]
+        # ext_modules=[
+        #     Extension(
+        #         'puancore/ufunc',
+        #         ['puancore/uFuncs/optimized_bit_allocation_64.c'],
+        #         include_dirs=[
+        #             '/opt/homebrew/Frameworks/Python.framework/Headers', 
+        #             '/opt/homebrew/Cellar/numpy/1.22.3_1/lib/python3.9/site-packages/numpy/core/include/'
+        #         ]
+        #     )
+        # ]
     )
