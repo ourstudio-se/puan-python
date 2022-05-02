@@ -1,4 +1,5 @@
 import puan
+import puan.logic
 import numpy as np
 import operator
 
@@ -1575,12 +1576,12 @@ def test_parsed_linerules2value_map():
         ({'a', 'q', 'e'}, 'REQUIRES_ALL', ('f', 'g', 'h'))
     ]
 
-    actual = puan.logic.cic.cicRs(line_rules).to_ge_polytope(cicrs.variables().index)
-    for v in actual.values():
-        for x in v:
-            for y in x:
-                if not type(y) == int:
-                    raise Exception("found value not being int in value map")
+    actual = puan.logic.cic.cicRs(line_rules).to_ge_polytope(puan.logic.cic.cicRs(line_rules).variables().index)
+    for v in np.nditer(actual):
+        try:
+            int(v)
+        except:
+            raise Exception("found value not being int in value map")
 
 def test_parse_empty_line_rule_should_yield_no_variables():
     m = ["(()),'PREFERRED',(),()"]
@@ -1894,13 +1895,6 @@ def test_polytope2value_map():
         -1: [[0, 1, 2], [1, 2, 3]]
         }
     assert actual == expected
-    mapping = {1: 3}
-    actual = puan.ge_polytope(inputs).to_value_map(mapping)
-    expected = {
-        3: [[0, 1, 2], [2, 3, 4]],
-        -1: [[0, 1, 2], [1, 2, 3]]
-        }
-    assert actual == expected
 
 def test_polytope2linalg():
     """Documentation example"""
@@ -2020,10 +2014,10 @@ def test_truncate_nd_state():
 def test_isin():
     """Documentation example"""
     ge = puan.ge_polytope([0, -2, 1, 1])
-    actual_output = ge.isin([
+    actual_output = ge.isin(np.array([
         [1,0,1],
         [1,1,1],
-        [0,0,0]])
+        [0,0,0]]))
     expected_output = np.array([False, True, True])
-    assert actual_output == expected_output
+    assert np.array_equal(actual_output, expected_output)
 
