@@ -2,39 +2,90 @@ import numpy
 import typing
 import functools
 
-"""
-    Main puan-package.
-
-    ge_polytope:
-        A numpy.ndarray sub class and a system of linear inequalities forming
-        a high dimensional polytope. The "ge" stands for "greater or equal" (>=)
-        which represents the relation between A and b (as in Ax >= b).
-
-    integer_ndarray:
-        A numpy.ndarray sub class with only integers in it. 
-"""
-
 class ge_polytope(numpy.ndarray):
+    """
+        A numpy.ndarray sub class and a system of linear inequalities forming
+        a high dimensional polytope. The "ge" stands for "greater or equal" (:math:`\\ge`)
+        which represents the relation between :math:`A` and :math:`b` (as in :math:`Ax \\ge b`).
+
+        Attributes
+        ----------
+        See numpy.array
+
+        Methods
+        -------
+        to_value_map
+            Reduces the polytope into a value map.
+        to_linalg
+            assumes support vector index 0 in polytope and returns :math:`A, b` as in :math:`Ax \\ge b`
+        reducable_columns_approx
+            Returns what columns are reducable under approximate condition.
+        reduce_columns
+            Reducing columns from polytope from columns_vector.
+        reducable_rows
+            Returns a boolean vector indicating what rows are reducable.
+        reduce_rows
+            Reduces rows from a rows_vector where num of rows of M equals
+            size of rows_vector.
+        reducable_rows_and_columns
+            Returns reducable rows and columns of given polytope.
+        reduce
+            Reduces matrix polytope by information passed in rows_vector and columns_vector.
+        neglectable_columns
+            Returns neglectable columns of given polytope `ge_polytope`.
+        neglect_columns
+            Neglects columns from a columns_vector
+        isin
+            Checks if points are inside the polytope.
+
+    """
 
     def __new__(cls, input_array):
         return numpy.asarray(input_array).view(cls)
 
     def __array_finalize__(self, obj):
-        if obj is None: 
+        if obj is None:
             return
 
     def to_value_map(self: numpy.ndarray, mapping: dict = {}) -> dict:
 
         """
-            `to_value_map` reduces the polytope into
-            a value map. `mapping` is just an ordinary dict,
-            mapping one value to another
+            Reduces the polytope into a value map.
 
-            NOTE: since zeros are excluded in a value map, leading zero
-            rows/columns will not be included.
+            Parameters
+            ----------
+                mapping : dict
+                    An ordinary dict, mapping one value to another
 
-            Return:
-                dictionary: value -> indices
+            Returns
+            -------
+                out : dictionary: value -> indices
+
+            Notes
+            -----
+                Since zeros are excluded in a value map, leading zero rows/columns will not be included.
+
+            Examples
+            --------
+                >>> ge_polytope = ge_polytope(numpy.array([
+                >>>     [0,-1, 1, 0, 0],
+                >>>     [0, 0,-1, 1, 0],
+                >>>     [0, 0, 0,-1, 1],
+                >>> ]))
+                >>> ge_polytope.to_value_map()
+                {1: [[0, 1, 2], [2, 3, 4]], -1: [[0, 1, 2], [1, 2, 3]]}
+
+            With mapping
+                >>> ge_polytope = ge_polytope(numpy.array([
+                >>>     [0,-1, 1, 0, 0],
+                >>>     [0, 0,-1, 1, 0],
+                >>>     [0, 0, 0,-1, 1],
+                >>> ]))
+                >>> mapping = {1: 3}
+                >>> ge_polytope.to_value_map(mapping)
+                {3: [[0, 1, 2], [2, 3, 4]], -1: [[0, 1, 2], [1, 2, 3]]}
+
+
         """
         return {
             value: [
@@ -49,22 +100,55 @@ class ge_polytope(numpy.ndarray):
 
     def to_linalg(self: numpy.ndarray) -> tuple:
         """
-            to_linalg assumes support vector index 0 in polytope
-            and returns A, b as in Ax >= b
+            Assumes support vector index 0 in polytope
+            and returns :math:`A, b` as in :math:`Ax \\ge b`
+
+            Returns
+            -------
+                out : tuple
+                    out[0] : A\n
+                    out[1] : b
+
+            Examples
+            --------
+                >>> ge = ge_polytope(np.array([
+                >>>    [0,-1, 1, 0, 0],
+                >>>    [0, 0,-1, 1, 0],
+                >>>    [0, 0, 0,-1, 1],
+                >>> ]))
+                >>> ge.to_linalg()
+                (ge_polytope([
+                    [-1, 1, 0, 0],
+                    [0, -1, 1, 0],
+                    [0, 0, -1, 1]]),
+                ge_polytope([0,0,0]))
         """
-        A = self[:, 1:].copy()
-        b = self.T[0].copy()
+        if self.ndim < 2:
+            A = self[1:].copy()
+            b = self[0].copy()
+        else:
+            A = self[:, 1:].copy()
+            b = self.T[0].copy()
         return A, b
 
     def reducable_columns_approx(self: numpy.ndarray) -> numpy.ndarray:
         """
             Returns what columns are reducable under approximate condition.
-            This method is much faster than the exhaustive `reducable_matrix_columns` function.
-            Columns with positive values could be assumed
-            Columns with negative values could be removed (not-assumed)
+            Columns with positive values could be assumed.
+            Columns with negative values could be removed (not-assumed).
 
-            Return:
-                numpy.ndarray (vector)
+            Returns
+            -------
+                out : numpy.ndarray (vector)
+
+            See also
+            --------
+                reduce : Reduces matrix polytope by information passed in rows_vector and columns_vector.
+                reduce_columns : Reducing columns from polytope from columns_vector where a positive number meaning "assume" and a negative number meaning "not assume".
+                reducable_rows_and_columns : Returns reducable rows and columns of given polytope.
+                reduce_rows : Reduces rows from a rows_vector where num of rows of M equals size of rows_vector.
+                reducable_rows : Returns a boolean vector indicating what rows are reducable.
+
         """
         A, b = ge_polytope.to_linalg(self)
         r = (A*((A*(A <= 0) + (A*(A > 0)).sum(axis=1).reshape(-1,1)) < b.reshape(-1,1))) + A*((A * (A > 0)).sum(axis=1) == b).reshape(-1,1)
@@ -73,33 +157,45 @@ class ge_polytope(numpy.ndarray):
     def reduce_columns(self: numpy.ndarray, columns_vector: numpy.ndarray) -> numpy.ndarray:
 
         """
-            Reducing columns from polytope from columns_vector where a positive number meaning "assume" 
-            and a negative number meaning "not assume". The polytope is reduced column-wise by equally 
-            many positives and negatives in columns-vector.
+            Reducing columns from polytope from columns_vector where a positive number meaning "assume"
+            and a negative number meaning "not assume".
 
-            NOTE: M is concatenated A, b (as in Ax >= b), where b == A.T[0]
+            Parameters
+            ----------
+            columns_vector : ndarray
+                The polytope is reduced column-wise by equally many positives and negatives in columns-vector.
 
-            Example:
-                Input:
-                    ge_polytope = numpy.ndarray([
-                        [0,-1, 1, 0, 0],
-                        [0, 0,-1, 1, 0],
-                        [0, 0, 0,-1, 1],
-                    ])
+            Returns
+            -------
+                out : numpy.ndarray
 
-                    columns_vector = numpy.ndarray([
-                        1, 0,-1, 0
-                    ]) # meaning assume index 0
+            See also
+            --------
+                reduce : Reduces matrix polytope by information passed in rows_vector and columns_vector.
+                reducable_rows_and_columns : Returns reducable rows and columns of given polytope.
+                reduce_rows : Reduces rows from a rows_vector where num of rows of M equals size of rows_vector.
+                reducable_rows : Returns a boolean vector indicating what rows are reducable.
+                reducable_columns_approx : Returns what columns are reducable under approximate condition.
 
-                Output:
-                    numpy.ndarray([
+            Notes
+            -----
+                :math:`M` is concatenated :math:`A, b` (as in :math:`Ax \\ge b`), where :math:`b == A.T[0]`
+
+            Examples
+            --------
+                >>> ge_polytope = ge_polytope(numpy.array([
+                >>>     [0,-1, 1, 0, 0],
+                >>>     [0, 0,-1, 1, 0],
+                >>>     [0, 0, 0,-1, 1],
+                >>> ]))
+                >>> columns_vector = numpy.ndarray([1, 0,-1, 0]) # meaning assume index 0
+                >>> ge_polytope.reduce_columns(columns_vector)
+                numpy.ndarray([
                         [1, 1, 0],
                         [0,-1, 0],
                         [0, 0, 1],
                     ])
 
-            Return:
-                numpy.ndarray
         """
 
         A, b = ge_polytope.to_linalg(self)
@@ -111,8 +207,17 @@ class ge_polytope(numpy.ndarray):
         """
             Returns a boolean vector indicating what rows are reducable.
 
-            Return:
-                numpy.ndarray (vector)
+            Returns
+            -------
+                out : numpy.ndarray (vector)
+
+            See also
+            --------
+                reduce : Reduces matrix polytope by information passed in rows_vector and columns_vector.
+                reduce_columns : Reducing columns from polytope from columns_vector where a positive number meaning "assume" and a negative number meaning "not assume".
+                reducable_rows_and_columns : Returns reducable rows and columns of given polytope.
+                reduce_rows : Reduces rows from a rows_vector where num of rows of M equals size of rows_vector.
+                reducable_columns_approx : Returns what columns are reducable under approximate condition.
         """
         A, b = ge_polytope.to_linalg(self)
         return (((A * (A < 0)).sum(axis=1) >= b)) + ((A >= 0).all(axis=1) & (b<=0))
@@ -122,6 +227,22 @@ class ge_polytope(numpy.ndarray):
         """
             Reduces rows from a rows_vector where num of rows of M equals
             size of rows_vector. Each row in rows_vector == 0 is kept.
+
+            Parameters
+            ----------
+                rows_vector : numpy.ndarray
+
+            Returns
+            -------
+                out : ge_polytope
+
+            See also
+            --------
+                reduce : Reduces matrix polytope by information passed in rows_vector and columns_vector.
+                reduce_columns : Reducing columns from polytope from columns_vector where a positive number meaning "assume" and a negative number meaning "not assume".
+                reducable_rows_and_columns : Returns reducable rows and columns of given polytope.
+                reducable_rows : Returns a boolean vector indicating what rows are reducable.
+                reducable_columns_approx : Returns what columns are reducable under approximate condition.
         """
 
         return self[rows_vector == 0]
@@ -131,17 +252,33 @@ class ge_polytope(numpy.ndarray):
         """
             Returns reducable rows and columns of given polytope.
 
-            Approximative controls if only approximative methods should be applied.
+            Returns
+            -------
+                out : tuple
+                    out[0] : a vector equal size as ge_polytope's row size where 1 represents a removed row and 0 represents a kept row\n
+                    out[1] : a vector with equal size as ge_polytope's column size where a positive number represents requireds and a negative number represents forbids
 
-            Returned is a tuple of (
-                a vector equal size as ge_polytope's row size where 1 represents a removed row
-                    and 0 represents a kept row,
-                a vector with equal size as ge_polytope's column size where a positive number
-                    represents requireds and a negative number represents forbids
-            )
+            See also
+            --------
+                reduce : Reduces matrix polytope by information passed in rows_vector and columns_vector.
+                reduce_rows : Reduces rows from a rows_vector where num of rows of M equals size of rows_vector.
+                reducable_rows : Returns a boolean vector indicating what rows are reducable.
+                reduce_columns :  Reducing columns from polytope from columns_vector where a positive number meaning "assume" and a negative number meaning "not assume".
+                reducable_columns_approx : Returns what columns are reducable under approximate condition.
 
-            Return:
-                tuple
+            Examples
+            --------
+                >>> ge_polytope = ge_polytope(np.array([
+                >>>     [ 0,-1, 1, 0, 0, 0], # 1
+                >>>     [ 0, 0,-1, 1, 0, 0], # 2
+                >>>     [-1,-1, 0,-1, 0, 0], # 3 1+2+3 -> Force not variable 0, not identified under the approximate conditions
+                >>>     [ 1, 0, 0, 0, 1, 0], # Force variable 3
+                >>>     [ 0, 0, 0, 0, 0,-1], # Force not variable 4
+                >>>     [ 0, 1, 1, 0, 1, 0], # Redundant rule
+                >>>     [ 0, 1, 1, 0, 1,-1], # Redundant when variable 4 forced not
+                >>> ]))
+                >>> reducable_rows_and_columns(ge_polytope)
+                (array([0, 0, 0, 1, 1, 1, 1]), array([ 0,  0,  0,  1, -2]))
 
         """
 
@@ -167,31 +304,44 @@ class ge_polytope(numpy.ndarray):
         """
             Reduces matrix polytope by information passed in rows_vector and columns_vector.
 
-            The rows_vector is a vector of 0's and 1's where rows matching index of value 1 are removed.
+            Parameters
+            ----------
+            rows_vector : numpy.ndarray (optional)
+                A vector of 0's and 1's where rows matching index of value 1 are removed.
 
-            The columns_vector is a vector of positive and negative integers
-            where the positive represents active selections and negative
-            represents active "not" selections. Polytope `polytope` is reduced under those assumptions.
+            columns_vector : numpy.ndarray (optional)
+                A vector of positive and negative integers where the positive represents active selections and negative
+                represents active "not" selections. The polytope is reduced under those assumptions.
 
-            Example:
-                Input:
-                    self = numpy.array([
-                        [ 0,-1, 1, 0, 0, 0, 0],
-                        [ 0, 0,-1, 1, 0, 0, 0],
-                        [-1, 0, 0,-1,-1, 0, 0],
-                        [ 1, 0, 0, 0, 0, 1, 1],
-                    ])
-                    columns_vector = numpy.array([1,0,0,0,0,0])
+            Returns
+            -------
+                out : ge_polytope
+                    Reduced polytope
 
-                Output:
-                    (
-                        numpy.array([
+            See also
+            --------
+                reducable_rows_and_columns : Returns reducable rows and columns of given polytope.
+                reduce_rows : Reduces rows from a rows_vector where num of rows of M equals size of rows_vector.
+                reducable_rows : Returns a boolean vector indicating what rows are reducable.
+                reduce_columns :  Reducing columns from polytope from columns_vector where a positive number meaning "assume" and a negative number meaning "not assume".
+                reducable_columns_approx : Returns what columns are reducable under approximate condition.
+
+            Examples
+            --------
+                >>> self = numpy.array([
+                >>>     [ 0,-1, 1, 0, 0, 0, 0],
+                >>>     [ 0, 0,-1, 1, 0, 0, 0],
+                >>>     [-1, 0, 0,-1,-1, 0, 0],
+                >>>     [ 1, 0, 0, 0, 0, 1, 1],
+                >>> ])
+                >>> columns_vector = numpy.array([1,0,0,0,0,0])
+                >>> reduce(self, columns_vector)
+                numpy.array([
                         [ 1, 1, 0, 0, 0, 0],
                         [ 0,-1, 1, 0, 0, 0],
                         [-1, 0,-1,-1, 0, 0],
                         [ 1, 0, 0, 0, 1, 1],
                     ])
-                    )
         """
         gp = self.copy()
         if rows_vector is not None:
@@ -202,27 +352,45 @@ class ge_polytope(numpy.ndarray):
 
     def neglectable_columns(self: numpy.ndarray, patterns: numpy.ndarray) -> numpy.ndarray:
         """
-            Returns neglectable columns of given polytope `ge_polytope` based on given patterns,
-            i.e. the columns which doesn't differentiate the patterns in `ge_polytope`
+            Returns neglectable columns of given polytope `ge_polytope` based on given patterns.
+            Neglectable columns are the columns which doesn't differentiate the patterns in `ge_polytope`
             and the patterns not in `ge_polytope`
 
-            Example:
-                Input:
-                    ge_polytope = numpy.array([
-                        [-1,-1,-1, 0, 0, 0, 1],
-                        [-1,-1, 0,-1, 0, 0, 1],
-                    ])
-                    patterns = numpy.array([
-                        [1, 1, 0],
-                        [0, 1, 1],
-                        [1, 0, 1]
-                    ])
-                Output:
-                    numpy.array([0, 1, 1, 1, 1, 0])
+            Parameters
+            ----------
+                patterns : numpy.ndarray
+                    known patterns of variables in the polytope.
 
-                Column 0 is differentiating the patterns in `ge_polytope` from those that are not in `ge_polytope`.
-                Column 5 is not in the patterns and has a positive number for any row in `ge_polytope` and
-                is therefore considered non-neglectable.
+            Returns
+            -------
+                out : numpy.ndarray
+                    A 1-d ndarray of length equal to the number of columns of the ge_polytope,
+                    with ones at corresponding columns which can be neglected, zero otherwise.
+
+            See also
+            --------
+                neglect_columns : Neglects columns from a columns_vector where num of cols of :math:`M - 1` equals size of cols_vector.
+
+            Notes
+            -----
+                This method is differentiating the patterns which are in ge_polytope from those that are not.
+                Variables which are not in the patterns and has a positive number for any row in ge_polytope
+                is considered non-neglectable.
+
+            Examples
+            --------
+                >>> ge_polytope = numpy.array([
+                >>>     [-1,-1,-1, 0, 0, 0, 1],
+                >>>     [-1,-1, 0,-1, 0, 0, 1],
+                >>> ])
+                >>> patterns = numpy.array([
+                >>>     [1, 1, 0],
+                >>>     [0, 1, 1],
+                >>>     [1, 0, 1]
+                >>> ])
+                >>> neglectable_columns(ge_polytope, patterns)
+                numpy.array([0, 1, 1, 1, 1, 0])
+
         """
         A, b = ge_polytope.to_linalg(self)
         # Extend patterns to be of same shape as A
@@ -251,31 +419,41 @@ class ge_polytope(numpy.ndarray):
 
     def neglect_columns(self: numpy.ndarray, columns_vector: numpy.ndarray) -> numpy.ndarray:
         """
-            Neglects columns from a columns_vector where num of cols of M - 1 equals
-            size of cols_vector, i.e. the entire column for col in columns_vector > 0
-            is set to 0 and the support vector is updated.
+            Neglects columns from a columns_vector where num of cols of :math:`M - 1` equals
+            size of cols_vector. The entire column for col in columns_vector :math:`>0`
+            is set to :math:`0` and the support vector is updated.
 
-            Example:
-                Input:
-                    ge_polytope = numpy.array([
-                        [0,-1, 1, 0, 0],
-                        [0, 0,-1, 1, 0],
-                        [0, 0, 0,-1, 1],
-                    ])
+            Parameters
+            ----------
+                columns_vector : numpy.ndarray
+                    A 1-d ndarray of length equal to the number of columns of :math:`A`.
+                    Sets the entire column of :math:`A` to zero for corresponding entries of columns_vector which are :math:`>0`.
 
-                    columns_vector = numpy.array([
-                        1, 0, 1, 0
-                    ])
+            Returns
+            --------
+                out : ge_polytope
+                    ge_polytope with neglected columns set to zero and suupport vector updated accordingly.
 
-                Output:
-                    numpy.ndarray([
+            See also
+            --------
+                neglectable_columns : Returns neglectable columns of given polytope `ge_polytope` based on given patterns.
+
+            Examples
+            --------
+                >>> ge_polytope = numpy.array([
+                >>>     [0,-1, 1, 0, 0],
+                >>>     [0, 0,-1, 1, 0],
+                >>>     [0, 0, 0,-1, 1],
+                >>>  ])
+                >>> columns_vector = numpy.array([1, 0, 1, 0])
+                >>> neglect_columns(ge_polytope, columms_vector)
+                numpy.ndarray([
                         [ 1, 0, 1, 0, 0],
                         [-1, 0,-1, 0, 0],
                         [ 1, 0, 0, 0, 1],
                     ])
 
-                Return:
-                    numpy.ndarray
+
         """
         A, b = ge_polytope.to_linalg(self)
         _b = b - (A.T*(columns_vector > 0).reshape(-1,1)).sum(axis=0)
@@ -287,23 +465,33 @@ class ge_polytope(numpy.ndarray):
 
         """
             Checks if points are inside the polytope.
-            
-                           / \
-                          /   \
-                point -> /  x  \
-                        /_ _ _ _\ <- polytope                   
 
-            Example:
+            .. code-block::
+
+                           / \\
+                          /   \\
+                point -> /  x  \\
+                        /_ _ _ _\ <- polytope
+
+            Parameters
+            ----------
+                points : numpy.ndarray
+                    Points to be evaluated if inside of polytope.
+
+            Returns
+            -------
+                out : numpy.ndarray.
+                    Boolean vector indicating T if in polytope.
+
+            Examples
+            --------
                 >>> ge = ge_polytope([[0,-2,1,1]])
-                >>> ge.isin([
-                    [1,0,1],
-                    [1,1,1],
-                    [0,0,0]
-                ])
-                array([False, True, False])
-
-            Return:
-                numpy.ndarray: boolean vector indicating T if in polytope
+                >>> ge.isin(numpy.array([
+                >>>     [1,0,1],
+                >>>     [1,1,1],
+                >>>     [0,0,0]
+                >>> ]))
+                array([False, True, True])
         """
         if points.ndim > 2:
             return numpy.array(
@@ -318,45 +506,67 @@ class ge_polytope(numpy.ndarray):
             )
         elif points.ndim == 1:
             return ge_polytope.isin(self, numpy.array([points]))[0]
-        
+
 
 
 class integer_ndarray(numpy.ndarray):
+    """
+        A numpy.ndarray sub class with only integers in it.
+
+        Attributes
+        ----------
+        See numpy.array
+
+        Methods
+        -------
+        truncate
+            Takes an integer ndarray and truncates it into a vector.
+        enfolds
+            Checks if a linear inequality in the polytope enfolds *all* points in self.
+        to_value_map
+            reduces the matrix into a value map.
+        from_list
+            Turns a list (or list of list) of strings into an integer vector. (static)
+
+    """
 
     def __new__(cls, input_array):
         return numpy.asarray(input_array, dtype=numpy.int64).view(cls)
 
     def __array_finalize__(self, obj):
-        if obj is None: 
+        if obj is None:
             return
 
     def truncate(self: numpy.ndarray) -> numpy.ndarray:
 
         """
-            Takes a integer ndarray and truncates into a vector. (This function is used in the context of 
+            Takes an integer ndarray and truncates it into a vector. (This function is used in the context of
             combinatorial optimization where one assumes that items has positive and negative prios from user)
-            
-            A prio *vector* is a vector with negative and positive integer numbers where each number indicates a negative
-            or positive prioritization. High number means higher prio. E.g. [ 1, 2, 3,-1,-2] means that index 
+
+            Returns
+            -------
+                out : numpy.ndarray (1d)
+
+            Notes
+            -----
+            A *prio vector* is a vector with negative and positive integer numbers where each number indicates a negative
+            or positive prioritization. High number means higher prio. E.g. [ 1, 2, 3,-1,-2] means that index
             1 has higher prio than index 0, and index 4 has higher negative prio than index 3.
 
-            A prio *matrix* consist of prio vectors but has also a prioritization between the vectors. So, a vector
+            A *prio matrix* consist of prio vectors but has also a prioritization between the vectors. So, a vector
             on row index 0 has lower prio than a row vector on index 1.
 
-            Example:
-                Input:
-                    self = integer_ndarray([
-                        [ 0, 0, 0, 0, 1, 2],
-                        [-1,-1,-1,-1, 0, 0],
-                        [ 0, 0, 1, 2, 0, 0],
-                        [ 0, 0, 1, 0, 0, 0]
-                    ])
+            Examples
+            --------
+                >>> self = integer_ndarray([
+                >>>         [ 0, 0, 0, 0, 1, 2],
+                >>>         [-1,-1,-1,-1, 0, 0],
+                >>>         [ 0, 0, 1, 2, 0, 0],
+                >>>         [ 0, 0, 1, 0, 0, 0]
+                >>>     ])
+                >>> self.truncate()
+                numpy.array([-3,-3, 5, 4, 1, 2])
 
-                Output:
-                    numpy.array([-3,-3, 5, 4, 1, 2])
-
-            Return:
-                numpy.ndarray (1d)
         """
         if self.ndim > 2:
             return integer_ndarray.truncate(
@@ -375,7 +585,7 @@ class integer_ndarray(numpy.ndarray):
             # row_value_offset = numpy.pad(
             #         numpy.cumsum(
             #             self_abs.sum(axis=1)
-            #         ), 
+            #         ),
             #         (1,0)
             #     )[:-1].reshape(-1,1) * (self != 0)
             # offset_abs = (self_abs + row_value_offset)
@@ -402,25 +612,40 @@ class integer_ndarray(numpy.ndarray):
 
         """
             Checks if a linear inequality in the polytope enfolds *all* points in self.
-            Two of three linear equalities enfolds both points here:
-            
-                           / \
+            Two of three linear equalities enfolds both points here::
+
+
+                           / \\
                           /   \  x <- point
-                point -> /  x  \
-                        /_ _ _ _\ <- polytope                   
+                point -> /  x  \\
+                        /_ _ _ _\ <- polytope
 
-            NOTE this function is the inverse of ge_polytope.isin
+            Parameters
+            ----------
+                gp : ge_polytope
 
-            Example:
+            Returns
+            -------
+                out : numpy.ndarray
+                    boolean vector indicating T if linear inequality enfolds all points
+
+            See also
+            --------
+                ge_polytope.isin : Checks if points are inside the polytope.
+
+            Notes
+            -----
+                This function is the inverse of ge_polytope.isin
+
+            Examples
+            --------
                 >>> ge = integer_ndarray([[1,1,1],[1,0,1]])
                 >>> ge.enfolds([
-                    [ 0,-1,-1, 0],
-                    [ 0, 1, 0,-1]
-                ])
+                >>> [ 0,-1,-1, 0],
+                >>> [ 0, 1, 0,-1]
+                >>> ])
                 array([False, True])
 
-            Return:
-                numpy.ndarray: boolean vector indicating T if linear inequality enfolds all points
         """
         if self.ndim > 2:
             return numpy.array(
@@ -439,15 +664,21 @@ class integer_ndarray(numpy.ndarray):
     def to_value_map(self: numpy.ndarray, mapping: dict = {}) -> dict:
 
         """
-            to_value_map reduces the matrix into
-            a value map. `mapping` is just an ordinary dict,
-            mapping one value to another
+            to_value_map reduces the matrix into a value map.
 
-            NOTE: since zeros are excluded in a value map, leading zero
-            rows/columns will not be included.
+            Parameters
+            ----------
+                mapping : dict
+                    An ordinary dict, mapping one value to another
 
-            Return:
+            Returns
+            -------
                 dictionary: value -> indices
+
+            Notes
+            -----
+                Since zeros are excluded in a value map, leading zero rows/columns will not be included.
+
         """
         return {
             value: [
@@ -466,16 +697,24 @@ class integer_ndarray(numpy.ndarray):
             Turns a list (or list of list) of strings into an integer vector, where each value represents
             which order the string in lst was positioned.
 
-            Example:
-                Input:
-                    variables   = ["a","c","b"]
-                    context     = ["a","b","c","d"]
-                    
-                Output:
-                    result      = integer_ndarray([1,3,2,0])
+            Parameters
+            ----------
+            lst : list
+                List of strings
+            context : list
+                List of strings
 
-            Return:
-                list
+            Returns
+            -------
+                out : integer_ndarray
+
+            Examples
+            --------
+                >>> variables   = ["a","c","b"]
+                >>> context     = ["a","b","c","d"]
+                >>> integer_ndarray.from_list(variables, context)
+                integer_ndarray([1,3,2,0])
+
         """
         if len(lst) == 0:
             result = []
@@ -492,12 +731,24 @@ class integer_ndarray(numpy.ndarray):
         return integer_ndarray(result)
 
 class boolean_ndarray(integer_ndarray):
+    """
+        A numpy.ndarray sub class with only booleans in it.
+
+        Attributes
+        ----------
+        See numpy.array
+
+        Methods
+        -------
+        from_list
+            Turns a list of strings into a boolean (0/1) vector. (static)
+    """
 
     def __new__(cls, input_array):
         return numpy.asarray(input_array, dtype=numpy.int64).view(cls)
 
     def __array_finalize__(self, obj):
-        if obj is None: 
+        if obj is None:
             return
 
     @staticmethod
@@ -505,16 +756,26 @@ class boolean_ndarray(integer_ndarray):
         """
             Turns a list of strings into a boolean (0/1) vector.
 
-            Example:
-                Input:
-                    variables   = ["a","c","b"]
-                    context     = ["a","b","c","d"]
+            Parameters
+            ----------
+            lst : list
+                list of variables as strings
 
-                Output:
-                    result      = boolean_ndarray([1,1,1,0])
+            context : list
+                list of context variables as strings
 
-            Return:
-                list
+            Returns
+            -------
+                out : list
+                    booleans with same dimension as **context**
+
+            Examples
+            --------
+                >>> variables = ["a","c","b"]
+                >>> context = ["a","b","c","d"]
+                >>> boolean_ndarray.from_list(variables, context)
+                boolean_ndarray([1,1,1,0])
+
         """
         if len(lst) == 0:
             result = []

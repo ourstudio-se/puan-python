@@ -1881,6 +1881,43 @@ def test_configuration2value_map():
     }
     assert actual == expected
 
+def test_polytope2value_map():
+    """Documentation example"""
+    inputs = np.array([
+                 [0,-1, 1, 0, 0],
+                 [0, 0,-1, 1, 0],
+                 [0, 0, 0,-1, 1],
+             ])
+    actual = puan.ge_polytope(inputs).to_value_map()
+    expected = {
+        1: [[0, 1, 2], [2, 3, 4]],
+        -1: [[0, 1, 2], [1, 2, 3]]
+        }
+    assert actual == expected
+    mapping = {1: 3}
+    actual = puan.ge_polytope(inputs).to_value_map(mapping)
+    expected = {
+        3: [[0, 1, 2], [2, 3, 4]],
+        -1: [[0, 1, 2], [1, 2, 3]]
+        }
+    assert actual == expected
+
+def test_polytope2linalg():
+    """Documentation example"""
+    inputs = np.array([
+                 [0,-1, 1, 0, 0],
+                 [0, 0,-1, 1, 0],
+                 [0, 0, 0,-1, 1],
+             ])
+    actual = puan.ge_polytope(inputs).to_linalg()
+    expected = (np.array([
+                    [-1, 1, 0, 0],
+                    [0, -1, 1, 0],
+                    [0, 0, -1, 1]]),
+                np.array([0,0,0]))
+    assert np.array_equal(actual[0], expected[0])
+    assert np.array_equal(actual[1], expected[1])
+
 def test_reducable_matrix_columns_should_keep_zero_columns():
 
     """
@@ -1964,7 +2001,7 @@ def test_truncate_nd_state():
                     [ 0, 0, 0, 0, 0, 0],
                     [ 1, 4, 7, 0, 0, 0],
                     [ 6, 3,-1, 0, 0, 0],
-                    [-3, 0, 7, 0, 0, 0] 
+                    [-3, 0, 7, 0, 0, 0]
                 ]
             ]),
             np.array([
@@ -1979,4 +2016,14 @@ def test_truncate_nd_state():
     for inpt, expected_output in test_cases:
         actual_output = puan.truncate(inpt)
         assert (actual_output == expected_output).all()
+
+def test_isin():
+    """Documentation example"""
+    ge = puan.ge_polytope([0, -2, 1, 1])
+    actual_output = ge.isin([
+        [1,0,1],
+        [1,1,1],
+        [0,0,0]])
+    expected_output = np.array([False, True, True])
+    assert actual_output == expected_output
 
