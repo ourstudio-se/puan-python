@@ -47,15 +47,10 @@ class ge_polytope(numpy.ndarray):
         if obj is None:
             return
 
-    def to_value_map(self: numpy.ndarray, mapping: dict = {}) -> dict:
+    def to_value_map(self: numpy.ndarray) -> dict:
 
         """
             Reduces the polytope into a value map.
-
-            Parameters
-            ----------
-                mapping : dict
-                    An ordinary dict, mapping one value to another
 
             Returns
             -------
@@ -75,28 +70,11 @@ class ge_polytope(numpy.ndarray):
                 >>> ge_polytope.to_value_map()
                 {1: [[0, 1, 2], [2, 3, 4]], -1: [[0, 1, 2], [1, 2, 3]]}
 
-            With mapping
-                >>> ge_polytope = ge_polytope(numpy.array([
-                >>>     [0,-1, 1, 0, 0],
-                >>>     [0, 0,-1, 1, 0],
-                >>>     [0, 0, 0,-1, 1],
-                >>> ]))
-                >>> mapping = {1: 3}
-                >>> ge_polytope.to_value_map(mapping)
-                {3: [[0, 1, 2], [2, 3, 4]], -1: [[0, 1, 2], [1, 2, 3]]}
-
-
         """
-        return {
-            value: [
-                [
-                    mapping[j] if j in mapping and i > 0 and j > 0 else j
-                    for j in k
-                ]
-                for i, k in enumerate(numpy.argwhere(self == value).T.tolist())
-            ]
-            for value in set(self[self != 0])
-        }
+        return dict(map(lambda v:
+                    (v, # Dict key
+                    list(map(lambda x: x[1], enumerate(numpy.argwhere(self == v).T.tolist())))), # Dict value
+                    set(self[self != 0])))
 
     def to_linalg(self: numpy.ndarray) -> tuple:
         """

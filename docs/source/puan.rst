@@ -1,12 +1,6 @@
 puan
 ====
 
-.. toctree::
-   :maxdepth: 1
-
-   puan.logic
-   puan.misc
-   puan.vmap
 
 Summary
 --------

@@ -7,11 +7,13 @@ Puan API reference
 ==================
 
 .. toctree::
-   :maxdepth: 2
+   :maxdepth: 1
    :caption: Contents:
 
-   modules
-
+   puan
+   puan.logic
+   puan.misc
+   puan.vmap
 
 
 Indices and tables
