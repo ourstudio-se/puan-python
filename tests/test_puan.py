@@ -1,6 +1,6 @@
 import puan
 import puan.logic
-import numpy as np
+import numpy
 import operator
 
 def test_application_to_rules():
@@ -152,7 +152,7 @@ def test_value_map2matrix():
         -2: [[4], [4]],
     }
     diag_mat = puan.vmap.to_matrix(diag_value_map)
-    expected_diag_mat = np.array([
+    expected_diag_mat = numpy.array([
         [2,0,0,0,0],
         [0,1,0,0,0],
         [0,0,0,0,0],
@@ -166,7 +166,7 @@ def test_value_map2matrix():
         0: [[1], [1]]
     }
     zero_replacing_mat = puan.vmap.to_matrix(zero_replacing_value_map)
-    expected_zero_replacing_mat = np.array([
+    expected_zero_replacing_mat = numpy.array([
         [0,0],
         [0,0]
     ])
@@ -232,7 +232,7 @@ def test_randomly_gen_value_maps_to_mats_and_back():
     n_test_objects = 100
     for i in range(n_test_objects):
 
-        rand_matrix = np.random.randint(-5,5,size=(np.random.randint(1,10), np.random.randint(1,10)))
+        rand_matrix = numpy.random.randint(-5,5,size=(numpy.random.randint(1,10), numpy.random.randint(1,10)))
 
         # for now, ship matrices with leading zeros
         zero_msk = rand_matrix == 0
@@ -305,7 +305,7 @@ def test_rules2matrix_with_mixed_condition_rules():
     variables = sorted(puan.logic.cic.cicJEs.variables(rules))
     cicrs = puan.logic.cic.cicJEs(rules).to_cicRs()
     matrix = cicrs.to_ge_polytope(variables.index)
-    expected_feasible_configurations = np.array([
+    expected_feasible_configurations = numpy.array([
        #"a  b  c  d  x  y"
         [0, 0, 0, 0, 0, 0],
         [1, 1, 1, 0, 1, 0],
@@ -313,7 +313,7 @@ def test_rules2matrix_with_mixed_condition_rules():
         [0, 0, 1, 1, 0, 0],
         [1, 1, 0, 1, 0, 1],
     ])
-    expected_infeasible_configurations = np.array([
+    expected_infeasible_configurations = numpy.array([
        #"a  b  c  d  x  y"
         [1, 0, 1, 1, 1, 0],
         [0, 1, 1, 1, 0, 0],
@@ -321,8 +321,8 @@ def test_rules2matrix_with_mixed_condition_rules():
     ])
 
     A, b = matrix.to_linalg()
-    assert (np.matmul(expected_feasible_configurations, A.T) >= b.T).all(axis=1).all()
-    assert (np.matmul(expected_infeasible_configurations, A.T) < b.T).any(axis=1).all()
+    assert (numpy.matmul(expected_feasible_configurations, A.T) >= b.T).all(axis=1).all()
+    assert (numpy.matmul(expected_infeasible_configurations, A.T) < b.T).any(axis=1).all()
 
 def test_compress_rules():
     rules = [
@@ -1378,7 +1378,7 @@ def test_application_with_no_item_hits_should_yield_no_rules():
 
 def test_reduce_matrix():
 
-    matrix = np.array([
+    matrix = numpy.array([
         [-1,-1,-1, 1, 0, 2], # stay
         [-2,-1,-1, 1, 0, 2], # remove
         [ 0,-1, 1, 1, 0, 0], # stay
@@ -1390,7 +1390,7 @@ def test_reduce_matrix():
     ])
     reducable_rows = puan.reducable_rows(matrix)
     actual = puan.reduce(matrix, rows_vector=reducable_rows)
-    expected = np.array([
+    expected = numpy.array([
         [-1,-1,-1, 1, 0, 2], # stay
         [ 0,-1, 1, 1, 0, 0], # stay
         [-3,-2,-1,-1, 0, 0], # stay
@@ -1398,10 +1398,32 @@ def test_reduce_matrix():
         [ 2, 1, 1, 1, 1, 1], # stay
         [ 0, 1, 1, 0, 1,-1], # stay
     ])
-    assert np.array_equal(actual,expected)
+    assert numpy.array_equal(actual,expected)
+
+def test_reduce():
+    """Documentation example"""
+    input = puan.ge_polytope(numpy.array([
+        [ 0,-1, 1, 0, 0, 0, 0],
+        [ 0, 0,-1, 1, 0, 0, 0],
+        [-1, 0, 0,-1,-1, 0, 0],
+        [ 1, 0, 0, 0, 0, 1, 1],
+    ]))
+
+    columns_vector = numpy.array([1,0,0,0,0,0])
+
+    actual = input.reduce(columns_vector=columns_vector)
+    expected = puan.ge_polytope(numpy.array([
+            [ 1, 1, 0, 0, 0, 0],
+            [ 0,-1, 1, 0, 0, 0],
+            [-1, 0,-1,-1, 0, 0],
+            [ 1, 0, 0, 0, 1, 1],
+        ]))
+    assert numpy.array_equal(actual,expected)
+
 
 def test_reducable_rows_and_columns():
-    matrix = np.array([
+    """Documentation example"""
+    matrix = numpy.array([
         [ 0,-1, 1, 0, 0, 0], # 1
         [ 0, 0,-1, 1, 0, 0], # 2
         [-1,-1, 0,-1, 0, 0], # 3 1+2+3 -> Force not variable 0
@@ -1411,13 +1433,102 @@ def test_reducable_rows_and_columns():
         [ 0, 1, 1, 0, 1,-1], # Redundant when variable 4 forced not
     ])
 
-    expected_red_cols_approx = np.array([0, 0, 0, 1, -2])
-    expected_red_cols = np.array([-1, 0, 0, 1, -2])
-    expected_red_rows = np.array([0, 0, 0, 1, 1, 1, 1])
+    expected_red_cols_approx = numpy.array([0, 0, 0, 1, -2])
+    expected_red_cols = numpy.array([-1, 0, 0, 1, -2])
+    expected_red_rows = numpy.array([0, 0, 0, 1, 1, 1, 1])
 
     actual_red_rows, actual_red_cols = puan.reducable_rows_and_columns(matrix)
-    assert np.array_equal(actual_red_rows, expected_red_rows)
-    assert np.array_equal(actual_red_cols, expected_red_cols_approx)
+    assert numpy.array_equal(actual_red_rows, expected_red_rows)
+    assert numpy.array_equal(actual_red_cols, expected_red_cols_approx)
+
+def test_reducable_columns_approx():
+    """Documentation examples"""
+    input = puan.ge_polytope(numpy.array([[0, -1, -1, -1]]))
+    actual = input.reducable_columns_approx()
+    expected = puan.ge_polytope(numpy.array([-2, -2, -2]))
+    assert numpy.array_equal(actual, expected)
+    input = puan.ge_polytope(numpy.array([[3, 1, 1, 1]]))
+    actual = input.reducable_columns_approx()
+    expected = puan.ge_polytope(numpy.array([1, 1, 1]))
+    assert numpy.array_equal(actual, expected)
+    input = puan.ge_polytope(numpy.array([[0, 1, 1, -3]]))
+    actual = input.reducable_columns_approx()
+    expected = puan.ge_polytope(numpy.array([0, 0, -3]))
+    assert numpy.array_equal(actual, expected)
+    input = puan.ge_polytope(numpy.array([[2, 1, 1, -1]]))
+    actual = input.reducable_columns_approx()
+    expected = puan.ge_polytope(numpy.array([1, 1, -2]))
+    assert numpy.array_equal(actual, expected)
+    input = puan.ge_polytope(numpy.array([
+        [ 0,-1, 1, 0, 0, 0], # 1
+        [ 0, 0,-1, 1, 0, 0], # 2
+        [-1,-1, 0,-1, 0, 0], # 3 1+2+3 -> Force not variable 0
+    ]))
+    actual = input.reducable_columns_approx()
+    expected = puan.ge_polytope(numpy.array([ 0, 0, 0, 0, 0]))
+    assert numpy.array_equal(actual, expected)
+    input = puan.ge_polytope(numpy.array([
+        [1, 1],
+        [1, -1]
+    ]))
+    actual = input.reducable_columns_approx()
+    expected = puan.ge_polytope(numpy.array([0]))
+    assert numpy.array_equal(actual, expected)
+
+def test_reduce_columns():
+    """Documentation example"""
+    input = puan.ge_polytope(numpy.array([
+        [0,-1, 1, 0, 0],
+        [0, 0,-1, 1, 0],
+        [0, 0, 0,-1, 1],
+    ]))
+
+    columns_vector = numpy.array([1, 0, -1, 0]) # meaning assume index 0 and not assume index 2
+    actual = input.reduce_columns(columns_vector)
+    expected = puan.ge_polytope(numpy.array([
+                        [1, 1, 0],
+                        [0,-1, 0],
+                        [0, 0, 1],
+                    ]))
+    assert numpy.array_equal(actual, expected)
+
+def test_reducable_rows():
+    """Documentation example"""
+    input = puan.ge_polytope(numpy.array([[-3, -1, -1, 1, 0]]))
+    actual = input.reducable_rows()
+    expected = puan.ge_polytope(numpy.array([True]))
+    assert numpy.array_equal(actual, expected)
+    input = puan.ge_polytope(numpy.array([[0, 1, 1, 1, 0]]))
+    actual = input.reducable_rows()
+    expected = puan.ge_polytope(numpy.array([True]))
+    assert numpy.array_equal(actual, expected)
+
+def test_reduce_rows():
+    """Documentation example"""
+    input = puan.ge_polytope(numpy.array([
+        [0,-1, 1, 0, 0], # Reduce
+        [0, 0,-1, 1, 0], # Keep
+        [0, 0, 0,-1, 1], # Reduce
+    ]))
+    rows_vector = numpy.array([1, 0, 1])
+    actual = input.reduce_rows(rows_vector)
+    expected = puan.ge_polytope(numpy.array([
+        [0, 0,-1, 1, 0],
+    ]))
+    assert numpy.array_equal(actual, expected)
+    input = puan.ge_polytope(numpy.array([
+        [0,-1, 1, 0, 0], # Reduce
+        [0, 0,-1, 1, 0], # Keep
+        [0, 0, 0,-1, 1], # Reduce
+    ]))
+    rows_vector = numpy.array([True, False, True])
+    actual = input.reduce_rows(rows_vector)
+    expected = puan.ge_polytope(numpy.array([
+        [0, 0,-1, 1, 0],
+    ]))
+    assert numpy.array_equal(actual, expected)
+
+
 
 def test_split_ruleset():
     rules = [
@@ -1577,7 +1688,7 @@ def test_parsed_linerules2value_map():
     ]
 
     actual = puan.logic.cic.cicRs(line_rules).to_ge_polytope(puan.logic.cic.cicRs(line_rules).variables().index)
-    for v in np.nditer(actual):
+    for v in numpy.nditer(actual):
         try:
             int(v)
         except:
@@ -1791,7 +1902,7 @@ def test_convert_one_or_none_to_matrix():
     variables = sorted(cicrs.variables())
     actual_matrix = cicrs.to_ge_polytope(variables.index)
 
-    expected_matrix = np.array([
+    expected_matrix = numpy.array([
         [ -1,   0,   0,   0,   0,   0,   0],
         [ -1,   0,   0,   0,  -1,   0,   0],
         [ -1,   0,   0,   0,  -1,  -1,   0],
@@ -1813,57 +1924,58 @@ def test_convert_one_or_none_to_matrix():
     assert (actual_matrix == expected_matrix).all()
 
 def test_neglectable_columns():
+    """Documentation example"""
     # Case 1: keep common pattern
     inputs = (
-        np.array([  # M
+        puan.ge_polytope(numpy.array([  # M
                     [-1,-1,-1, 0, 0, 0, 1],
                     [-1,-1, 0,-1, 0, 0, 1],
-            ]),
-        np.array([  # patterns
+            ])),
+        numpy.array([  # patterns
                     [1, 1, 0],
                     [0, 1, 1],
                     [1, 0, 1]
             ])
     )
     actual = puan.neglectable_columns(*inputs)
-    expected = np.array([0, 1, 1, 0, 0, 0])
-    assert (actual == expected).all()
+    expected = numpy.array([0, 1, 1, 0, 0, 0])
+    assert numpy.array_equal(actual, expected)
 
     # Case 2: neglect common pattern
     inputs = (
-        np.array([  # M
+        numpy.array([  # M
                     [-1,-1,-1, 0, 0, 0, 1],
                     [-1,-1, 0,-1, 0, 0, 1],
             ]),
-        np.array([  # patterns
+        numpy.array([  # patterns
                     [1, 1, 0],
                     [1, 0, 1],
                     [1, 0, 0]
             ])
     )
     actual = puan.neglectable_columns(*inputs)
-    expected = np.array([1, 0, 0, 0, 0, 0])
-    assert (actual == expected).all()
+    expected = numpy.array([1, 0, 0, 0, 0, 0])
+    assert numpy.array_equal(actual, expected)
 
 def test_neglect_columns():
     inputs = (
-        np.array(  # M
+        numpy.array(  # M
             [
                     [0,-1, 1, 0, 0],
                     [0, 0,-1, 1, 0],
                     [0, 0, 0,-1, 1],
             ]),
-        np.array(  # columns_vector
+        numpy.array(  # columns_vector
                     [1, 0, 1, 0]
             )
     )
     actual = puan.neglect_columns(*inputs)
-    expected = np.array([
+    expected = numpy.array([
                     [ 1, 0, 1, 0, 0],
                     [-1, 0,-1, 0, 0],
                     [ 1, 0, 0, 0, 1],
                 ])
-    assert (actual == expected).all()
+    assert numpy.array_equal(actual, expected)
 
 def test_configuration2value_map():
     inputs = (
@@ -1884,7 +1996,7 @@ def test_configuration2value_map():
 
 def test_polytope2value_map():
     """Documentation example"""
-    inputs = np.array([
+    inputs = numpy.array([
                  [0,-1, 1, 0, 0],
                  [0, 0,-1, 1, 0],
                  [0, 0, 0,-1, 1],
@@ -1898,19 +2010,19 @@ def test_polytope2value_map():
 
 def test_polytope2linalg():
     """Documentation example"""
-    inputs = np.array([
+    inputs = numpy.array([
                  [0,-1, 1, 0, 0],
                  [0, 0,-1, 1, 0],
                  [0, 0, 0,-1, 1],
              ])
     actual = puan.ge_polytope(inputs).to_linalg()
-    expected = (np.array([
+    expected = (numpy.array([
                     [-1, 1, 0, 0],
                     [0, -1, 1, 0],
                     [0, 0, -1, 1]]),
-                np.array([0,0,0]))
-    assert np.array_equal(actual[0], expected[0])
-    assert np.array_equal(actual[1], expected[1])
+                numpy.array([0,0,0]))
+    assert numpy.array_equal(actual[0], expected[0])
+    assert numpy.array_equal(actual[1], expected[1])
 
 def test_reducable_matrix_columns_should_keep_zero_columns():
 
@@ -1919,7 +2031,7 @@ def test_reducable_matrix_columns_should_keep_zero_columns():
         about "zero"-columns.
     """
 
-    M = np.array([
+    M = numpy.array([
         [ 1, 0, 1, 0, 0],
         [-3,-2,-1,-1, 0],
     ], dtype="int32")
@@ -1927,22 +2039,23 @@ def test_reducable_matrix_columns_should_keep_zero_columns():
     rows, cols = puan.reducable_rows_and_columns(M)
     assert cols[3] == 0
 
+"""
 def test_truncate_nd_state():
 
     test_cases = [
         (
-            np.array([
+            numpy.array([
                 [
                     [-4, 1, 2,-4,-4,-4],
                     [ 0, 0, 0, 1, 0, 0],
                 ],
             ]),
-            np.array([
+            numpy.array([
                 [-4, 1, 2,20,-4,-4]
             ])
         ),
         (
-            np.array([
+            numpy.array([
                 [
                     [ 0, 0, 0, 0, 0, 0],
                     [ 0, 0, 0, 0, 0, 0],
@@ -1950,23 +2063,23 @@ def test_truncate_nd_state():
                     [ 1, 2, 3, 4, 5, 6]
                 ],
             ]),
-            np.array([
+            numpy.array([
                 [ 1, 2, 3, 4, 5, 6],
             ])
         ),
         (
-            np.array([
+            numpy.array([
                 [ 0, 0, 1, 0, 2, 3],
                 [-1,-1,-1,-1, 0, 0],
                 [ 0, 0, 1, 2, 0, 0],
                 [ 0, 0, 1, 0, 0, 0]
             ]),
-            np.array([
+            numpy.array([
                 -7,-7, 0, 0, 2, 3
             ])
         )
         (
-            np.array([
+            numpy.array([
                 [
                     [ 0, 0, 1, 0, 2, 3],
                     [-1,-1,-1,-1, 0, 0],
@@ -1998,7 +2111,7 @@ def test_truncate_nd_state():
                     [-3, 0, 7, 0, 0, 0]
                 ]
             ]),
-            np.array([
+            numpy.array([
                 [-4,-4,24,12, 1, 2],
                 [ 0, 0, 0, 0, 0, 0],
                 [ 1, 2, 4, 8,16,32],
@@ -2011,13 +2124,38 @@ def test_truncate_nd_state():
         actual_output = puan.truncate(inpt)
         assert (actual_output == expected_output).all()
 
+"""
 def test_isin():
     """Documentation example"""
     ge = puan.ge_polytope([0, -2, 1, 1])
-    actual_output = ge.isin(np.array([
+    actual_output = ge.isin(numpy.array([
         [1,0,1],
         [1,1,1],
         [0,0,0]]))
-    expected_output = np.array([False, True, True])
-    assert np.array_equal(actual_output, expected_output)
+    expected_output = numpy.array([False, True, True])
+    assert numpy.array_equal(actual_output, expected_output)
 
+def test_ineq_holds():
+    """Documentation example"""
+    input = puan.ge_polytope(numpy.array([
+            [ 0, 1, 0],
+            [ 0, 1, -1],
+            [ -1, -1, 1]
+        ]))
+    points = numpy.array([[1, 1], [4, 2]])
+    actual = input.ineq_holds(points)
+    expected = numpy.array([True, True, False])
+    assert numpy.array_equal(actual, expected)
+    input = puan.ge_polytope(numpy.array([
+                [ 0, 1, 0, -1],
+                [ 0, 1, -1, 0],
+                [ -1, -1, 1, -1]
+            ]))
+    points = numpy.array([
+            [[1, 1, 1], [4, 2, 1]],
+            [[0, 1, 0], [1, 2, 1]]
+        ])
+    actual = input.ineq_holds(points)
+    expected = numpy.array([[True, True, False],
+                            [True, False, True]])
+    assert numpy.array_equal(actual, expected)
