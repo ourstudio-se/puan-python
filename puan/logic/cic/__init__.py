@@ -13,9 +13,10 @@ import typing
 class cicR(tuple):
     """
         Condition-Implies-Consequence RAW (cicR) is a variant of cic logical rule defining relationship
-        between variables. It consist of four attributes: condition, rule type, consequence
+        between variables. It consists of four attributes: condition, rule type, consequence
         and preferred. The data type is a tuple requiring at least three of these four attributes. The RAW
-        stands for the most atomic level of a cic, meaning "and" is implied in condition and consequence.
+        stands for the most atomic level of a cic. This means "and" is implied in condition and consequence, e.g.
+        :math:`a` **and** :math:`b \\rightarrow x` **and** :math:`y`.
 
         Attributes
         ----------
@@ -60,8 +61,8 @@ class cicRs(list):
 
         Methods
         -------
-        to_ge_polytope
-            Converts into a ge_polytope.
+        to_ge_polyhedron
+            Converts into a ge_polyhedron.
         variables
             Collects variables in cicRs
 
@@ -99,7 +100,7 @@ class cicRs(list):
 
             Notes
             -----
-            Support index defaults to index 0. The support index representing the support variable vector in a ge_polytope.
+            Support index defaults to index 0. The support index representing the support variable vector in a ge_polyhedron.
 
         """
         support_variable_index : int = 0
@@ -144,10 +145,10 @@ class cicRs(list):
 
         return vmap.value_map(value_map)
 
-    def to_ge_polytope(self, index_predicate) -> puan.ge_polytope:
+    def to_ge_polyhedron(self, index_predicate) -> puan.ge_polyhedron:
 
         """
-            Converts into a ge_polytope.
+            Converts into a ge_polyhedron.
 
             Parameters
             -----------
@@ -156,9 +157,9 @@ class cicRs(list):
 
             Returns
             -------
-                ge_polytope
+                ge_polyhedron
         """
-        return puan.ge_polytope(cicRs._to_value_map(self, index_predicate).to_matrix())
+        return puan.ge_polyhedron(cicRs._to_value_map(self, index_predicate).to_matrix())
 
     def variables(self) -> list:
 
@@ -187,8 +188,8 @@ class cicE(tuple):
         between variables. It consist of four parameters: condition, rule type, consequence
         and preferred. The data type is a list requiring at least three of these four parameters. The E
         stands for a expressive variant of a cic, meaning
-        - the condition can be formed as combinations of "or" and "and" relations
-        - the rule types are extended with "REQUIRES_EXCLUSIVELY"
+            - the condition can be formed as combinations of "or" and "and" relations
+            - the rule types are extended with "REQUIRES_EXCLUSIVELY"
 
         (*expressive condition*, *expressive rule type*, *consequence variables*)
 

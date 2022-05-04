@@ -2,11 +2,12 @@ import numpy
 import typing
 import functools
 
-class ge_polytope(numpy.ndarray):
+class ge_polyhedron(numpy.ndarray):
     """
         A numpy.ndarray sub class and a system of linear inequalities forming
-        a high dimensional polytope. The "ge" stands for "greater or equal" (:math:`\\ge`)
-        which represents the relation between :math:`A` and :math:`b` (as in :math:`Ax \\ge b`).
+        a polyhedron. The "ge" stands for "greater or equal" (:math:`\\ge`)
+        which represents the relation between :math:`A` and :math:`b` (as in :math:`Ax \\ge b`), i.e.
+        polyhedron :math:`P=\{x \\in R^n \ |\  Ax \\ge b\}`.
 
         Attributes
         ----------
@@ -15,30 +16,30 @@ class ge_polytope(numpy.ndarray):
         Methods
         -------
         to_value_map
-            Reduces the polytope into a value map.
+            Reduces the polyhedron into a value map.
         to_linalg
-            assumes support vector index 0 in polytope and returns :math:`A, b` as in :math:`Ax \\ge b`
+            assumes support vector index 0 in polyhedron and returns :math:`A, b` as in :math:`Ax \\ge b`
         reducable_columns_approx
             Returns what columns are reducable under approximate condition.
         reduce_columns
-            Reducing columns from polytope from columns_vector.
+            Reducing columns from polyhedron from columns_vector.
         reducable_rows
             Returns a boolean vector indicating what rows are reducable.
         reduce_rows
             Reduces rows from a rows_vector where num of rows of M equals
             size of rows_vector.
         reducable_rows_and_columns
-            Returns reducable rows and columns of given polytope.
+            Returns reducable rows and columns of given polyhedron.
         reduce
-            Reduces matrix polytope by information passed in rows_vector and columns_vector.
+            Reduces matrix polyhedron by information passed in rows_vector and columns_vector.
         neglectable_columns
-            Returns neglectable columns of given polytope `ge_polytope`.
+            Returns neglectable columns of given polyhedron `ge_polyhedron`.
         neglect_columns
             Neglects columns in :math:`A` from a columns_vector.
-        isin
-            Checks if points are inside the polytope.
-        ineq_holds
-            Checks if a linear inequality in the polytope holds for given points.
+        separable
+            Checks if points are inside the polyhedron.
+        ineq_separate_points
+            Checks if a linear inequality in the polyhedron separate any point of given points.
 
     """
 
@@ -52,7 +53,7 @@ class ge_polytope(numpy.ndarray):
     def to_value_map(self: numpy.ndarray) -> dict:
 
         """
-            Reduces the polytope into a value map.
+            Reduces the polyhedron into a value map.
 
             Returns
             -------
@@ -64,12 +65,12 @@ class ge_polytope(numpy.ndarray):
 
             Examples
             --------
-                >>> ge_polytope = ge_polytope(numpy.array([
+                >>> ge_polyhedron = ge_polyhedron(numpy.array([
                 >>>     [0,-1, 1, 0, 0],
                 >>>     [0, 0,-1, 1, 0],
                 >>>     [0, 0, 0,-1, 1],
                 >>> ]))
-                >>> ge_polytope.to_value_map()
+                >>> ge_polyhedron.to_value_map()
                 {1: [[0, 1, 2], [2, 3, 4]], -1: [[0, 1, 2], [1, 2, 3]]}
 
         """
@@ -80,7 +81,7 @@ class ge_polytope(numpy.ndarray):
 
     def to_linalg(self: numpy.ndarray) -> tuple:
         """
-            Assumes support vector index 0 in polytope
+            Assumes support vector index 0 in polyhedron
             and returns :math:`A, b` as in :math:`Ax \\ge b`
 
             Returns
@@ -91,17 +92,17 @@ class ge_polytope(numpy.ndarray):
 
             Examples
             --------
-                >>> ge = ge_polytope(numpy.array([
+                >>> ge = ge_polyhedron(numpy.array([
                 >>>    [0,-1, 1, 0, 0],
                 >>>    [0, 0,-1, 1, 0],
                 >>>    [0, 0, 0,-1, 1],
                 >>> ]))
                 >>> ge.to_linalg()
-                (ge_polytope([
+                (ge_polyhedron([
                     [-1, 1, 0, 0],
                     [0, -1, 1, 0],
                     [0, 0, -1, 1]]),
-                ge_polytope([0,0,0]))
+                ge_polyhedron([0,0,0]))
         """
         if self.ndim < 2:
             A = self[1:].copy()
@@ -114,7 +115,7 @@ class ge_polytope(numpy.ndarray):
     def reducable_columns_approx(self: numpy.ndarray) -> numpy.ndarray:
         """
             Returns which columns are reducable under approximate condition.
-            The approximate condition is that only one row of ge_polytope is
+            The approximate condition is that only one row of ge_polyhedron is
             considered when deducing reducable columns. By considering combination of rows
             more reducable columns might be found.
 
@@ -126,9 +127,9 @@ class ge_polytope(numpy.ndarray):
 
             See also
             --------
-                reduce : Reduces matrix polytope by information passed in rows_vector and columns_vector.
-                reduce_columns : Reducing columns from polytope from columns_vector where a positive number meaning *assume* and a negative number meaning *not assume*.
-                reducable_rows_and_columns : Returns reducable rows and columns of given polytope.
+                reduce : Reduces matrix polyhedron by information passed in rows_vector and columns_vector.
+                reduce_columns : Reducing columns from polyhedron from columns_vector where a positive number meaning *assume* and a negative number meaning *not assume*.
+                reducable_rows_and_columns : Returns reducable rows and columns of given polyhedron.
                 reduce_rows : Reduces rows from a rows_vector where num of rows of M equals size of rows_vector.
                 reducable_rows : Returns a boolean vector indicating what rows are reducable.
 
@@ -136,60 +137,60 @@ class ge_polytope(numpy.ndarray):
             --------
             All columns could be *assumed not* since picking any of the corresponding variable would violate the inequlity
 
-                >>> ge = ge_polytope(numpy.array([[0, -1, -1, -1]]))
+                >>> ge = ge_polyhedron(numpy.array([[0, -1, -1, -1]]))
                 >>> ge.reducable_columns_approx()
-                ge_polytope([-2, -2, -2])
+                ge_polyhedron([-2, -2, -2])
 
             All columns could be *assumed* since not picking any of the corresponding variable would violate the inequlity
 
-                >>> ge = ge_polytope(numpy.array([[3, 1, 1, 1]]))
+                >>> ge = ge_polyhedron(numpy.array([[3, 1, 1, 1]]))
                 >>> ge.reducable_columns_approx()
-                ge_polytope([1, 1, 1])
+                ge_polyhedron([1, 1, 1])
 
             Combination of *assume* and *not assume*
 
-                >>> ge = ge_polytope(numpy.array([[0, 1, 1, -3]]))
+                >>> ge = ge_polyhedron(numpy.array([[0, 1, 1, -3]]))
                 >>> ge.reducable_columns_approx()
-                ge_polytope([0, 0, -3])
+                ge_polyhedron([0, 0, -3])
 
-                >>> ge = ge_polytope(numpy.array([[2, 1, 1, -1]]))
+                >>> ge = ge_polyhedron(numpy.array([[2, 1, 1, -1]]))
                 >>> ge.reducable_columns_approx()
-                ge_polytope([1, 1, -2])
+                ge_polyhedron([1, 1, -2])
 
             Combination of rows would give reducable column. Note that zero coulmns are kept.
 
-                >>> ge = ge_polytope(numpy.array([
+                >>> ge = ge_polyhedron(numpy.array([
                 >>>     [ 0,-1, 1, 0, 0, 0], # 1
                 >>>     [ 0, 0,-1, 1, 0, 0], # 2
                 >>>     [-1,-1, 0,-1, 0, 0], # 3 1+2+3 -> Force not variable 0
                 >>> ]))
                 >>> ge.reducable_columns_approx()
-                ge_polytope([0, 0, 0, 0, 0])
+                ge_polyhedron([0, 0, 0, 0, 0])
 
             Contradicting rules
 
-                >>> ge = ge_polytope(numpy.array([
+                >>> ge = ge_polyhedron(numpy.array([
                 >>>     [1, 1], # Force variable 0
                 >>>     [1, -1] # Force not variable 0
                 >>> ]))
                 >>> ge.reducable_columns_approx()
-                ge_polytope([0])
+                ge_polyhedron([0])
 
         """
-        A, b = ge_polytope.to_linalg(self)
+        A, b = ge_polyhedron.to_linalg(self)
         r = (A*((A*(A <= 0) + (A*(A > 0)).sum(axis=1).reshape(-1,1)) < b.reshape(-1,1))) + A*((A * (A > 0)).sum(axis=1) == b).reshape(-1,1)
         return r.sum(axis=0)
 
     def reduce_columns(self: numpy.ndarray, columns_vector: numpy.ndarray) -> numpy.ndarray:
 
         """
-            Reducing columns from polytope from columns_vector where a positive number meaning *assume*
+            Reducing columns from polyhedron from columns_vector where a positive number meaning *assume*
             and a negative number meaning *not assume*.
 
             Parameters
             ----------
             columns_vector : ndarray
-                The polytope is reduced column-wise by equally many positives and negatives in columns-vector.
+                The polyhedron is reduced column-wise by equally many positives and negatives in columns-vector.
 
             Returns
             -------
@@ -197,8 +198,8 @@ class ge_polytope(numpy.ndarray):
 
             See also
             --------
-                reduce : Reduces matrix polytope by information passed in rows_vector and columns_vector.
-                reducable_rows_and_columns : Returns reducable rows and columns of given polytope.
+                reduce : Reduces matrix polyhedron by information passed in rows_vector and columns_vector.
+                reducable_rows_and_columns : Returns reducable rows and columns of given polyhedron.
                 reduce_rows : Reduces rows from a rows_vector where num of rows of M equals size of rows_vector.
                 reducable_rows : Returns a boolean vector indicating what rows are reducable.
                 reducable_columns_approx : Returns what columns are reducable under approximate condition.
@@ -206,23 +207,23 @@ class ge_polytope(numpy.ndarray):
 
             Examples
             --------
-                >>> ge_polytope = ge_polytope(numpy.array([
+                >>> ge_polyhedron = ge_polyhedron(numpy.array([
                 >>>     [0,-1, 1, 0, 0],
                 >>>     [0, 0,-1, 1, 0],
                 >>>     [0, 0, 0,-1, 1],
                 >>> ]))
                 >>> columns_vector = numpy.array([1, 0,-1, 0]) # meaning assume index 0 and not assume index 2
-                >>> ge_polytope.reduce_columns(columns_vector)
-                ge_polytope([[1, 1, 0],
-                             [0,-1, 0],
-                             [0, 0, 1]])
+                >>> ge_polyhedron.reduce_columns(columns_vector)
+                ge_polyhedron([[1, 1, 0],
+                               [0,-1, 0],
+                               [0, 0, 1]])
 
         """
 
-        A, b = ge_polytope.to_linalg(self)
+        A, b = ge_polyhedron.to_linalg(self)
         _b = b - (A.T*(columns_vector > 0).reshape(-1,1)).sum(axis=0)
         _A = numpy.delete(A, numpy.argwhere(columns_vector != 0).T[0], 1)
-        return ge_polytope(numpy.append(_b.reshape(-1,1), _A, axis=1))
+        return ge_polyhedron(numpy.append(_b.reshape(-1,1), _A, axis=1))
 
     def reducable_rows(self: numpy.ndarray) -> numpy.ndarray:
         """
@@ -235,9 +236,9 @@ class ge_polytope(numpy.ndarray):
 
             See also
             --------
-                reduce : Reduces matrix polytope by information passed in rows_vector and columns_vector.
-                reduce_columns : Reducing columns from polytope from columns_vector where a positive number meaning *assume* and a negative number meaning *assume*.
-                reducable_rows_and_columns : Returns reducable rows and columns of given polytope.
+                reduce : Reduces matrix polyhedron by information passed in rows_vector and columns_vector.
+                reduce_columns : Reducing columns from polyhedron from columns_vector where a positive number meaning *assume* and a negative number meaning *assume*.
+                reducable_rows_and_columns : Returns reducable rows and columns of given polyhedron.
                 reduce_rows : Reduces rows from a rows_vector where num of rows of M equals size of rows_vector.
                 reducable_columns_approx : Returns what columns are reducable under approximate condition.
 
@@ -246,25 +247,25 @@ class ge_polytope(numpy.ndarray):
             The sum of all negative numbers of the row in :math:`A` is :math:`\\ge b`, i.e.
             :math:`Ax \\ge b` will always hold, regardless of :math:`x`.
 
-                >>> ge_polytope = ge_polytope(numpy.array([[-3, -1, -1, 1, 0]]))
-                >>> ge_polytope.reducable_rows()
-                ge_polytope([True])
+                >>> ge_polyhedron = ge_polyhedron(numpy.array([[-3, -1, -1, 1, 0]]))
+                >>> ge_polyhedron.reducable_rows()
+                ge_polyhedron([True])
 
             All elements of the row in :math:`A` is :math:`\\ge 0` and :math:`b` is :math:`\\le 0`,
             again :math:`Ax \\ge b` will always hold, regardless of :math:`x`.
 
-                >>> ge_polytope = ge_polytope(numpy.array([[0, 1, 1, 1, 0]]))
-                >>> ge_polytope.reducable_rows()
-                ge_polytope([True])
+                >>> ge_polyhedron = ge_polyhedron(numpy.array([[0, 1, 1, 1, 0]]))
+                >>> ge_polyhedron.reducable_rows()
+                ge_polyhedron([True])
 
         """
-        A, b = ge_polytope.to_linalg(self)
+        A, b = ge_polyhedron.to_linalg(self)
         return (((A * (A < 0)).sum(axis=1) >= b)) + ((A >= 0).all(axis=1) & (b<=0))
 
     def reduce_rows(self: numpy.ndarray, rows_vector: numpy.ndarray) -> numpy.ndarray:
 
         """
-            Reduces rows from a rows_vector where num of rows of ge_polytope equals
+            Reduces rows from a rows_vector where num of rows of ge_polyhedron equals
             size of rows_vector. Each row in rows_vector == 0 is kept.
 
             Parameters
@@ -273,38 +274,38 @@ class ge_polytope(numpy.ndarray):
 
             Returns
             -------
-                out : ge_polytope
+                out : ge_polyhedron
 
             See also
             --------
-                reduce : Reduces matrix polytope by information passed in rows_vector and columns_vector.
-                reduce_columns : Reducing columns from polytope from columns_vector where a positive number meaning *assume* and a negative number meaning *assume*.
-                reducable_rows_and_columns : Returns reducable rows and columns of given polytope.
+                reduce : Reduces matrix polyhedron by information passed in rows_vector and columns_vector.
+                reduce_columns : Reducing columns from polyhedron from columns_vector where a positive number meaning *assume* and a negative number meaning *assume*.
+                reducable_rows_and_columns : Returns reducable rows and columns of given polyhedron.
                 reducable_rows : Returns a boolean vector indicating what rows are reducable.
                 reducable_columns_approx : Returns what columns are reducable under approximate condition.
 
             Examples
             --------
 
-            >>> ge_polytope = ge_polytope(numpy.array([
+            >>> ge_polyhedron = ge_polyhedron(numpy.array([
             >>>     [0,-1, 1, 0, 0], # Reduce
             >>>     [0, 0,-1, 1, 0], # Keep
             >>>     [0, 0, 0,-1, 1], # Reduce
             >>> ]))
             >>> rows_vector = numpy.array([1, 0, 1])
-            >>> ge_polytope.reduce_rows(rows_vector)
-            ge_polytope([[0, 0, -1, 1, 0]])
+            >>> ge_polyhedron.reduce_rows(rows_vector)
+            ge_polyhedron([[0, 0, -1, 1, 0]])
 
             :code:`rows_vector` could be boolean
 
-            >>> ge_polytope = ge_polytope(numpy.array([
+            >>> ge_polyhedron = ge_polyhedron(numpy.array([
             >>>     [0,-1, 1, 0, 0], # Reduce
             >>>     [0, 0,-1, 1, 0], # Keep
             >>>     [0, 0, 0,-1, 1], # Reduce
             >>> ]))
             >>> rows_vector = numpy.array([True, False, True])
-            >>> ge_polytope.reduce_rows(rows_vector)
-            ge_polytope([[0, 0, -1, 1, 0]])
+            >>> ge_polyhedron.reduce_rows(rows_vector)
+            ge_polyhedron([[0, 0, -1, 1, 0]])
         """
 
         return self[rows_vector == 0]
@@ -312,25 +313,25 @@ class ge_polytope(numpy.ndarray):
     def reducable_rows_and_columns(self: numpy.ndarray) -> tuple:
 
         """
-            Returns reducable rows and columns of given polytope.
+            Returns reducable rows and columns of given polyhedron.
 
             Returns
             -------
                 out : tuple
-                    out[0] : a vector equal size as ge_polytope's row size where 1 represents a removed row and 0 represents a kept row\n
-                    out[1] : a vector with equal size as ge_polytope's column size where a positive number represents requireds and a negative number represents forbids
+                    out[0] : a vector equal size as ge_polyhedron's row size where 1 represents a removed row and 0 represents a kept row\n
+                    out[1] : a vector with equal size as ge_polyhedron's column size where a positive number represents requireds and a negative number represents forbids
 
             See also
             --------
-                reduce : Reduces matrix polytope by information passed in rows_vector and columns_vector.
+                reduce : Reduces matrix polyhedron by information passed in rows_vector and columns_vector.
                 reduce_rows : Reduces rows from a rows_vector where num of rows of M equals size of rows_vector.
                 reducable_rows : Returns a boolean vector indicating what rows are reducable.
-                reduce_columns :  Reducing columns from polytope from columns_vector where a positive number meaning *assume* and a negative number meaning *assume*.
+                reduce_columns :  Reducing columns from polyhedron from columns_vector where a positive number meaning *assume* and a negative number meaning *assume*.
                 reducable_columns_approx : Returns what columns are reducable under approximate condition.
 
             Examples
             --------
-                >>> ge_polytope = ge_polytope(np.array([
+                >>> ge_polyhedron = ge_polyhedron(np.array([
                 >>>     [ 0,-1, 1, 0, 0, 0], # 1
                 >>>     [ 0, 0,-1, 1, 0, 0], # 2
                 >>>     [-1,-1, 0,-1, 0, 0], # 3 1+2+3 -> Force not variable 0, not identified under the approximate conditions
@@ -339,32 +340,32 @@ class ge_polytope(numpy.ndarray):
                 >>>     [ 0, 1, 1, 0, 1, 0], # Redundant rule
                 >>>     [ 0, 1, 1, 0, 1,-1], # Redundant when variable 4 forced not
                 >>> ]))
-                >>> reducable_rows_and_columns(ge_polytope)
+                >>> reducable_rows_and_columns(ge_polyhedron)
                 (array([0, 0, 0, 1, 1, 1, 1]), array([ 0,  0,  0,  1, -2]))
 
         """
 
         _M = self.copy()
-        red_cols = ge_polytope.reducable_columns_approx(_M)
-        red_rows = ge_polytope.reducable_rows(_M) * 1
+        red_cols = ge_polyhedron.reducable_columns_approx(_M)
+        red_rows = ge_polyhedron.reducable_rows(_M) * 1
         full_cols = numpy.zeros(_M.shape[1]-1, dtype=int)
         full_rows = numpy.zeros(_M.shape[0], dtype=int)
         while red_cols.any() | red_rows.any():
-            _M = ge_polytope.reduce_columns(_M, red_cols)
+            _M = ge_polyhedron.reduce_columns(_M, red_cols)
             full_cols[full_cols == 0] = red_cols
 
-            red_rows = ge_polytope.reducable_rows(_M) * 1
-            _M = ge_polytope.reduce_rows(_M, red_rows)
+            red_rows = ge_polyhedron.reducable_rows(_M) * 1
+            _M = ge_polyhedron.reduce_rows(_M, red_rows)
             full_rows[full_rows == 0] = red_rows
 
-            red_cols = ge_polytope.reducable_columns_approx(_M)
-            red_rows = ge_polytope.reducable_rows(_M) * 1
+            red_cols = ge_polyhedron.reducable_columns_approx(_M)
+            red_rows = ge_polyhedron.reducable_rows(_M) * 1
 
         return full_rows, full_cols
 
     def reduce(self: numpy.ndarray, rows_vector: numpy.ndarray=None, columns_vector: numpy.ndarray=None) -> numpy.ndarray:
         """
-            Reduces matrix polytope by information passed in rows_vector and columns_vector.
+            Reduces matrix polyhedron by information passed in rows_vector and columns_vector.
 
             Parameters
             ----------
@@ -373,59 +374,59 @@ class ge_polytope(numpy.ndarray):
 
             columns_vector : numpy.ndarray (optional)
                 A vector of positive and negative integers where the positive represents active selections and negative
-                represents active "not" selections. The polytope is reduced under those assumptions.
+                represents active "not" selections. The polyhedron is reduced under those assumptions.
 
             Returns
             -------
-                out : ge_polytope
-                    Reduced polytope
+                out : ge_polyhedron
+                    Reduced polyhedron
 
             See also
             --------
-                reducable_rows_and_columns : Returns reducable rows and columns of given polytope.
+                reducable_rows_and_columns : Returns reducable rows and columns of given polyhedron.
                 reduce_rows : Reduces rows from a rows_vector where num of rows of M equals size of rows_vector.
                 reducable_rows : Returns a boolean vector indicating what rows are reducable.
-                reduce_columns :  Reducing columns from polytope from columns_vector where a positive number meaning *assume* and a negative number meaning *assume*.
+                reduce_columns :  Reducing columns from polyhedron from columns_vector where a positive number meaning *assume* and a negative number meaning *assume*.
                 reducable_columns_approx : Returns what columns are reducable under approximate condition.
 
             Examples
             --------
-                >>> ge_polytope = ge_polytope(numpy.array([
+                >>> ge_polyhedron = ge_polyhedron(numpy.array([
                 >>>     [ 0,-1, 1, 0, 0, 0, 0],
                 >>>     [ 0, 0,-1, 1, 0, 0, 0],
                 >>>     [-1, 0, 0,-1,-1, 0, 0],
                 >>>     [ 1, 0, 0, 0, 0, 1, 1],
                 >>> ]))
                 >>> columns_vector = numpy.array([1,0,0,0,0,0])
-                >>> ge_polytope.reduce(columns_vector=columns_vector)
-                ge_polytope([[ 1, 1, 0, 0, 0, 0],
-                             [ 0,-1, 1, 0, 0, 0],
-                             [-1, 0,-1,-1, 0, 0],
-                             [ 1, 0, 0, 0, 1, 1]
-                        ])
+                >>> ge_polyhedron.reduce(columns_vector=columns_vector)
+                ge_polyhedron([[ 1, 1, 0, 0, 0, 0],
+                               [ 0,-1, 1, 0, 0, 0],
+                               [-1, 0,-1,-1, 0, 0],
+                               [ 1, 0, 0, 0, 1, 1]
+                            ])
         """
         gp = self.copy()
         if rows_vector is not None:
-            gp = ge_polytope.reduce_rows(gp, rows_vector)
+            gp = ge_polyhedron.reduce_rows(gp, rows_vector)
         if columns_vector is not None:
-            gp = ge_polytope.reduce_columns(gp, columns_vector)
+            gp = ge_polyhedron.reduce_columns(gp, columns_vector)
         return gp
 
     def neglectable_columns(self: numpy.ndarray, patterns: numpy.ndarray) -> numpy.ndarray:
         """
-            Returns neglectable columns of given polytope `ge_polytope` based on given patterns.
-            Neglectable columns are the columns which doesn't differentiate the patterns in `ge_polytope`
-            from the patterns not in `ge_polytope`
+            Returns neglectable columns of given polyhedron `ge_polyhedron` based on given patterns.
+            Neglectable columns are the columns which doesn't differentiate the patterns in `ge_polyhedron`
+            from the patterns not in `ge_polyhedron`
 
             Parameters
             ----------
                 patterns : numpy.ndarray
-                    known patterns of variables in the polytope.
+                    known patterns of variables in the polyhedron.
 
             Returns
             -------
                 out : numpy.ndarray
-                    A 1-d ndarray of length equal to the number of columns of the ge_polytope,
+                    A 1-d ndarray of length equal to the number of columns of the ge_polyhedron,
                     with ones at corresponding columns which can be neglected, zero otherwise.
 
             See also
@@ -434,32 +435,32 @@ class ge_polytope(numpy.ndarray):
 
             Notes
             -----
-                This method is differentiating the patterns which are in ge_polytope from those that are not.
-                Variables which are not in the patterns and has a positive number for any row in ge_polytope
+                This method is differentiating the patterns which are in ge_polyhedron from those that are not.
+                Variables which are not in the patterns and has a positive number for any row in ge_polyhedron
                 are considered non-neglectable.
 
             Examples
             --------
             Keep common pattern:
-            ge_polytope with two out of three patterns. Variables 1 and 2 are not differentiating the patterns
-            in ge_polytope from those that are not, and can therefore be neglected.
+            ge_polyhedron with two out of three patterns. Variables 1 and 2 are not differentiating the patterns
+            in ge_polyhedron from those that are not, and can therefore be neglected.
 
-            >>> ge_polytope = ge_polytope(numpy.array([
+            >>> ge_polyhedron = ge_polyhedron(numpy.array([
             >>>     [-1,-1,-1, 0, 0, 0, 1],
             >>>     [-1,-1, 0,-1, 0, 0, 1],
             >>> ]))
             >>> patterns = numpy.array([
-            >>>     [1, 1, 0], # Pattern in ge_polytope
-            >>>     [0, 1, 1], # Pattern not in ge_polytope
-            >>>     [1, 0, 1]  # Pattern in ge_polytope
+            >>>     [1, 1, 0], # Pattern in ge_polyhedron
+            >>>     [0, 1, 1], # Pattern not in ge_polyhedron
+            >>>     [1, 0, 1]  # Pattern in ge_polyhedron
             >>> ])
-            >>> neglectable_columns(ge_polytope, patterns)
-            ge_polytope([0, 1, 1, 0, 0, 0])
+            >>> neglectable_columns(ge_polyhedron, patterns)
+            ge_polyhedron([0, 1, 1, 0, 0, 0])
 
             Neglect common pattern:
             Variable 0 is part of all patterns and can therefore be neglected.
 
-            >>> ge_polytope = ge_polytope(numpy.array([
+            >>> ge_polyhedron = ge_polyhedron(numpy.array([
             >>>         [-1,-1,-1, 0, 0, 0, 1],
             >>>         [-1,-1, 0,-1, 0, 0, 1],
             >>> ]))
@@ -468,11 +469,11 @@ class ge_polytope(numpy.ndarray):
             >>>        [1, 0, 1],
             >>>        [1, 0, 0]
             >>> ])
-            >>> neglectable_columns(ge_polytope, patterns)
+            >>> neglectable_columns(ge_polyhedron, patterns)
             array([1, 0, 0, 0, 0, 0])
 
         """
-        A, b = ge_polytope.to_linalg(self)
+        A, b = ge_polyhedron.to_linalg(self)
         # Extend patterns to be of same shape as A
         _patterns = patterns.copy()
         _patterns = numpy.pad(_patterns, ((0,0), (0, A.shape[1] - _patterns.shape[1])), 'constant')
@@ -510,101 +511,101 @@ class ge_polytope(numpy.ndarray):
 
             Returns
             --------
-                out : ge_polytope
-                    ge_polytope with neglected columns set to zero and suupport vector updated accordingly.
+                out : ge_polyhedron
+                    ge_polyhedron with neglected columns set to zero and suupport vector updated accordingly.
 
             See also
             --------
-                neglectable_columns : Returns neglectable columns of given polytope `ge_polytope` based on given patterns.
+                neglectable_columns : Returns neglectable columns of given polyhedron `ge_polyhedron` based on given patterns.
 
             Examples
             --------
-                >>> ge_polytope = ge_polytope(numpy.array([
+                >>> ge_polyhedron = ge_polyhedron(numpy.array([
                 >>>     [0,-1, 1, 0, 0],
                 >>>     [0, 0,-1, 1, 0],
                 >>>     [0, 0, 0,-1, 1],
                 >>>  ]))
                 >>> columns_vector = numpy.array([1, 0, 1, 0])
-                >>> neglect_columns(ge_polytope, columns_vector)
-                ge_polytope([[ 1, 0, 1, 0, 0],
-                             [-1, 0,-1, 0, 0],
-                             [ 1, 0, 0, 0, 1]])
+                >>> neglect_columns(ge_polyhedron, columns_vector)
+                ge_polyhedron([[ 1, 0, 1, 0, 0],
+                               [-1, 0,-1, 0, 0],
+                               [ 1, 0, 0, 0, 1]])
 
 
         """
-        A, b = ge_polytope.to_linalg(self)
+        A, b = ge_polyhedron.to_linalg(self)
         _b = b - (A.T*(columns_vector > 0).reshape(-1,1)).sum(axis=0)
         _A = A
         _A[:, columns_vector>0] = 0
-        return ge_polytope(numpy.append(_b.reshape(-1,1), _A, axis=1))
+        return ge_polyhedron(numpy.append(_b.reshape(-1,1), _A, axis=1))
 
-    def isin(self: numpy.ndarray, points: numpy.ndarray) -> numpy.ndarray:
+    def separable(self: numpy.ndarray, points: numpy.ndarray) -> numpy.ndarray:
 
         """
-            Checks if points are inside the polytope.
+            Checks if points are separable by a hyperplane from the polyhedron.
 
             .. code-block::
 
                            / \\
                           /   \\
                 point -> /  x  \\
-                        /_ _ _ _\ <- polytope
+                        /_ _ _ _\ <- polyhedron
 
             Parameters
             ----------
                 points : numpy.ndarray
-                    Points to be evaluated if inside of polytope.
+                    Points to be evaluated if separable to polyhedron by a hyperplane.
 
             Returns
             -------
                 out : numpy.ndarray.
-                    Boolean vector indicating T if in polytope.
+                    Boolean vector indicating T if separable to polyhedron by a hyperplane.
 
             See also
             --------
-                ineq_holds : Checks if a linear inequality in the polytope holds for *all* points.
+                ineq_separates_points : Checks if a linear inequality of the polyhedron separates any point of given points.
 
             Examples
             --------
-                >>> ge_polytope = ge_polytope([[0,-2,1,1]])
-                >>> ge_polytope.isin(numpy.array([
+                >>> ge_polyhedron = ge_polyhedron([[0,-2,1,1]])
+                >>> ge_polyhedron.seaperable(numpy.array([
                 >>>     [1, 0, 1],
                 >>>     [1, 1, 1],
                 >>>     [0, 0, 0]
                 >>> ]))
-                array([False, True, True])
+                array([True, False, False])
         """
         if points.ndim > 2:
             return numpy.array(
                 list(
-                    map(self.isin, points)
+                    map(self.separable, points)
                 )
             )
         elif points.ndim == 2:
-            A, b = ge_polytope.to_linalg(self)
+            A, b = ge_polyhedron.to_linalg(self)
             return numpy.array(
-                (numpy.matmul(A, points.T) >= b.reshape(-1,1)).all(axis=0)
+                (numpy.matmul(A, points.T) < b.reshape(-1,1)).any(axis=0)
             )
         elif points.ndim == 1:
-            return ge_polytope.isin(self, numpy.array([points]))[0]
+            return ge_polyhedron.separable(self, numpy.array([points]))[0]
 
-    def ineq_holds(self: numpy.ndarray, points: numpy.ndarray) -> numpy.ndarray:
+    def ineq_separate_points(self: numpy.ndarray, points: numpy.ndarray) -> numpy.ndarray:
 
         """
-            Checks if a linear inequality in the polytope holds for *all* points.
+            Checks if a linear inequality in the polyhedron separates any point of given points.
 
-            Two of three linear equalities holds for both points here::
+            One linear equalities separates the given points here::
 
 
                            -/ \\-
                           -/   \-  x <- point
                 point -> -/  x  \\-
-                        -/_ _ _ _\- <- polytope
+                        -/_ _ _ _\- <- polyhedron
                           / / / /
 
             Parameters
             ----------
-                gp : ge_polytope
+                points : numpy.ndarray
 
             Returns
             -------
@@ -613,26 +614,26 @@ class ge_polytope(numpy.ndarray):
 
             See also
             --------
-                isin : Checks if points are inside the polytope.
+                separable : Checks if points are inside the polyhedron.
 
             Notes
             -----
-                This function is the inverse of ge_polytope.isin
+                This function is the inverse of ge_polyhedron.separable
 
             Examples
             --------
-            >>> ge = ge_polytope(numpy.array([
+            >>> ge = ge_polyhedron(numpy.array([
             >>>     [ 0, 1, 0],
             >>>     [ 0, 1,-1],
             >>>     [-1,-1, 1]
             >>> ]))
             >>> points = numpy.array([[1, 1], [4, 2]])
-            >>> ge.ineq_holds(points)
+            >>> ge.ineq_separate_points(points)
             array([True, True, False])
 
             Points in 3-d
 
-            >>> ge = ge_polytope(numpy.array([
+            >>> ge = ge_polyhedron(numpy.array([
             >>>     [ 0, 1, 0,-1],
             >>>     [ 0, 1,-1, 0],
             >>>     [-1,-1, 1,-1]
@@ -641,7 +642,7 @@ class ge_polytope(numpy.ndarray):
             >>>    [[1, 1, 1], [4, 2, 1]],
             >>>    [[0, 1, 0], [1, 2, 1]]
             >>> ])
-            >>> ge.ineq_holds(points)
+            >>> ge.ineq_separate_points(points)
             array([[True, True, False],
                    [True, False, True]])
 
@@ -649,16 +650,16 @@ class ge_polytope(numpy.ndarray):
         if points.ndim > 2:
             return numpy.array(
                 list(
-                    map(self.ineq_holds, points)
+                    map(self.ineq_separate_points, points)
                 )
             )
         elif points.ndim == 2:
             A, b = self.to_linalg()
             return numpy.array(
-                (numpy.matmul(A, points.T) >= b.reshape(-1,1)).all(axis=1)
+                (numpy.matmul(A, points.T) < b.reshape(-1,1)).any(axis=1)
             )
         elif points.ndim == 1:
-            return ge_polytope.ineq_holds(numpy.array([points]), self)
+            return ge_polyhedron.ineq_separate_points(numpy.array([points]), self)
 
 class integer_ndarray(numpy.ndarray):
     """
@@ -894,16 +895,16 @@ class boolean_ndarray(integer_ndarray):
     that should directly be accessible through
     puan.* on first level (e.g puan.to_linalg())
 """
-to_value_map =                  ge_polytope.to_value_map
-to_linalg =                     ge_polytope.to_linalg
-reducable_columns_approx =      ge_polytope.reducable_columns_approx
-reduce_columns =                ge_polytope.reduce_columns
-reducable_rows =                ge_polytope.reducable_rows
-reduce_rows =                   ge_polytope.reduce_rows
-reducable_rows_and_columns =    ge_polytope.reducable_rows_and_columns
-reduce =                        ge_polytope.reduce
-neglectable_columns =           ge_polytope.neglectable_columns
-neglect_columns =               ge_polytope.neglect_columns
-isin =                          ge_polytope.isin
-ineq_holds =                    ge_polytope.ineq_holds
+to_value_map =                  ge_polyhedron.to_value_map
+to_linalg =                     ge_polyhedron.to_linalg
+reducable_columns_approx =      ge_polyhedron.reducable_columns_approx
+reduce_columns =                ge_polyhedron.reduce_columns
+reducable_rows =                ge_polyhedron.reducable_rows
+reduce_rows =                   ge_polyhedron.reduce_rows
+reducable_rows_and_columns =    ge_polyhedron.reducable_rows_and_columns
+reduce =                        ge_polyhedron.reduce
+neglectable_columns =           ge_polyhedron.neglectable_columns
+neglect_columns =               ge_polyhedron.neglect_columns
+separable =                     ge_polyhedron.separable
+ineq_separate_points =          ge_polyhedron.ineq_separate_points
 truncate =                      integer_ndarray.truncate

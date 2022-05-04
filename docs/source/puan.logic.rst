@@ -2,7 +2,7 @@ puan.logic
 ===========
 
 .. toctree::
-   :maxdepth: 2
+   :maxdepth: 1
 
    puan.logic.cic
    puan.logic.sta

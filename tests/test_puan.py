@@ -304,7 +304,7 @@ def test_rules2matrix_with_mixed_condition_rules():
     ]
     variables = sorted(puan.logic.cic.cicJEs.variables(rules))
     cicrs = puan.logic.cic.cicJEs(rules).to_cicRs()
-    matrix = cicrs.to_ge_polytope(variables.index)
+    matrix = cicrs.to_ge_polyhedron(variables.index)
     expected_feasible_configurations = numpy.array([
        #"a  b  c  d  x  y"
         [0, 0, 0, 0, 0, 0],
@@ -1402,7 +1402,7 @@ def test_reduce_matrix():
 
 def test_reduce():
     """Documentation example"""
-    input = puan.ge_polytope(numpy.array([
+    input = puan.ge_polyhedron(numpy.array([
         [ 0,-1, 1, 0, 0, 0, 0],
         [ 0, 0,-1, 1, 0, 0, 0],
         [-1, 0, 0,-1,-1, 0, 0],
@@ -1412,7 +1412,7 @@ def test_reduce():
     columns_vector = numpy.array([1,0,0,0,0,0])
 
     actual = input.reduce(columns_vector=columns_vector)
-    expected = puan.ge_polytope(numpy.array([
+    expected = puan.ge_polyhedron(numpy.array([
             [ 1, 1, 0, 0, 0, 0],
             [ 0,-1, 1, 0, 0, 0],
             [-1, 0,-1,-1, 0, 0],
@@ -1443,41 +1443,41 @@ def test_reducable_rows_and_columns():
 
 def test_reducable_columns_approx():
     """Documentation examples"""
-    input = puan.ge_polytope(numpy.array([[0, -1, -1, -1]]))
+    input = puan.ge_polyhedron(numpy.array([[0, -1, -1, -1]]))
     actual = input.reducable_columns_approx()
-    expected = puan.ge_polytope(numpy.array([-2, -2, -2]))
+    expected = puan.ge_polyhedron(numpy.array([-2, -2, -2]))
     assert numpy.array_equal(actual, expected)
-    input = puan.ge_polytope(numpy.array([[3, 1, 1, 1]]))
+    input = puan.ge_polyhedron(numpy.array([[3, 1, 1, 1]]))
     actual = input.reducable_columns_approx()
-    expected = puan.ge_polytope(numpy.array([1, 1, 1]))
+    expected = puan.ge_polyhedron(numpy.array([1, 1, 1]))
     assert numpy.array_equal(actual, expected)
-    input = puan.ge_polytope(numpy.array([[0, 1, 1, -3]]))
+    input = puan.ge_polyhedron(numpy.array([[0, 1, 1, -3]]))
     actual = input.reducable_columns_approx()
-    expected = puan.ge_polytope(numpy.array([0, 0, -3]))
+    expected = puan.ge_polyhedron(numpy.array([0, 0, -3]))
     assert numpy.array_equal(actual, expected)
-    input = puan.ge_polytope(numpy.array([[2, 1, 1, -1]]))
+    input = puan.ge_polyhedron(numpy.array([[2, 1, 1, -1]]))
     actual = input.reducable_columns_approx()
-    expected = puan.ge_polytope(numpy.array([1, 1, -2]))
+    expected = puan.ge_polyhedron(numpy.array([1, 1, -2]))
     assert numpy.array_equal(actual, expected)
-    input = puan.ge_polytope(numpy.array([
+    input = puan.ge_polyhedron(numpy.array([
         [ 0,-1, 1, 0, 0, 0], # 1
         [ 0, 0,-1, 1, 0, 0], # 2
         [-1,-1, 0,-1, 0, 0], # 3 1+2+3 -> Force not variable 0
     ]))
     actual = input.reducable_columns_approx()
-    expected = puan.ge_polytope(numpy.array([ 0, 0, 0, 0, 0]))
+    expected = puan.ge_polyhedron(numpy.array([ 0, 0, 0, 0, 0]))
     assert numpy.array_equal(actual, expected)
-    input = puan.ge_polytope(numpy.array([
+    input = puan.ge_polyhedron(numpy.array([
         [1, 1],
         [1, -1]
     ]))
     actual = input.reducable_columns_approx()
-    expected = puan.ge_polytope(numpy.array([0]))
+    expected = puan.ge_polyhedron(numpy.array([0]))
     assert numpy.array_equal(actual, expected)
 
 def test_reduce_columns():
     """Documentation example"""
-    input = puan.ge_polytope(numpy.array([
+    input = puan.ge_polyhedron(numpy.array([
         [0,-1, 1, 0, 0],
         [0, 0,-1, 1, 0],
         [0, 0, 0,-1, 1],
@@ -1485,7 +1485,7 @@ def test_reduce_columns():
 
     columns_vector = numpy.array([1, 0, -1, 0]) # meaning assume index 0 and not assume index 2
     actual = input.reduce_columns(columns_vector)
-    expected = puan.ge_polytope(numpy.array([
+    expected = puan.ge_polyhedron(numpy.array([
                         [1, 1, 0],
                         [0,-1, 0],
                         [0, 0, 1],
@@ -1494,36 +1494,36 @@ def test_reduce_columns():
 
 def test_reducable_rows():
     """Documentation example"""
-    input = puan.ge_polytope(numpy.array([[-3, -1, -1, 1, 0]]))
+    input = puan.ge_polyhedron(numpy.array([[-3, -1, -1, 1, 0]]))
     actual = input.reducable_rows()
-    expected = puan.ge_polytope(numpy.array([True]))
+    expected = puan.ge_polyhedron(numpy.array([True]))
     assert numpy.array_equal(actual, expected)
-    input = puan.ge_polytope(numpy.array([[0, 1, 1, 1, 0]]))
+    input = puan.ge_polyhedron(numpy.array([[0, 1, 1, 1, 0]]))
     actual = input.reducable_rows()
-    expected = puan.ge_polytope(numpy.array([True]))
+    expected = puan.ge_polyhedron(numpy.array([True]))
     assert numpy.array_equal(actual, expected)
 
 def test_reduce_rows():
     """Documentation example"""
-    input = puan.ge_polytope(numpy.array([
+    input = puan.ge_polyhedron(numpy.array([
         [0,-1, 1, 0, 0], # Reduce
         [0, 0,-1, 1, 0], # Keep
         [0, 0, 0,-1, 1], # Reduce
     ]))
     rows_vector = numpy.array([1, 0, 1])
     actual = input.reduce_rows(rows_vector)
-    expected = puan.ge_polytope(numpy.array([
+    expected = puan.ge_polyhedron(numpy.array([
         [0, 0,-1, 1, 0],
     ]))
     assert numpy.array_equal(actual, expected)
-    input = puan.ge_polytope(numpy.array([
+    input = puan.ge_polyhedron(numpy.array([
         [0,-1, 1, 0, 0], # Reduce
         [0, 0,-1, 1, 0], # Keep
         [0, 0, 0,-1, 1], # Reduce
     ]))
     rows_vector = numpy.array([True, False, True])
     actual = input.reduce_rows(rows_vector)
-    expected = puan.ge_polytope(numpy.array([
+    expected = puan.ge_polyhedron(numpy.array([
         [0, 0,-1, 1, 0],
     ]))
     assert numpy.array_equal(actual, expected)
@@ -1687,7 +1687,7 @@ def test_parsed_linerules2value_map():
         ({'a', 'q', 'e'}, 'REQUIRES_ALL', ('f', 'g', 'h'))
     ]
 
-    actual = puan.logic.cic.cicRs(line_rules).to_ge_polytope(puan.logic.cic.cicRs(line_rules).variables().index)
+    actual = puan.logic.cic.cicRs(line_rules).to_ge_polyhedron(puan.logic.cic.cicRs(line_rules).variables().index)
     for v in numpy.nditer(actual):
         try:
             int(v)
@@ -1900,7 +1900,7 @@ def test_convert_one_or_none_to_matrix():
 
     cicrs = puan.logic.cic.cicEs.from_strings(expected_line_rules).to_cicRs()
     variables = sorted(cicrs.variables())
-    actual_matrix = cicrs.to_ge_polytope(variables.index)
+    actual_matrix = cicrs.to_ge_polyhedron(variables.index)
 
     expected_matrix = numpy.array([
         [ -1,   0,   0,   0,   0,   0,   0],
@@ -1927,7 +1927,7 @@ def test_neglectable_columns():
     """Documentation example"""
     # Case 1: keep common pattern
     inputs = (
-        puan.ge_polytope(numpy.array([  # M
+        puan.ge_polyhedron(numpy.array([  # M
                     [-1,-1,-1, 0, 0, 0, 1],
                     [-1,-1, 0,-1, 0, 0, 1],
             ])),
@@ -1994,28 +1994,28 @@ def test_configuration2value_map():
     }
     assert actual == expected
 
-def test_polytope2value_map():
+def test_polyhedron2value_map():
     """Documentation example"""
     inputs = numpy.array([
                  [0,-1, 1, 0, 0],
                  [0, 0,-1, 1, 0],
                  [0, 0, 0,-1, 1],
              ])
-    actual = puan.ge_polytope(inputs).to_value_map()
+    actual = puan.ge_polyhedron(inputs).to_value_map()
     expected = {
         1: [[0, 1, 2], [2, 3, 4]],
         -1: [[0, 1, 2], [1, 2, 3]]
         }
     assert actual == expected
 
-def test_polytope2linalg():
+def test_polyhedron2linalg():
     """Documentation example"""
     inputs = numpy.array([
                  [0,-1, 1, 0, 0],
                  [0, 0,-1, 1, 0],
                  [0, 0, 0,-1, 1],
              ])
-    actual = puan.ge_polytope(inputs).to_linalg()
+    actual = puan.ge_polyhedron(inputs).to_linalg()
     expected = (numpy.array([
                     [-1, 1, 0, 0],
                     [0, -1, 1, 0],
@@ -2125,28 +2125,28 @@ def test_truncate_nd_state():
         assert (actual_output == expected_output).all()
 
 """
-def test_isin():
+def test_separable():
     """Documentation example"""
-    ge = puan.ge_polytope([0, -2, 1, 1])
-    actual_output = ge.isin(numpy.array([
+    ge = puan.ge_polyhedron([0, -2, 1, 1])
+    actual_output = ge.separable(numpy.array([
         [1,0,1],
         [1,1,1],
         [0,0,0]]))
-    expected_output = numpy.array([False, True, True])
+    expected_output = numpy.array([True, False, False])
     assert numpy.array_equal(actual_output, expected_output)
 
-def test_ineq_holds():
+def test_ineq_separate_points():
     """Documentation example"""
-    input = puan.ge_polytope(numpy.array([
+    input = puan.ge_polyhedron(numpy.array([
             [ 0, 1, 0],
             [ 0, 1, -1],
             [ -1, -1, 1]
         ]))
     points = numpy.array([[1, 1], [4, 2]])
-    actual = input.ineq_holds(points)
-    expected = numpy.array([True, True, False])
+    actual = input.ineq_separate_points(points)
+    expected = numpy.array([False, False, True])
     assert numpy.array_equal(actual, expected)
-    input = puan.ge_polytope(numpy.array([
+    input = puan.ge_polyhedron(numpy.array([
                 [ 0, 1, 0, -1],
                 [ 0, 1, -1, 0],
                 [ -1, -1, 1, -1]
@@ -2155,7 +2155,41 @@ def test_ineq_holds():
             [[1, 1, 1], [4, 2, 1]],
             [[0, 1, 0], [1, 2, 1]]
         ])
-    actual = input.ineq_holds(points)
-    expected = numpy.array([[True, True, False],
-                            [True, False, True]])
+    actual = input.ineq_separate_points(points)
+    expected = numpy.array([[False, False, True],
+                            [False, True, False]])
     assert numpy.array_equal(actual, expected)
+
+def test_or_get():
+    """Documentation example"""
+    input = dict((("a", 1), ("b", 2)))
+    keys = ["1", "a"]
+    actual = puan.misc.or_get(input, keys)
+    expected = 1
+    assert actual == expected
+    input = dict((("a", 1), ("b", 2)))
+    keys = ["b", "a"]
+    actual = puan.misc.or_get(input, keys)
+    expected = 2
+    assert actual == expected
+    input = dict((("a", 1), ("b", 2)))
+    keys = [1]
+    default_value = 0
+    actual = puan.misc.or_get(input, keys, default_value)
+    expected = 0
+    assert actual == expected
+
+def test_or_replace():
+    """Documentation example"""
+    input = dict((("a", 1), ("b", 2)))
+    keys = ["1", "a"]
+    value = "1"
+    actual = puan.misc.or_replace(input, keys, value)
+    expected = {'a': '1', 'b': 2}
+    assert actual == expected
+    input = dict((("a", 1), ("b", 2)))
+    keys = ["b", "a"]
+    value = "1"
+    actual = puan.misc.or_replace(input, keys, value)
+    expected = {'a': 1, 'b': '1'}
+    assert actual == expected

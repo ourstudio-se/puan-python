@@ -5,7 +5,12 @@ Summary
 --------
 TODO: Add summary here
 
-.. automodule:: puan.logic.sta
+.. currentmodule:: puan.logic.sta
+
+Application
++++++++++++++
+
+.. autoclass:: application
    :members:
    :undoc-members:
    :show-inheritance:
