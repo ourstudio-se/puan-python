@@ -5,6 +5,9 @@ Summary
 --------
 TODO: Add summary here
 
+Data types
+----------
+
 .. currentmodule:: puan.logic.sta
 
 Application
