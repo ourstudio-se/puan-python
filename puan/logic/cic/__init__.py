@@ -8,39 +8,17 @@ import puan.misc as msc
 import puan
 import numpy
 import enum
-
+import typing
 
 class ge_constraint(tuple):
 
     def __new__(cls, instance) -> dict:
         return tuple.__new__(cls, instance)
 
-class variable(object):
-
-    def __init__(self, id: str, dtype: typing.Union[bool, int], virtual: bool = False):
-        self.id = id
-        self.dtype = dtype
-        self.virtual = virtual
-
-    def __hash__(self):
-        return hash(self.id)
-
-    def __lt__(self, other):
-        return self.id < other.id
-
-    def __eq__(self, o):
-        return self.id == o.id
-
-    def __repr__(self):
-        return self.__str__()
-
-    def __str__(self):
-        return f"'{self.id}': {self.dtype} {'(virtual)' if self.virtual else ''}"
-
 class proposition(object):
     
     @abc.abstractclassmethod
-    def variables(self) -> typing.List[variable]:
+    def variables(self) -> typing.List[puan.variable]:
 
         """
             Returns variables for this proposition
@@ -60,12 +38,12 @@ class proposition(object):
 
 class variable_proposition(proposition):
 
-    def __init__(self, var: typing.Union[variable, str], dtype: typing.Union[bool, int] = bool):
+    def __init__(self, var: typing.Union[puan.variable, str], dtype: typing.Union[bool, int] = bool):
         if type(var) == str:
-            var = variable(var, bool)
+            var = puan.variable(var, bool)
         self.var = var
 
-    def variables(self) -> typing.List[variable]:
+    def variables(self) -> typing.List[puan.variable]:
         return [self.var]
 
     def to_constraints(self, variable_predicate) -> typing.List[ge_constraint]:
@@ -79,7 +57,7 @@ class variable_proposition(proposition):
 
 class boolean_variable_proposition(variable_proposition):
 
-    def __init__(self, var: typing.Union[variable, str], value: bool = True):
+    def __init__(self, var: typing.Union[puan.variable, str], value: bool = True):
         super().__init__(var, bool)
         self.value = value
 
@@ -88,9 +66,9 @@ class boolean_variable_proposition(variable_proposition):
 
 class discrete_variable_proposition(variable_proposition):
 
-    def __init__(self, var: typing.Union[variable, str], operator: str, value: int):
+    def __init__(self, var: typing.Union[puan.variable, str], operator: str, value: int):
         if type(var) == str:
-            var = variable(var, int)
+            var = puan.variable(var, int)
         super().__init__(var)
         self.operator = operator
         self.value = value
@@ -98,11 +76,11 @@ class discrete_variable_proposition(variable_proposition):
     def __hash__(self):
         return hash(self.var.id + self.operator + str(self.value))
 
-    def variables(self) -> typing.List[variable]:
+    def variables(self) -> typing.List[puan.variable]:
         return [self.var, self.supporting_variable()]
 
     def supporting_variable(self):
-        return variable(self.var.id + self.operator + str(self.value), bool, True)
+        return puan.variable(self.var.id + self.operator + str(self.value), bool, True)
 
     def to_constraints(self, variable_predicate = lambda x: x, min_int: int = numpy.iinfo(numpy.int16).min, max_int: int = numpy.iinfo(numpy.int16).max) -> typing.List[ge_constraint]:
         if self.operator == ">=":
@@ -158,7 +136,7 @@ class conditional_proposition(proposition):
         self.relation = relation
         self.propositions = propositions
 
-    def variables(self) -> typing.List[variable]:
+    def variables(self) -> typing.List[puan.variable]:
         return list(set(itertools.chain(*map(operator.methodcaller("variables"), self.propositions))))
 
     def to_constraints(self, variable_predicate = lambda x: x) -> itertools.chain:
@@ -212,7 +190,7 @@ class Implication(enum.Enum):
 
         if self == Implication.XOR:
             return [constants_map[Implication.ANY.value], constants_map[Implication.MOST_ONE.value]]
-        return constants_map[self.value]
+        return [constants_map[self.value]]
 
     def constraint_values(self: "Implication", condition_indices: typing.List[int], consequence_indices: typing.List[int], support_variable_index: int = 0) -> zip:
         constant_functions = self.constant_functions()
@@ -235,12 +213,12 @@ class Implication(enum.Enum):
 
 class implication_proposition(proposition):
 
-    def __init__(self, implies: Implication, condition: conditional_proposition, consequence: consequence_proposition):
+    def __init__(self, implies: Implication, consequence: consequence_proposition, condition: conditional_proposition = conditional_proposition("ALL", [])):
         self.condition = condition
         self.consequence = consequence
         self.implies = implies
 
-    def variables(self) -> typing.List[variable]:
+    def variables(self) -> typing.List[puan.variable]:
         return list(set(self.condition.variables() + self.consequence.variables()))
 
     def to_constraints(self, variable_predicate = lambda x: x) -> itertools.chain:
@@ -279,25 +257,25 @@ class conjunctional_proposition(conditional_proposition):
     def __init__(self, propositions: typing.List[conditional_proposition]):
         super().__init__(relation="ALL", propositions=propositions)
 
-    def variables(self) -> typing.Set[variable]:
+    def variables(self) -> typing.Set[puan.variable]:
         return set(itertools.chain(*map(operator.methodcaller("variables"), self.propositions)))
 
     def to_constraints(self, variable_predicate: lambda x: x) -> itertools.chain:
         return itertools.chain(*map(operator.methodcaller("to_constraints", variable_predicate=variable_predicate), self.propositions))
 
-    def to_ge_polytope(self, variable_predicate = None, support_variable_index: int = 0) -> puan.ge_polytope:
+    def to_ge_polytope(self, variable_predicate = None, support_variable_index: int = 0) -> puan.ge_polyhedron:
         variables = sorted(self.variables())
         variables_repr = [support_variable_index] + list(map(operator.attrgetter("id"), variables))
         if variable_predicate is None:
             variable_predicate = variables_repr.index
 
-        constraints = self.to_constraints(variable_predicate)
+        constraints = list(self.to_constraints(variable_predicate))
         constraints_unique = list(dict(zip(map(str, constraints), constraints)).values())
         matrix = numpy.zeros((len(constraints_unique), len(variables)+1), dtype=numpy.int16)
         for i, (indices, values) in enumerate(constraints_unique):
             matrix[i, indices] = values
 
-        return puan.ge_polytope(numpy.unique(matrix, axis=0), variables)
+        return puan.ge_polyhedron(numpy.unique(matrix, axis=0), variables)
 
 class cicJEs(list):
 
@@ -439,31 +417,6 @@ class cicJEs(list):
                     *map(
                         functools.partial(
                             cicJE.variables,
-                            id_ident=id_ident,
-                        ),
-                        self
-                    )
-                )
-            )
-        )
-
-    def to_cicRs(self, id_ident: str = "id") -> cicRs:
-
-        """
-            Converts directly to cicRs data type (cicE data types in between).
-
-            Returns
-            -------
-                out : cicRs
-        """
-
-        return cicRs(
-            itertools.chain(
-                *map(
-                    cicE.to_cicRs,
-                    map(
-                        functools.partial(
-                            cicJE.to_cicE,
                             id_ident=id_ident,
                         ),
                         self

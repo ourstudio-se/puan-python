@@ -1,6 +1,30 @@
 import numpy
 import typing
 import functools
+import operator
+import maz
+
+class variable(object):
+
+    def __init__(self, id: str, dtype: typing.Union[bool, int], virtual: bool = False):
+        self.id = id
+        self.dtype = dtype
+        self.virtual = virtual
+
+    def __hash__(self):
+        return hash(self.id)
+
+    def __lt__(self, other):
+        return self.id < other.id
+
+    def __eq__(self, o):
+        return self.id == o.id
+
+    def __repr__(self):
+        return self.__str__()
+
+    def __str__(self):
+        return f"'{self.id}': {self.dtype} {'(virtual)' if self.virtual else ''}"
 
 class ge_polyhedron(numpy.ndarray):
     """
@@ -43,12 +67,143 @@ class ge_polyhedron(numpy.ndarray):
 
     """
 
-    def __new__(cls, input_array):
-        return numpy.asarray(input_array).view(cls)
+    def __new__(cls, input_array, variables: typing.List[variable] = []):
+        arr = numpy.asarray(input_array).view(cls)
+        arr.variables = variables
+        return arr
 
     def __array_finalize__(self, obj):
         if obj is None:
             return
+
+        '''we essentially need to set all our attributes that are set in __new__ here again (including their default values). 
+        Otherwise numpy's view-casting and new-from-template mechanisms would break our class.
+        '''
+
+        self.variables = getattr(obj, 'variables', None)
+
+    def _copy_attrs_to(self, target):
+        '''copies all attributes of self to the target object. target must be a (subclass of) ndarray'''
+        target = target.view(ArraySubclass)
+        try:
+            target.__dict__.update(self.__dict__)
+        except AttributeError:
+            pass
+        return target
+
+    def A(self) -> numpy.ndarray:
+        
+        """
+            Matrix 'A', as in Ax >= b.
+
+            Returns
+            -------
+                out : numpy.ndarray
+
+            Examples
+            --------
+                >>> ge_polyhedron = ge_polyhedron(numpy.array([
+                >>>     [0,-1, 1, 0, 0],
+                >>>     [0, 0,-1, 1, 0],
+                >>>     [0, 0, 0,-1, 1],
+                >>> ]))
+                >>> ge_polyhedron.A()
+                array([
+                    [-1, 1, 0, 0],
+                    [0,-1, 1, 0],
+                    [0, 0,-1, 1],
+                ])
+        """
+        return numpy.array(self[:, 1:])
+
+    def b(self) -> numpy.ndarray:
+        
+        """
+            Support vector 'b', as in Ax >= b.
+
+            Returns
+            -------
+                out : numpy.ndarray
+
+            Examples
+            --------
+                >>> ge_polyhedron = ge_polyhedron(numpy.array([
+                >>>     [0,-1, 1, 0, 0],
+                >>>     [0, 0,-1, 1, 0],
+                >>>     [0, 0, 0,-1, 1],
+                >>> ]))
+                >>> ge_polyhedron.b()
+                array([0,0,0])
+        """
+        return numpy.array(self.T[0])
+
+    def integer_variable_indices(self) -> typing.Set[int]:
+
+        """
+            Variable indices where variable dtype is int.
+
+            Returns
+            -------
+                out : Set : int
+
+            Examples
+            --------
+                >>> ge_polyhedron = ge_polyhedron(numpy.array([
+                >>>     [0,-1, 1, 0, 0],
+                >>>     [0, 0,-1, 1, 0],
+                >>>     [0, 0, 0,-1, 1],
+                >>> ]), [variable("a", int), variable("b"), variable("c", int), variable("d")])
+                >>> ge_polyhedron.integer_variable_indices()
+                [0,2]
+        """
+
+        return set(
+            map(
+                operator.itemgetter(0), 
+                filter(
+                    maz.compose(
+                        functools.partial(operator.eq, int),
+                        operator.attrgetter("dtype"),
+                        operator.itemgetter(1)
+                    ),
+                    enumerate(self.variables)
+                )
+            )
+        )
+
+    def boolean_variable_indices(self) -> typing.Set[int]:
+
+        """
+            Variable indices where variable dtype is bool.
+
+            Returns
+            -------
+                out : Set : int
+
+            Examples
+            --------
+                >>> ge_polyhedron = ge_polyhedron(numpy.array([
+                >>>     [0,-1, 1, 0, 0],
+                >>>     [0, 0,-1, 1, 0],
+                >>>     [0, 0, 0,-1, 1],
+                >>> ]), [variable("a", int), variable("b"), variable("c", int), variable("d")])
+                >>> ge_polyhedron.integer_variable_indices()
+                [1,3]
+        """
+
+        return set(
+            map(
+                operator.itemgetter(0), 
+                filter(
+                    maz.compose(
+                        functools.partial(operator.eq, bool),
+                        operator.attrgetter("dtype"),
+                        operator.itemgetter(1)
+                    ),
+                    enumerate(self.variables)
+                )
+            )
+        )
 
     def to_value_map(self: numpy.ndarray) -> dict:
 
@@ -98,11 +253,11 @@ class ge_polyhedron(numpy.ndarray):
                 >>>    [0, 0, 0,-1, 1],
                 >>> ]))
                 >>> ge.to_linalg()
-                (ge_polyhedron([
+                (array([
                     [-1, 1, 0, 0],
                     [0, -1, 1, 0],
                     [0, 0, -1, 1]]),
-                ge_polyhedron([0,0,0]))
+                array([0,0,0]))
         """
         if self.ndim < 2:
             A = self[1:].copy()
@@ -110,7 +265,7 @@ class ge_polyhedron(numpy.ndarray):
         else:
             A = self[:, 1:].copy()
             b = self.T[0].copy()
-        return A, b
+        return numpy.array(A), numpy.array(b)
 
     def reducable_columns_approx(self: numpy.ndarray) -> numpy.ndarray:
         """
