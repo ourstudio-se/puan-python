@@ -1,3 +1,4 @@
+import abc
 import ast
 import maz
 import functools
@@ -5,8 +6,9 @@ import itertools
 import operator
 import typing
 import puan.misc as msc
-import puan.vmap as vmap
 import puan
+import numpy
+import enum
 
 """
     # Condition-Implies-Consequence (cic)
@@ -27,588 +29,294 @@ import puan
 
 """
 
-class cicR(tuple):
-    """
-        Condition-Implies-Consequence RAW (cicR) is a variant of cic logical rule defining relationship
-        between variables. It consist of four parameters: condition, rule type, consequence
-        and preferred. The data type is a tuple requiring at least three of these four parameters. The RAW
-        stands for the most atomic level of a cic, meaning "and" is implied in condition and consequence.
+class ge_constraint(tuple):
 
-        Parameters:
-            condition: a set of variables (strings) where "and" -relation is implied between the variables.
-            rule_type: enum/str: REQUIRES_ALL, REQUIRES_ANY, ONE_OR_NONE, FORBIDS_ALL
-            consequence: a set of variables (strings) where "and" -relation is implied between the variables.
-            preferred: when ambivalence exists, this parameter tells which variable to prefer over the others
-    """
+    def __new__(cls, instance) -> dict:
+        return tuple.__new__(cls, instance)
 
-    def __new__(self, condition, rule_type, consequence, preferred: tuple = ()):
-        return tuple.__new__(cicE, (set(condition), rule_type, set(consequence), preferred))
+class variable(object):
 
-    def __new__(self, as_tuple: tuple):
-        return tuple.__new__(cicE, (set(as_tuple[0]), as_tuple[1], set(as_tuple[2]), as_tuple[3] if len(as_tuple) == 4 else ()))
+    def __init__(self, id: str, dtype: typing.Union[bool, int], virtual: bool = False):
+        self.id = id
+        self.dtype = dtype
+        self.virtual = virtual
 
+    def __hash__(self):
+        return hash(self.id)
+
+    def __lt__(self, other):
+        return self.id < other.id
+
+    def __eq__(self, o):
+        return self.id == o.id
+
+    def __repr__(self):
+        return self.__str__()
+
+    def __str__(self):
+        return f"'{self.id}': {self.dtype} {'(virtual)' if self.virtual else ''}"
+
+class proposition(object):
     
-    def variables(self) -> list:
+    @abc.abstractclassmethod
+    def variables(self) -> typing.List[variable]:
+
         """
-            Returns variables in this cicR
+            Returns variables for this proposition
+        """
+        raise NotImplementedError()
+
+    @abc.abstractclassmethod
+    def to_constraints(self) -> typing.List[ge_constraint]:
+
+        """
+            Proposition as a (dict) ge-constraint.
 
             Return:
-                List[str]
+                ge_constraint
         """
-        return list(set(self[0]).union(self[2]))
+        raise NotImplementedError()
 
-    
-class cicRs(list):
+class variable_proposition(proposition):
 
-    """
-        Is a conjunction-list of `cicR` -items. 
-    """
-    _rule_conjunction_constants_map = {
-        "REQUIRES_ALL": lambda n_cond, n_cons: (-n_cons, 1, n_cons-n_cons*n_cond), # reqall
-        "REQUIRES_ANY": lambda n_cond, n_cons: (-n_cons, 1, -n_cons*n_cond+1), # reqany
-        "FORBIDS_ALL":  lambda n_cond, n_cons: (-n_cons, -1, -n_cond*n_cons), #forball
-        "ONE_OR_NONE":  lambda n_cond, n_cons: (-n_cons, -1, -n_cons*n_cond-1), # one-or-none
+    def __init__(self, var: typing.Union[variable, str], dtype: typing.Union[bool, int] = bool):
+        if type(var) == str:
+            var = variable(var, bool)
+        self.var = var
+
+    def variables(self) -> typing.List[variable]:
+        return [self.var]
+
+    def to_constraints(self, variable_predicate) -> typing.List[ge_constraint]:
+        return []
+
+    def representation(self) -> str:
+        return self.var.id
+
+    def __hash__(self):
+        return self.var.__hash__()
+
+class boolean_variable_proposition(variable_proposition):
+
+    def __init__(self, var: typing.Union[variable, str], value: bool = True):
+        super().__init__(var, bool)
+        self.value = value
+
+    def __repr__(self):
+        return f"{self.var.__repr__()} = {self.value}"
+
+class discrete_variable_proposition(variable_proposition):
+
+    def __init__(self, var: typing.Union[variable, str], operator: str, value: int):
+        if type(var) == str:
+            var = variable(var, int)
+        super().__init__(var)
+        self.operator = operator
+        self.value = value
+
+    def __hash__(self):
+        return hash(self.var.id + self.operator + str(self.value))
+
+    def variables(self) -> typing.List[variable]:
+        return [self.var, self.supporting_variable()]
+
+    def supporting_variable(self):
+        return variable(self.var.id + self.operator + str(self.value), bool, True)
+
+    def to_constraints(self, variable_predicate = lambda x: x, min_int: int = numpy.iinfo(numpy.int16).min, max_int: int = numpy.iinfo(numpy.int16).max) -> typing.List[ge_constraint]:
+        if self.operator == ">=":
+            return [
+                (
+                    [
+                        variable_predicate(self.supporting_variable().id),
+                        variable_predicate(self.var.id),
+                        variable_predicate(0),
+                    ],
+                    [max_int, -1, -self.value]
+                ),
+                (
+                    [
+                        variable_predicate(self.supporting_variable().id),
+                        variable_predicate(self.var.id),
+                        variable_predicate(0),
+                    ],
+                    [-self.value, 1, 0]
+                )
+            ]
+        elif self.operator == "<=":
+            return [
+                (
+                    [
+                        variable_predicate(self.supporting_variable().id),
+                        variable_predicate(self.var.id),
+                        variable_predicate(0),
+                    ],
+                    [max_int, -1, self.value]
+                ),
+                (
+                    [
+                        variable_predicate(self.supporting_variable().id),
+                        variable_predicate(self.var.id),
+                        variable_predicate(0),
+                    ],
+                    [-min_int, -1, -(min_int-self.value)]
+                )
+            ]
+        else:
+            raise Exception(f"continuous variable has invalid operator: '{self.operator}'")
+
+    def __repr__(self):
+        return f"('{self.var.id}': {self.var.dtype}  {self.operator} {self.value})"
+
+    def representation(self) -> str:
+        return self.supporting_variable().id
+
+class conditional_proposition(proposition):
+
+    def __init__(self, relation: str, propositions: typing.List[typing.Union["conditional_propositions", variable_proposition]]):
+        self.relation = relation
+        self.propositions = propositions
+
+    def variables(self) -> typing.List[variable]:
+        return list(set(itertools.chain(*map(operator.methodcaller("variables"), self.propositions))))
+
+    def to_constraints(self, variable_predicate = lambda x: x) -> itertools.chain:
+        return itertools.chain(*map(operator.methodcaller("to_constraints", variable_predicate=variable_predicate), self.propositions))
+
+    def to_dnf(self) -> map:
+        resolved = itertools.chain(
+            map(
+                conditional_proposition.to_dnf, 
+                filter(lambda x: isinstance(x, conditional_proposition), self.propositions)
+            ),
+            map(
+                lambda x: [(x,)],
+                filter(lambda x: not isinstance(x, conditional_proposition), self.propositions)
+            )
+        )
+        
+        return itertools.starmap(
+            maz.compose(list, itertools.chain),
+            itertools.product(*resolved) if self.relation == "ALL" else resolved
+        )
+
+class consequence_proposition(conditional_proposition):
+
+    def __init__(self, relation: str, propositions: typing.List[typing.Union["conditional_propositions", variable_proposition]], default: typing.List[variable_proposition] = []):
+        super().__init__(relation, propositions)
+        self.default = default
+
+class Implication(enum.Enum):
+
+    ALL         = 0
+    ANY         = 1
+    XOR         = 2
+    NONE        = 3
+    MOST_ONE    = 4
+
+    constants_map = {
+        0: lambda n_cond, n_cons: (-n_cons,  1, n_cons-n_cons*n_cond),
+        1: lambda n_cond, n_cons: (-n_cons,  1, -n_cons*n_cond+1),
+        3: lambda n_cond, n_cons: (-n_cons, -1, -n_cond*n_cons),
+        4: lambda n_cond, n_cons: (-n_cons, -1, -n_cons*n_cond-1),
     }
 
-    def __new__(cls, lst):
-        return list.__new__(cicRs, map(cicR, lst))
+    def constant_functions(self) -> typing.List["Implication"]:
+        constants_map = {
+            0: lambda n_cond, n_cons: (-n_cons,  1, n_cons-n_cons*n_cond),
+            1: lambda n_cond, n_cons: (-n_cons,  1, -n_cons*n_cond+1),
+            3: lambda n_cond, n_cons: (-n_cons, -1, -n_cond*n_cons),
+            4: lambda n_cond, n_cons: (-n_cons, -1, -n_cons*n_cond-1),
+        }
 
-    def _to_value_map(self: typing.List[cicR], variable_map: callable) -> vmap.value_map:
+        if self == Implication.XOR:
+            return [constants_map[Implication.ANY.value], constants_map[Implication.MOST_ONE.value]]
+        return constants_map[self.value]
 
-        """
-            Converts a list of cicR's into a value map.
+    def constraint_values(self: "Implication", condition_indices: typing.List[int], consequence_indices: typing.List[int], support_variable_index: int = 0) -> zip:
+        constant_functions = self.constant_functions()
+        return zip(
+            itertools.repeat(condition_indices + consequence_indices + [support_variable_index], len(constant_functions)),
+            itertools.starmap(
+                lambda cond_val, cons_val, support_val: list(
+                    itertools.chain(
+                        itertools.repeat(cond_val, len(condition_indices)),
+                        itertools.repeat(cons_val, len(consequence_indices)),
+                        itertools.repeat(support_val, 1),
+                    )
+                ),
+                map(
+                    lambda x: x(len(condition_indices), len(consequence_indices)),
+                    constant_functions
+                )
+            )
+        )
 
-            Parameters:
-                self:                   : list = a cicR-list
-                variable_map            : dict = a function f(str)->int mapping variable strings to integers
-                
-            NOTE support index defaults to index 0. The support index representing the support variable vector in a ge_polytope
-            
-            Return:
-                dict: value_map
-        """
-        support_variable_index : int = 0
+class implication_proposition(proposition):
 
-        variable_mapper = maz.compose(
+    def __init__(self, implies: Implication, condition: conditional_proposition, consequence: consequence_proposition):
+        self.condition = condition
+        self.consequence = consequence
+        self.implies = implies
+
+    def variables(self) -> typing.List[variable]:
+        return list(set(self.condition.variables() + self.consequence.variables()))
+
+    def to_constraints(self, variable_predicate = lambda x: x) -> itertools.chain:
+        varialble_predicate_map = maz.compose(
             list, 
             functools.partial(
                 map, 
                 maz.compose(
-                    functools.partial(operator.add, 1),
-                    variable_map
+                    variable_predicate, 
+                    operator.methodcaller("representation")
                 )
             )
         )
-
-        value_map = {}
-        for i, (condition_col_idxs, rule_type, consequence_col_idxs) in enumerate(
-            zip(
-                map(variable_mapper, map(operator.itemgetter(0), self)),
-                map(operator.itemgetter(1), self),
-                map(variable_mapper, map(operator.itemgetter(2), self))
-            )
-        ):
-            (condition_constant, consequence_constant, support_constant) = self._rule_conjunction_constants_map[rule_type](
-                len(condition_col_idxs),
-                len(consequence_col_idxs),
-            )
-            if condition_constant != 0 and condition_col_idxs:
-                value_map.setdefault(condition_constant, [[], []])
-                value_map[condition_constant][0] += list(itertools.repeat(i, len(condition_col_idxs)))
-                value_map[condition_constant][1] += condition_col_idxs
-
-            if consequence_constant != 0:
-                value_map.setdefault(consequence_constant, [[], []])
-                value_map[consequence_constant][0] += list(itertools.repeat(i, len(consequence_col_idxs)))
-                value_map[consequence_constant][1] += consequence_col_idxs
-
-            if support_constant != 0:
-                value_map.setdefault(support_constant, [[],[]])
-                value_map[support_constant][0] += [i]
-                value_map[support_constant][1] += [support_variable_index]
-
-        return vmap.value_map(value_map)
-
-    def to_ge_polytope(self, index_predicate) -> puan.ge_polytope:
-
-        """
-            Converts into a ge_polytope.
-
-            index_predicate: a function[str] -> int, mapping variable strings to index
-
-            Return:
-                ge_polytope
-        """
-        return puan.ge_polytope(cicRs._to_value_map(self, index_predicate).to_matrix())
-
-    def variables(self) -> list:
-
-        """
-            Collects variables in cicRs
-
-            Return:
-                List[str]
-        """
-        return list(
-            set(
+        return itertools.chain(
+            (
                 itertools.chain(
-                    *map(
-                        cicR.variables,
-                        self
-                    )
-                )
-            )
-        )
-
-class cicE(tuple):
-
-    """
-        Condition-Implies-Consequence EXPRESSIVE (cicE) is a variant of cic logical rule defining relationship
-        between variables. It consist of four parameters: condition, rule type, consequence
-        and preferred. The data type is a list requiring at least three of these four parameters. The E
-        stands for a expressive variant of a cic, meaning 
-            - the condition can be formed as combinations of "or" and "and" relations
-            - the rule types are extended with "REQUIRES_EXCLUSIVELY"
-
-        (*expressive condition*, *expressive rule type*, *consequence variables*)
-    """
-
-    _rule_map: dict = {
-        "REQUIRES_EXCLUSIVELY": ["REQUIRES_ANY", "ONE_OR_NONE"]
-    }
-
-    def __new__(self, condition, rule_type, consequence, preferred: tuple = ()):
-        return tuple.__new__(cicE, (condition, rule_type, set(consequence), preferred))
-
-    def __new__(self, as_tuple: tuple):
-        return tuple.__new__(cicE, (as_tuple[0], as_tuple[1], set(as_tuple[2]), as_tuple[3] if len(as_tuple) == 4 else ()))
-
-    def _expload_condition(self) -> typing.List["cicE"]:
-
-        """
-            Converts data type condition into a DNF.
-            Argument `condition` is either a tuple of tuples and/or lists
-            or list of tuples and/or lists.
-
-            Example: 
-                input: ((a & b) | (c & d))
-                output: [[a,b], [c,d]]
-
-            Return:
-                List[Set[str]]
-        """
-        condition = self[0]
-        def collect_allany_variables(sub_conditions, all_type = tuple, any_type = list):
-            all_variables_set = set()
-            any_variables_chunks = []
-            for sub_condition in sub_conditions:
-                sub_type = type(sub_condition)
-                variables = list(sub_condition)
-                if sub_type == all_type:
-                    all_variables_set.update(variables)
-                elif sub_type == any_type:
-                    any_variables_chunks.append(variables)
-                elif sub_type == str:
-                    all_variables_set.update(["".join(variables)])
-                else:
-                    raise Exception(f"got invalid type of condition chunk: `{sub_type}`")
-
-            return all_variables_set, any_variables_chunks
-
-        if len(condition) == 0:
-            result = [{}]
-        else:
-            condition_type = type(condition)
-            if condition_type == tuple:
-                all_variables_set, any_variables_chunks = collect_allany_variables(condition)
-                result = list(
-                    itertools.starmap(
-                        set.union,
-                        zip(
-                            itertools.cycle([all_variables_set]),
-                            map(
-                                maz.compose(list, set),
-                                itertools.product(*any_variables_chunks)
-                            )
+                    *itertools.starmap(
+                        maz.compose(list, self.implies.constraint_values),
+                        itertools.product(
+                            map(varialble_predicate_map, self.condition.to_dnf()), 
+                            map(varialble_predicate_map, self.consequence.to_dnf())
                         )
                     )
                 )
-
-            elif condition_type == list:
-                all_variables_set, any_variables_chunks = collect_allany_variables(
-                    condition,
-                    all_type=list,
-                    any_type=tuple
-                )
-                result = list(
-                    map(
-                        lambda x: set(x) if type(x) != str else set([x]),
-                        operator.add(
-                            list(all_variables_set),
-                            any_variables_chunks
-                        )
-                    )
-                )
-            
-            elif condition_type == str:
-                result = [{condition}]
-            else:
-                raise Exception(f"condition must be wrapped with `( )` or `[ ]` but found: {condition}")
-
-        return list(
-            map(
-                lambda cnd: cicE(
-                    (cnd, self[1], self[2], self[3] if len(self) == 4 else ())
-                ),
-                result
-            )
-        )
-
-    def _expload_rule_type_intermediate_type(self) -> typing.List["cicE"]:
-        """
-            Exploads rule types into many rules satisfying
-            cicR's rule types.
-
-            NOTE: The intermediate data type means a data type between a cicR and a cicE
-            which has the set types for the variables in condition and consequence BUT
-            can have expressive rule types such as REQUIRES_EXCLUSIVELY
-
-            Example:
-                input: [..., "REQUIRES_EXCLUSIVELY", ...]
-                output: [
-                    [..., "REQUIRES_ANY", ...],
-                    [..., "ONE_OR_NONE", ...],
-                ] 
-
-            Return:
-                list[cicE]
-        """
-        if self[1] in cicE._rule_map:
-            return list(
-                map(
-                    lambda x: cicE(
-                        (self[0], x, self[2], self[3] if len(self) == 4 else ())
-                    ),
-                    cicE._rule_map.get(self[1])
-                )
-            )
-
-        return [self]
-    
-    def to_cicRs(self) -> typing.List[cicR]:
-
-        """
-            Converts a cicE into a list of cicRs.
-
-            Return:
-                list[cicR]
-        """
-        return cicRs(
-            itertools.chain(
-                *map(
-                    cicE._expload_rule_type_intermediate_type,
-                    self._expload_condition()
-                )
-            )
-        )
-    
-    @staticmethod
-    def from_string(cicE_str: str) -> "cicE":
-
-        """
-            Convert from string into a cicE.
-
-            Example:
-                input: "(('a','b'),'REQUIRES_EXCLUSIVELY',('x','y','z'), ('y',))"
-                output: [("a", "b"), "REQUIRES_EXCSLUIVELY", ("x", "y", "z"), ("y")]
-
-            Return:
-                cicE
-        """
-        return cicE(ast.literal_eval(cicE_str))
-
-    @staticmethod
-    def from_json(json_rule: dict, id_ident: str = "id") -> "cicE":
-
-        """
-            Converts a cicE on json into a interal cicE data type.
-
-            Example:
-                Input:
-                    json_rule = {
-                        "condition": {
-                            "relation": "ALL",
-                            "subConditions": [
-                                {
-                                    "relation": "ANY",
-                                    "components": [
-                                        {"id": "x"},
-                                        {"id": "y"}
-                                    ]
-                                },
-                                {
-                                    "relation": "ANY",
-                                    "components": [
-                                        {"id": "a"},
-                                        {"id": "b"}
-                                    ]
-                                }
-                            ]
-                        },
-                        "consequence": {
-                            "ruleType": "REQUIRES_ALL",
-                            "components": [
-                                {"id": "m"},
-                                {"id": "n"},
-                                {"id": "o"},
-                            ]
-                        }
-                    }
-
-                    id_ident = "id"
-
-                Output:
-                    "(['x','y'],['a','b']),'REQUIRES_ALL',('m','n','o')"
-                    "(['x','y'],['a','b']),'REQUIRES_ALL',('m','n','o')"
-
-            Return:
-                cicE
-        """
-        return cicE([
-            (tuple if json_rule['condition']['relation'] == "ALL" else list)(
-                [
-                    (tuple if sub_condition['relation'] == "ALL" else list)(
-                        [
-                            component[id_ident]
-                            for component in sub_condition['components']
-                        ]
-                    )
-                    for sub_condition in json_rule['condition']['subConditions']
-                ]
             ),
-            json_rule['consequence']['ruleType'],
-            tuple(
-                [x[id_ident] for x in json_rule['consequence']['components']]
-            ),
-            tuple(json_rule['consequence'].get("preferred", ()))
-        ])
-
-class cicEs(list):
-    
-    """
-        Is a conjunction-list of `cicE` -items. 
-    """
-
-    def __new__(cls, lst):
-        return list.__new__(cicEs, map(cicE, lst))
-
-    @staticmethod
-    def from_strings(strs: list) -> "cicEs":
-
-        """
-            Convert cicEs on string format into cicEs
-
-            Return:
-                cicEs
-        """
-        return cicEs(
-            map(
-                cicE.from_string,
-                strs
-            )
-        )
-    
-    def to_cicRs(self) -> cicRs:
-
-        """
-            Converts into cicRs data format.
-
-            Return:
-                cicRs
-        """
-        return cicRs(
-            itertools.chain(
-                *map(
-                    cicE.to_cicRs,
-                    self
-                )
-            )
-        )
-
-class cicJE(dict):
-
-    """
-        Is a Condition-Implies-Consequence data type represented on json-format.
-        The J is for Json and E is for Expressive. It contains same data as a cicE and thus
-        has a one-to-one mapping into a cicE. 
-
-        Example data: 
-        
-            cicJE_instance = {
-                "condition": {
-                    "relation": "ALL",
-                    "subConditions": [
-                        {
-                            "relation": "ANY",
-                            "components": [
-                                {"id": "a"},
-                                {"id": "b"}
-                            ]
-                        },
-                        {
-                            "relation": "ANY",
-                            "components": [
-                                {"id": "c"},
-                                {"id": "d"}
-                            ]
-                        }
-                    ]
-                },
-                "consequence": {
-                    "ruleType": "REQUIRES_EXCLUSIVELY",
-                    "components": [
-                        {"id": "x"},
-                        {"id": "y"},
-                        {"id": "z"}
-                    ]
-                },
-                "preferred": [{"id": "z"}]
-            }
-    """
-
-    def to_cicE(self, id_ident: str = "id") -> cicE:
-        """
-            Convert into a cicE.
-
-            Example:
-                Input: {
-                    "condition": {
-                        "relation": "ALL",
-                        "subConditions": [
-                            {
-                                "relation": "ANY",
-                                "components": [
-                                    {"id": "a"},
-                                    {"id": "b"}
-                                ]
-                            },
-                            {
-                                "relation": "ANY",
-                                "components": [
-                                    {"id": "c"},
-                                    {"id": "d"}
-                                ]
-                            }
-                        ]
-                    },
-                    "consequence": {
-                        "ruleType": "REQUIRES_EXCLUSIVELY",
-                        "components": [
-                            {"id": "x"},
-                            {"id": "y"},
-                            {"id": "z"}
-                        ]
-                    },
-                    "preferred": [{"id": "z"}]
-                }
-
-                Output: [
-                    (["a","b"], ["c","d"]),
-                    "REQUIRES_EXCLUSIVELY",
-                    ("x","y","z"),
-                    ("z")
-                ]
-
-            Return:
-                cicE
-        """
-        return cicE.from_json(self, id_ident)
-
-    @staticmethod
-    def _condition2variables(condition: dict, id_ident: str = "id"):
-
-        """
-            Returns a list of unique variables from a rule condition.
-            A variable is component[id_ident].
-
-            Return:
-                List[str]
-        """
-
-        return list(
-            set(
-                itertools.chain(
-                    *map(
-                        lambda sub_condition: map(
-                            operator.itemgetter(id_ident),
-                            sub_condition.get("components", [])
-                        ),
-                        msc.or_get(
-                            condition,
-                            ["subConditions", "sub_conditions"],
-                            [],
-                        )
-                    )
-                )
-            )
+            self.condition.to_constraints(variable_predicate),
+            self.consequence.to_constraints(variable_predicate)
         )
 
     @staticmethod
-    def _consequence2variables(consequence: dict, id_ident: str = "id"):
+    def from_cicR(cicR: str) -> "implication_proposition":
+        return implication_proposition(condition, consequence)
 
-        """
-            Returns a list of unique variables from a rule consequence.
-            A variable is component[id_ident].
+class conjunctional_proposition(conditional_proposition):
 
-            Return:
-                List[str]
-        """
-        return list(
-            set(
-                map(
-                    lambda component: component[id_ident],
-                    consequence.get('components', [])
-                )
-            )
-        )
+    def __init__(self, propositions: typing.List[conditional_proposition]):
+        super().__init__(relation="ALL", propositions=propositions)
 
-    def rule_type_get(self: dict) -> str:
+    def variables(self) -> typing.Set[variable]:
+        return set(itertools.chain(*map(operator.methodcaller("variables"), self.propositions)))
 
-        """
-            Gets rule type of rule.
+    def to_constraints(self, variable_predicate: lambda x: x) -> itertools.chain:
+        return itertools.chain(*map(operator.methodcaller("to_constraints", variable_predicate=variable_predicate), self.propositions))
 
-            Return:
-                str
-        """
-        return msc.or_get(self['consequence'], ['rule_type', 'ruleType'])
+    def to_ge_polytope(self, variable_predicate = None, support_variable_index: int = 0) -> puan.ge_polytope:
+        variables = sorted(self.variables())
+        variables_repr = [support_variable_index] + list(map(operator.attrgetter("id"), variables))
+        if variable_predicate is None:
+            variable_predicate = variables_repr.index
 
-    def sub_conditions_get(self: dict) -> str:
+        constraints = self.to_constraints(variable_predicate)
+        constraints_unique = list(dict(zip(map(str, constraints), constraints)).values())
+        matrix = numpy.zeros((len(constraints_unique), len(variables)+1), dtype=numpy.int16)
+        for i, (indices, values) in enumerate(constraints_unique):
+            matrix[i, indices] = values
 
-        """
-            Gets sub conditions of rule.
-
-            Return:
-                str
-        """
-        return msc.or_get(self['condition'], ['sub_conditions', 'subConditions'], [])
-
-    def variables(self: dict, id_ident: str = "id") -> list:
-
-        """
-            Returns a list of unique variables from a rule. The variable is
-            the component[id_ident] in this case.
-
-            Return:
-                List[str]
-        """
-        return list(
-            set(
-                operator.add(
-                    cicJE._condition2variables(self.get('condition', {}), id_ident),
-                    cicJE._consequence2variables(self.get('consequence', {}), id_ident)
-                )
-            )
-        )
+        return puan.ge_polytope(numpy.unique(matrix, axis=0), variables)
 
 class cicJEs(list):
 
@@ -756,27 +464,6 @@ class cicJEs(list):
                         ),
                         self
                     )
-                )
-            )
-        )
-
-    def to_cicEs(self, id_ident: str = "id") -> cicEs:
-
-        """
-            Converts to cicEs data type.
-
-            Return:
-                cicEs
-        """
-
-        return cicRs(
-            itertools.chain(
-                *map(
-                    functools.partial(
-                        cicJE.to_cicE,
-                        id_ident=id_ident,
-                    ),
-                    self
                 )
             )
         )
