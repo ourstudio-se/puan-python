@@ -11,6 +11,13 @@ class application(dict):
         application is a meta variant of a cic-rule where relations between variables
         are set based on variable properties. The variables in this context are called
         items and are objects which can hold any data but requires an "id".
+
+        Methods
+        -------
+        replace_variables
+            Replaces literal values with variable if match.
+        to_cicJEs
+            Converts an application and items to one or many configuration rules.
     """
 
     @staticmethod
@@ -46,7 +53,7 @@ class application(dict):
         else:
             raise Exception(f"Cannot handle type {type(from_dict)}")
 
-    @functools.lru_cache() 
+    @functools.lru_cache()
     def _operators_map():
         return {
             "==": operator.eq,
@@ -62,8 +69,9 @@ class application(dict):
         """
             Validates if item[key] != value.
 
-            Return:
-                bool
+            Returns
+            -------
+                out : bool
         """
         operators = application._operators_map()
         if not literal["operator"] in operators:
@@ -88,8 +96,9 @@ class application(dict):
         """
             Validates an item with an operation list.
 
-            Return:
-                bool
+            Returns
+            -------
+                out : bool
         """
 
         return all(
@@ -107,11 +116,15 @@ class application(dict):
             Given an operation list and list of dictionaries, dictionaries are extracted
             based on the logic from operation_list.
 
-            NOTE: If selector["active"] is true and no extractors are defined, then all items are returnd.
-                If selector["active"] is false, then no item are returned.
+            Returns
+            -------
+                out : list
 
-            Return:
-                list
+            Notes
+            -----
+            If selector["active"] is true and no extractors are defined, then all items are returnd.
+            If selector["active"] is false, then no item are returned.
+
         """
         if len(conjunction_selector.get("disjunctions", [])) == 0:
             iterator = (x for x in items)
@@ -133,8 +146,9 @@ class application(dict):
             Extracts items using selector's extractions and applies requirement checks.
             If any requirement is not fulfilled, then exception is raised.
 
-            Return:
-                list(list)
+            Returns
+            -------
+                out : list(list)
         """
         requirement_checks = {
             "EMPTY": lambda items: len(items) == 0,
@@ -158,8 +172,9 @@ class application(dict):
         """
             Group items by their keys `group_bys` -value's.
 
-            Return:
-                List[Dict[str, ]]
+            Returns
+            -------
+                out : List[Dict[str, ]]
         """
 
         grouping = {}
@@ -183,8 +198,9 @@ class application(dict):
         """
             Extracts items using collector and applies grouping.
 
-            Return:
-                list(list)
+            Returns
+            -------
+                out : list(list)
         """
         on_key = collector.get("groupBy", {}).get("onKey", "")
         selected_items = application._apply_selector(collector["selector"], to_items)
@@ -199,8 +215,9 @@ class application(dict):
             Replaces variable value from variables in application into
             many applications.
 
-            Return:
-                List (Application)
+            Returns
+            -------
+                out : List (Application)
         """
         if len(self.get("variables", [])) == 0:
             return [self]
@@ -218,8 +235,9 @@ class application(dict):
         """
             Replaces literal values with variable if match. Returns a copy of application.
 
-            Return:
-                Application
+            Returns
+            -------
+                out : Application
         """
 
         _application = copy.deepcopy(self)
@@ -236,8 +254,9 @@ class application(dict):
         """
         Converts an application and items to one or many configuration rules.
 
-        Return:
-            iterator (ConfigRule)
+        Returns
+        -------
+            out : iterator (ConfigRule)
     """
         for _application in application._explode_from_variables(self):
 

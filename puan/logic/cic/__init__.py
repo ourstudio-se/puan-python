@@ -4,30 +4,11 @@ import maz
 import functools
 import itertools
 import operator
-import typing
 import puan.misc as msc
 import puan
 import numpy
 import enum
 
-"""
-    # Condition-Implies-Consequence (cic)
-
-    Condition-Implies-Consequence (cic) is an abstract data type defining logical relationship
-    between variables in a combinatorial optimization manner. A cic is created from "if this then that"
-    sentence and is easy to understand and grasp. It is also a specific instance from a propositional
-    logic expression with the implies-operator in between a "if" and "then". 
-    For example, "if it is raining then I'll take the umbrella" could be written as "a -> b" where 
-    if a = "it is raining" and b = "take the umbrella".
-
-    Data types:
-        - cicR:     The RAW format of a cic, meaning the condition and consequence are both conjunctions.
-                    This format has a one-to-one mapping into a linear programming constraint.
-        - cicE:     A more Expressive format where the condition can be written either as a DNF or a CNF.
-                    also "REQUIRES_EXCLUSIVELY" rule type exist here.
-        - cicJE:    JSON version of cicE
-
-"""
 
 class ge_constraint(tuple):
 
@@ -322,6 +303,19 @@ class cicJEs(list):
 
     """
         A conjunction of cicJE's.
+
+        Methods
+        -------
+        compress
+            TODO
+        split
+            Splits a ruleset into subsets of independet rules.
+        variables
+            Return variables as a set from this list of cicJE's.
+        to_cicRs
+            Converts directly to cicRs data type (cicE data types in between).
+        to_cicEs
+            Converts to cicEs data type.
     """
 
     @staticmethod
@@ -380,15 +374,21 @@ class cicJEs(list):
                     rules_to_remove.append(rule)
             compressed_ruleset.append(current_rule)
             self = [rule for rule in self if not rule in rules_to_remove]
-        
+
         return cicJEs(compressed_ruleset)
 
     def split(self: list, id_ident: str="id") -> typing.List["cicJEs"]:
         """
             Splits a ruleset into subsets of independet rules, i.e. the configuration can be solved for each ruleset separately.
 
-            Return:
-            List[List(rules)]
+            Parameters
+            ----------
+            id_ident : str
+                the id-property in component objects.
+
+            Returns
+            -------
+                out : List[List(cucJEs)]
         """
         rule_indices = list(range(len(self)))
         unexamined_rules = [rule_indices.pop(0)]
@@ -415,7 +415,7 @@ class cicJEs(list):
                 if rule_indices:
                     unexamined_rules = [rule_indices[0]]
                     rule_indices.pop(0)
-                    
+
         return [cicJEs([self[index] for index in indices]) for indices in rules_in_relation_list]
 
     def variables(self, id_ident: str = "id") -> list:
@@ -423,11 +423,14 @@ class cicJEs(list):
         """
             Return variables as a set from this list of cicJE's.
 
-            Params:
-                id_ident: str = is the id-property in component objects.
+            Parameters
+            ----------
+                id_ident : str
+                    the id-property in component objects.
 
-            Return:
-                Set[str]
+            Returns
+            -------
+                out : Set[str]
         """
 
         return list(
@@ -435,9 +438,9 @@ class cicJEs(list):
                 itertools.chain(
                     *map(
                         functools.partial(
-                            cicJE.variables, 
+                            cicJE.variables,
                             id_ident=id_ident,
-                        ), 
+                        ),
                         self
                     )
                 )
@@ -445,12 +448,13 @@ class cicJEs(list):
         )
 
     def to_cicRs(self, id_ident: str = "id") -> cicRs:
-        
+
         """
             Converts directly to cicRs data type (cicE data types in between).
 
-            Return:
-                cicRs
+            Returns
+            -------
+                out : cicRs
         """
 
         return cicRs(

@@ -6,20 +6,40 @@ class value_map(dict):
     """
         `value_map` is a dict and a way of storing matrix-data more compressed.
         Each key
+
+        Methods
+        --------
+        to_matrix
+            Expands the value map into a numpy matrix.
+        merge
+            Recursively merges value maps into one value map. (static)
+
     """
 
     def to_matrix(self: dict, m_max: int = 0, dtype = numpy.int16) -> numpy.ndarray:
 
         """
-            Expands the value map into a numpy matrix. 
+        Expands the value map into a numpy matrix.
 
-            Parameters:
-                m_max: maximimum column width
+        Parameters
+        -----------
+        m_max : int
+            Maximimum column width
+        d_type : data-type, optional
+            The desired data-type for the array, e.g., `numpy.int8`.  Default is `numpy.int16`
 
-            Example: ...
+        Examples
+        ---------
+        >>> value_map({1: [[0, 0, 2, 1], [0, 4, 2, 1]],
+        >>>            2: [[1, 1, 2], [3, 4, 0]]}).to_matrix()
+        array([[1, 0, 0, 0, 1],
+               [0, 1, 0, 2, 2],
+               [2, 0, 1, 0, 0]], dtype=int16)
 
-            Return:
-                numpy.ndarray: (n x m)
+
+        Returns
+        --------
+        numpy.ndarray: (n x m)
         """
         if self == {}:
             # A linprog system has at least the support vector
@@ -41,13 +61,25 @@ class value_map(dict):
     @staticmethod
     def merge(*value_maps) -> dict:
         """
-            `merge` merges recursively value maps into one value map.
-            Since the row indices from one value map to the other may collide,
-            each merge will first find the highest row index value in the left
-            value map, and then add it onto all the row values of the right value map.
+        Recursively merges value maps into one value map, such that value mapps to the
+        right are appended to the first value map of the iterable.
 
-            Return:
-                dict (value map): value -> [[row_idxs], [col_idxs]]
+        Parameters
+        ----------
+        value_maps : iterable (value_map)
+
+        Returns
+        -------
+        dict (value map): value -> [[row_idxs], [col_idxs]]
+
+        Examples
+        --------
+        >>> v1 = value_map({1: [[0, 1, 3], [0, 1, 3]],
+        >>>               -1: [[1, 2], [0, 2]]})
+        >>> v2 = value_map({1: [[0, 1], [1, 4]],
+        >>>                2: [[1, 2], [0, 2]]})
+        >>> v3 = value_map({3: [[1, 1], [1, 4]]})
+        >>> v1.merge([v1, v2, v3])
         """
         if len(value_maps) == 0:
             return value_map({})
