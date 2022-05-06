@@ -695,7 +695,8 @@ class integer_ndarray(numpy.ndarray):
             Takes an integer ndarray and truncates it such that the values of the output array totally
             shadows the inferior values of the input array. Specifically,
                 - If integer ndarray is 1-D it returns a 1-D integer ndarray where each value of the output vector
-                  totally shadows the values for lower input values.
+                  totally shadows the values for lower input values. The lowest non-zero number, regardless of sign,
+                  gets output value 1.
 
                 - If integer ndarray is 2-D it returns a 1-D integer ndarray where each value of the output vector
                   totally shadows the values for lower input values and values of preceding rows.
