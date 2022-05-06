@@ -15,8 +15,6 @@ Data types
 ----------
    :class:`puan.logic.cic.cicR` : The RAW format of a cic, meaning the condition and consequence are both conjunctions. This format has a one-to-one mapping into a linear programming constraint.
 
-   :class:`puan.logic.cic.cicE` : A more Expressive format where the condition can be written either as a DNF or a CNF, also ``REQUIRES_EXCLUSIVELY`` rule type exist here.
-
    :class:`puan.logic.cic.cicJE` : JSON version of cicE
 
 
@@ -26,14 +24,6 @@ cicR
 +++++
 
 .. autoclass:: cicR
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
-cicE
-+++++
-
-.. autoclass:: cicE
    :members:
    :undoc-members:
    :show-inheritance:

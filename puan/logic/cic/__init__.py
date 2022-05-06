@@ -600,6 +600,18 @@ class cicJEs(list):
     """
         A conjunction of cicJE's.
 
+        Methods
+        -------
+        compress
+            TODO
+        split
+            Splits a ruleset into subsets of independet rules.
+        variables
+            Return variables as a set from this list of cicJE's.
+        to_cicRs
+            Converts directly to cicRs data type (cicE data types in between).
+        to_cicEs
+            Converts to cicEs data type.
     """
 
     def to_conjunctional_proposition(self, id_ident: str = "id") -> conjunctional_proposition:
