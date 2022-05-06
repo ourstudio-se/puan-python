@@ -3,7 +3,8 @@ import typing
 import functools
 import operator
 import maz
-
+import math
+import puan.npufunc
 class variable(object):
 
     def __init__(self, id: str, dtype: typing.Union[bool, int], virtual: bool = False):
@@ -845,74 +846,126 @@ class integer_ndarray(numpy.ndarray):
     def truncate(self: numpy.ndarray) -> numpy.ndarray:
 
         """
-            Takes an integer ndarray and truncates it into a vector. (This function is used in the context of
-            combinatorial optimization where one assumes that items has positive and negative prios from user)
+            Takes an integer ndarray and truncates it such that the values of the output array totally
+            shadows the inferior values of the input array. Specifically,
+                - If integer ndarray is 1-D it returns a 1-D integer ndarray where each value of the output vector
+                  totally shadows the values for lower input values. The lowest non-zero number, regardless of sign,
+                  gets output value 1.
+
+                - If integer ndarray is 2-D it returns a 1-D integer ndarray where each value of the output vector
+                  totally shadows the values for lower input values and values of preceding rows.
+
+                - If integer ndarray is M-D it is seen as M-2 collections of 2-D arrays which are truncated. The
+                  output is of size (M-1)-D
 
             Returns
             -------
-                out : numpy.ndarray (1d)
+                out : numpy.ndarray
 
             Notes
             -----
-            A *prio vector* is a vector with negative and positive integer numbers where each number indicates a negative
-            or positive prioritization. High number means higher prio. E.g. [ 1, 2, 3,-1,-2] means that index
-            1 has higher prio than index 0, and index 4 has higher negative prio than index 3.
-
-            A *prio matrix* consist of prio vectors but has also a prioritization between the vectors. So, a vector
-            on row index 0 has lower prio than a row vector on index 1.
+            This function is used in the context of combinatorial optimization where items have different priorities among each other.
+            Priorities can be positive or negative, where positive priorities means prefer and negative means disprefer.
+            High number means higher priority and higher row index means higher priority than the rows below.
 
             Examples
             --------
-                >>> self = integer_ndarray([
-                >>>         [ 0, 0, 0, 0, 1, 2],
-                >>>         [-1,-1,-1,-1, 0, 0],
-                >>>         [ 0, 0, 1, 2, 0, 0],
-                >>>         [ 0, 0, 1, 0, 0, 0]
-                >>>     ])
-                >>> self.truncate()
-                numpy.array([-3,-3, 5, 4, 1, 2])
+                >>> integer_ndarray([1, 2, 3, 4]).truncate()
+                integer_ndarray([1, 2, 4, 8])
+
+                >>> integer_ndarray([3, 6, 2, 8]).truncate()
+                integer_ndarray([2, 4, 1, 8])
+
+                >>> integer_ndarray([-3, -6, 2, 8]).truncate()
+                integer_ndarray([-2, -4, 1, 8])
+
+                >>> integer_ndarray([1, 1, 2, 2, 2, 3]).truncate()
+                integer_ndarray([ 1,  1,  3,  3,  3, 12])
+
+                2-d
+
+                >>> integer_ndarray([
+                >>>     [ 0, 0, 0, 0, 1, 2],
+                >>>     [-1,-1,-1,-1, 0, 0],
+                >>>     [ 0, 0, 1, 2, 0, 0],
+                >>>     [ 0, 0, 1, 0, 0, 0]
+                >>> ]).truncate()
+                integer_ndarray([-4, -4, 24, 12,  1,  2])
+
+                3-d
+
+                >>> integer_ndarray([
+                >>>    [
+                >>>         [ 1,  2,  2,  2,  2],
+                >>>         [ 1, -2, -1,  2, -2],
+                >>>         [ 1,  0,  2, -1, -1],
+                >>>         [ 2,  1,  1,  0,  1]
+                >>>    ], [
+                >>>         [-1,  0, -1,  2,  0],
+                >>>         [-1,  1, -2,  2, -1],
+                >>>         [ 0, -2,  1, -2,  2],
+                >>>         [ 0, -2,  2,  2,  0]
+                >>>     ], [
+                >>>         [ 1, -1,  0,  1,  1],
+                >>>         [ 2,  2,  1,  1, -2],
+                >>>         [ 2, -1, -2, -2,  0],
+                >>>         [ 1, -1,  1,  0,  2]
+                >>>     ]])
+                integer_ndarray([
+                    [ 8,  2,  2, -1,  2],
+                    [-1, -4,  4,  4,  2],
+                    [ 2, -2,  2,  1,  8]])
+                )
 
         """
         if self.ndim > 2:
-            return integer_ndarray.truncate(
-                integer_ndarray(
-                    list(
-                        map(
-                            integer_ndarray.truncate,
-                            self
+            return integer_ndarray(
+                        list(
+                            map(
+                                integer_ndarray.truncate,
+                                self
+                            )
                         )
                     )
-                )
-            )
+
         elif self.ndim == 2:
-            # self_abs = numpy.abs(self)
-            # neg_value_msk = self < 0
-            # row_value_offset = numpy.pad(
-            #         numpy.cumsum(
-            #             self_abs.sum(axis=1)
-            #         ),
-            #         (1,0)
-            #     )[:-1].reshape(-1,1) * (self != 0)
-            # offset_abs = (self_abs + row_value_offset)
-            # offset_ord = offset_abs * ~neg_value_msk + offset_abs * neg_value_msk * -1
-            # offset_ord_rev = offset_ord[::-1]
-            # min_non_zero_row_idx = (offset_ord_rev != 0).argmax(axis=0)
-            # truncated = offset_ord_rev[min_non_zero_row_idx, numpy.arange(offset_abs.shape[1])]
-            # truncated_neg_msk = truncated < 0
-            # truncated_abs = numpy.abs(truncated)
-            # non_zeros = numpy.nonzero(truncated_abs)
-            # if non_zeros[0].size > 0:
-            #     truncated_abs_norm = truncated_abs - (truncated_abs[non_zeros].min()-1)
-            # else:
-            #     truncated_abs_norm = truncated_abs
-            # truncated_norm = truncated_abs_norm * ~truncated_neg_msk + truncated_abs_norm * truncated_neg_msk * -1
-            # return truncated_norm
-            return integer_ndarray.truncate(self.flatten()).reshape()
+            # Reduce self to only include higest priorities
+            row_idxs = (self[::-1] != 0).argmax(axis=0).flatten()
+            col_idxs = numpy.arange(self.shape[1])
+            self_reduced = numpy.zeros(self.shape)
+            self_reduced[row_idxs, col_idxs] = 1
+            self_reduced = (self_reduced * self[::-1])[::-1]
+            # Convert negatives to positives
+            self_reduced_abs = numpy.abs(self_reduced)
+            #Remove zero rows
+            self_reduced_abs = self_reduced_abs[~numpy.all(self_reduced_abs == 0, axis=1)]
+            if self_reduced_abs.shape[0] == 0:
+                return numpy.zeros(self.shape[1], dtype=numpy.int64)
+            # Prepare input to optimized bit allocation
+            # Priorities of each row must be sorted and later converted back
+            ufunc_inp_sorted_args = numpy.argsort(self_reduced_abs)
+            self_reduced_abs_sorted = self_reduced_abs[numpy.arange(self_reduced_abs.shape[0]).reshape(-1,1), ufunc_inp_sorted_args]
+            # Multiply every second row with -1, this will distinguish the priorities between the rows
+            ufunc_inp = self_reduced_abs * numpy.array(list(map(lambda x: math.pow(-1, x), range(self_reduced_abs.shape[0])))).reshape(-1,1)
+            # Sort priorities of each row and omit zero values
+            ufunc_inp = ufunc_inp[numpy.arange(self_reduced_abs.shape[0]).reshape(-1,1), ufunc_inp_sorted_args]
+            ufunc_inp = ufunc_inp[ufunc_inp != 0].flatten()
+            values = puan.npufunc.optimized_bit_allocation_64(ufunc_inp.astype(numpy.int64))
+            # Update priorities with optimized bit allocation values
+            self_reduced_abs_sorted[self_reduced_abs_sorted != 0] = values
+            # Get reversed sorting
+            ufunc_inp_sorted_args_rev = numpy.argsort(ufunc_inp_sorted_args)
+            # Convert back to original sorting
+            self_reduced_abs = self_reduced_abs_sorted[numpy.arange(self_reduced_abs.shape[0]).reshape(-1,1), ufunc_inp_sorted_args_rev]
+            # Truncate matrix and convert back to original negatives
+            truncated = self_reduced_abs.max(axis=0)
+            truncated_neg = self_reduced.min(axis=0)
+            truncated[truncated_neg < 0] = truncated[truncated_neg < 0] * -1
+            return truncated.astype(numpy.int64)
         elif self.ndim == 1:
-            return self
+            return integer_ndarray.truncate(numpy.array([self]))
         else:
             return -1
-
 
 
     def to_value_map(self: numpy.ndarray, mapping: dict = {}) -> dict:

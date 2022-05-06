@@ -2055,23 +2055,22 @@ def test_reducable_matrix_columns_should_keep_zero_columns():
     rows, cols = puan.reducable_rows_and_columns(M)
     assert cols[3] == 0
 
-"""
-def test_truncate_nd_state():
 
+def test_truncate():
     test_cases = [
         (
-            numpy.array([
+            puan.integer_ndarray([
                 [
                     [-4, 1, 2,-4,-4,-4],
                     [ 0, 0, 0, 1, 0, 0],
                 ],
             ]),
-            numpy.array([
-                [-4, 1, 2,20,-4,-4]
+            puan.integer_ndarray([
+                [-4, 1, 2, 16,-4,-4]
             ])
         ),
         (
-            numpy.array([
+            puan.integer_ndarray([
                 [
                     [ 0, 0, 0, 0, 0, 0],
                     [ 0, 0, 0, 0, 0, 0],
@@ -2079,23 +2078,23 @@ def test_truncate_nd_state():
                     [ 1, 2, 3, 4, 5, 6]
                 ],
             ]),
-            numpy.array([
-                [ 1, 2, 3, 4, 5, 6],
+            puan.integer_ndarray([
+                [ 1, 2, 4, 8, 16, 32],
             ])
         ),
         (
-            numpy.array([
+            puan.integer_ndarray([
                 [ 0, 0, 1, 0, 2, 3],
                 [-1,-1,-1,-1, 0, 0],
                 [ 0, 0, 1, 2, 0, 0],
                 [ 0, 0, 1, 0, 0, 0]
             ]),
-            numpy.array([
-                -7,-7, 0, 0, 2, 3
+            puan.integer_ndarray([
+                -4, -4, 24, 12, 1, 2
             ])
-        )
+        ),
         (
-            numpy.array([
+            puan.integer_ndarray([
                 [
                     [ 0, 0, 1, 0, 2, 3],
                     [-1,-1,-1,-1, 0, 0],
@@ -2127,7 +2126,7 @@ def test_truncate_nd_state():
                     [-3, 0, 7, 0, 0, 0]
                 ]
             ]),
-            numpy.array([
+            puan.integer_ndarray([
                 [-4,-4,24,12, 1, 2],
                 [ 0, 0, 0, 0, 0, 0],
                 [ 1, 2, 4, 8,16,32],
@@ -2137,10 +2136,59 @@ def test_truncate_nd_state():
         ),
     ]
     for inpt, expected_output in test_cases:
-        actual_output = puan.truncate(inpt)
+        actual_output = inpt.truncate()
         assert (actual_output == expected_output).all()
 
-"""
+def test_truncate_documentation_examples():
+    """Documentation example"""
+    test_cases = [
+        (
+            puan.integer_ndarray([1, 2, 3, 4]),
+            puan.integer_ndarray([1, 2, 4, 8])),
+        (
+            puan.integer_ndarray([3, 6, 2, 8]),
+            puan.integer_ndarray([2, 4, 1, 8])),
+        (
+            puan.integer_ndarray([-3, -6, 2, 8]),
+            puan.integer_ndarray([-2, -4, 1, 8])),
+        (
+            puan.integer_ndarray([1, 1, 2, 2, 2, 3]),
+            puan.integer_ndarray([ 1,  1,  3,  3,  3, 12])),
+        (
+            puan.integer_ndarray([
+                [ 0, 0, 0, 0, 1, 2],
+                [-1,-1,-1,-1, 0, 0],
+                [ 0, 0, 1, 2, 0, 0],
+                [ 0, 0, 1, 0, 0, 0]
+                ]),
+            puan.integer_ndarray([-4, -4, 24, 12,  1,  2])),
+        (
+            puan.integer_ndarray([
+                [
+                    [ 1,  2,  2,  2,  2],
+                    [ 1, -2, -1,  2, -2],
+                    [ 1,  0,  2, -1, -1],
+                    [ 2,  1,  1,  0,  1]
+                ], [
+                    [-1,  0, -1,  2,  0],
+                    [-1,  1, -2,  2, -1],
+                    [ 0, -2,  1, -2,  2],
+                    [ 0, -2,  2,  2,  0]
+                ], [
+                    [ 1, -1,  0,  1,  1],
+                    [ 2, -1, -2, -2,  0],
+                    [ 2,  2,  1,  1, -2],
+                    [ 1, -1,  1,  0,  2]
+                ]]),
+            puan.integer_ndarray([
+                [ 8,  2,  2, -1,  2],
+                [-1, -4,  4,  4,  2],
+                [ 2, -2,  2,  1,  8]])
+        )]
+    for inpt, expected_output in test_cases:
+        actual_output = inpt.truncate()
+        assert (actual_output == expected_output).all()
+
 def test_separable():
     """Documentation example"""
     ge = puan.ge_polyhedron([0, -2, 1, 1])
