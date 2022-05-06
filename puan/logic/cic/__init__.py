@@ -10,6 +10,9 @@ import numpy
 import enum
 import typing
 
+default_min_int: int = numpy.iinfo(numpy.int16).min
+default_max_int: int = numpy.iinfo(numpy.int16).max
+
 class ge_constraint(tuple):
 
     def __new__(cls, instance) -> dict:
@@ -43,10 +46,11 @@ class variable_proposition(proposition):
             var = puan.variable(var, bool)
         self.var = var
 
+    @property
     def variables(self) -> typing.List[puan.variable]:
         return [self.var]
 
-    def to_constraints(self, variable_predicate) -> typing.List[ge_constraint]:
+    def to_constraints(self, variable_predicate, min_int: int = default_min_int, max_int: int = default_max_int) -> typing.List[ge_constraint]:
         return []
 
     def representation(self) -> str:
@@ -62,7 +66,7 @@ class boolean_variable_proposition(variable_proposition):
         self.value = value
 
     def __repr__(self):
-        return f"{self.var.__repr__()} = {self.value}"
+        return f"({self.var.__repr__()} = {self.value})"
 
 class discrete_variable_proposition(variable_proposition):
 
@@ -76,13 +80,14 @@ class discrete_variable_proposition(variable_proposition):
     def __hash__(self):
         return hash(self.var.id + self.operator + str(self.value))
 
+    @property
     def variables(self) -> typing.List[puan.variable]:
         return [self.var, self.supporting_variable()]
 
     def supporting_variable(self):
         return puan.variable(self.var.id + self.operator + str(self.value), bool, True)
 
-    def to_constraints(self, variable_predicate = lambda x: x, min_int: int = numpy.iinfo(numpy.int16).min, max_int: int = numpy.iinfo(numpy.int16).max) -> typing.List[ge_constraint]:
+    def to_constraints(self, variable_predicate = lambda x: x, min_int: int = default_min_int, max_int: int = default_max_int) -> typing.List[ge_constraint]:
         if self.operator == ">=":
             return [
                 (
@@ -91,7 +96,7 @@ class discrete_variable_proposition(variable_proposition):
                         variable_predicate(self.var.id),
                         variable_predicate(0),
                     ],
-                    [max_int, -1, -self.value]
+                    [(max_int-self.value), -1, -self.value]
                 ),
                 (
                     [
@@ -118,7 +123,7 @@ class discrete_variable_proposition(variable_proposition):
                         variable_predicate(self.var.id),
                         variable_predicate(0),
                     ],
-                    [-min_int, -1, -(min_int-self.value)]
+                    [min_int+self.value, -1, min_int]
                 )
             ]
         else:
@@ -136,11 +141,12 @@ class conditional_proposition(proposition):
         self.relation = relation
         self.propositions = propositions
 
+    @property
     def variables(self) -> typing.List[puan.variable]:
-        return list(set(itertools.chain(*map(operator.methodcaller("variables"), self.propositions))))
+        return list(set(itertools.chain(*map(operator.attrgetter("variables"), self.propositions))))
 
-    def to_constraints(self, variable_predicate = lambda x: x) -> itertools.chain:
-        return itertools.chain(*map(operator.methodcaller("to_constraints", variable_predicate=variable_predicate), self.propositions))
+    def to_constraints(self, variable_predicate = lambda x: x, min_int: int = default_min_int, max_int: int = default_max_int) -> itertools.chain:
+        return itertools.chain(*map(operator.methodcaller("to_constraints", variable_predicate=variable_predicate, min_int=min_int, max_int=max_int), self.propositions))
 
     def to_dnf(self) -> map:
         resolved = itertools.chain(
@@ -159,11 +165,18 @@ class conditional_proposition(proposition):
             itertools.product(*resolved) if self.relation == "ALL" else resolved
         )
 
+    def __repr__(self):
+        join_on = [' & ', ' | ']
+        return f"({join_on[self.relation == 'ANY'].join(map(operator.methodcaller('__repr__'), self.propositions))})"
+
 class consequence_proposition(conditional_proposition):
 
     def __init__(self, relation: str, propositions: typing.List[typing.Union["conditional_propositions", variable_proposition]], default: typing.List[variable_proposition] = []):
         super().__init__(relation, propositions)
         self.default = default
+
+    def __repr__(self):
+        return f"({super().__repr__()[:-1]}, {self.default})"
 
 class Implication(enum.Enum):
 
@@ -218,10 +231,11 @@ class implication_proposition(proposition):
         self.consequence = consequence
         self.implies = implies
 
+    @property
     def variables(self) -> typing.List[puan.variable]:
-        return list(set(self.condition.variables() + self.consequence.variables()))
+        return list(set(self.condition.variables + self.consequence.variables))
 
-    def to_constraints(self, variable_predicate = lambda x: x) -> itertools.chain:
+    def to_constraints(self, variable_predicate = lambda x: x, min_int: int = default_min_int, max_int: int = default_max_int) -> itertools.chain:
         varialble_predicate_map = maz.compose(
             list, 
             functools.partial(
@@ -244,38 +258,179 @@ class implication_proposition(proposition):
                     )
                 )
             ),
-            self.condition.to_constraints(variable_predicate),
-            self.consequence.to_constraints(variable_predicate)
+            self.condition.to_constraints(variable_predicate, min_int=min_int, max_int=max_int),
+            self.consequence.to_constraints(variable_predicate, min_int=min_int, max_int=max_int)
         )
 
     @staticmethod
     def from_cicR(cicR: str) -> "implication_proposition":
         return implication_proposition(condition, consequence)
 
+    def __repr__(self) -> str:
+        return f"{self.condition.__repr__()} -[{self.implies.name}]> {self.consequence.__repr__()}"
+
 class conjunctional_proposition(conditional_proposition):
 
     def __init__(self, propositions: typing.List[conditional_proposition]):
         super().__init__(relation="ALL", propositions=propositions)
 
+    @property
     def variables(self) -> typing.Set[puan.variable]:
-        return set(itertools.chain(*map(operator.methodcaller("variables"), self.propositions)))
+        return set(itertools.chain(*map(operator.attrgetter("variables"), self.propositions)))
 
-    def to_constraints(self, variable_predicate: lambda x: x) -> itertools.chain:
-        return itertools.chain(*map(operator.methodcaller("to_constraints", variable_predicate=variable_predicate), self.propositions))
+    def to_constraints(self, variable_predicate: lambda x: x, min_int=default_min_int, max_int=default_max_int) -> itertools.chain:
+        return itertools.chain(*map(operator.methodcaller("to_constraints", variable_predicate=variable_predicate, min_int=min_int, max_int=max_int), self.propositions))
 
-    def to_ge_polytope(self, variable_predicate = None, support_variable_index: int = 0) -> puan.ge_polyhedron:
-        variables = sorted(self.variables())
-        variables_repr = [support_variable_index] + list(map(operator.attrgetter("id"), variables))
+    def to_polyhedron(self, variable_predicate = None, support_variable_index: int = 0, integer_bounds: tuple = (default_min_int, default_max_int)) -> puan.ge_polyhedron:
+
+        """
+            Converts into a ge_polyhedron.
+
+            Notes
+            -----
+            Currently, only implication_proposition's are supported in list of propositions when converting.
+
+            Returns
+            -------
+                out : ge_polyhedron
+
+            Examples
+            --------
+                >>> cc.conjunctional_proposition([
+                ...     cc.implication_proposition(
+                ...         cc.Implication.XOR,
+                ...         cc.consequence_proposition("ALL", [
+                ...             cc.boolean_variable_proposition("x"),
+                ...             cc.boolean_variable_proposition("y"),
+                ...             cc.boolean_variable_proposition("z")
+                ...         ]),
+                ...         cc.conditional_proposition("ALL", [
+                ...             cc.discrete_variable_proposition("m", ">=", 3),
+                ...         ])
+                ...     ),
+                ... ]).to_polyhedron(integer_bounds=(0, 52))
+                ge_polyhedron([[   -4,     0,    -3,    -1,    -1,    -1],
+                               [   -3,    -1, 32764,     0,     0,     0],
+                               [   -2,     0,    -3,     1,     1,     1],
+                               [    0,     1,    -3,     0,     0,     0]], dtype=int16)
+
+        """
+
+        variables = sorted(self.variables)
         if variable_predicate is None:
+            variables_repr = [support_variable_index] + list(map(operator.attrgetter("id"), variables))
             variable_predicate = variables_repr.index
 
-        constraints = list(self.to_constraints(variable_predicate))
+        constraints = list(self.to_constraints(variable_predicate, *integer_bounds))
         constraints_unique = list(dict(zip(map(str, constraints), constraints)).values())
         matrix = numpy.zeros((len(constraints_unique), len(variables)+1), dtype=numpy.int16)
         for i, (indices, values) in enumerate(constraints_unique):
             matrix[i, indices] = values
 
         return puan.ge_polyhedron(numpy.unique(matrix, axis=0), variables)
+
+
+class cicJE(dict):
+
+    def __new__(cls, instance):
+        return dict.__new__(cicJE, instance)
+
+    def to_implication_proposition(self, id_ident: str = "id") -> implication_proposition:
+
+        """
+            Converts into an implication_proposition -class
+
+            Parameters
+            ----------
+                id_ident : str = "id"
+                    the id-property in component objects.
+
+            Returns
+            -------
+                out : implication_proposition
+        """
+        implication_mapping = {
+            "REQUIRES_ALL": Implication.ALL, 
+            "REQUIRES_ANY": Implication.ANY, 
+            "REQUIRES_EXCLUSIVELY": Implication.XOR, 
+            "FORBIDS_ALL": Implication.NONE, 
+            "ONE_OR_NONE": Implication.MOST_ONE, 
+        }
+
+        map_component = lambda component: discrete_variable_proposition(component[id_ident], component['operator'], component['value']) if ('operator' in component and 'value' in component) else boolean_variable_proposition(component[id_ident])
+        return implication_proposition(
+            implies=implication_mapping.get(self['consequence']['ruleType']), 
+            consequence=consequence_proposition(
+                "ALL", 
+                list(
+                    map(
+                        map_component,
+                        self['consequence'].get('components', [])
+                    )
+                ), 
+                list(
+                    map(
+                        map_component, 
+                        self['consequence'].get('default', [])
+                    )
+                )
+            ), 
+            condition=conditional_proposition(
+                self.get('condition', {}).get('relation', 'ALL'), 
+                list(
+                    map(
+                        lambda sub_condition: conditional_proposition(
+                            sub_condition.get('relation', 'ALL'), 
+                            list(
+                                map(
+                                    map_component,
+                                    sub_condition.get('components', [])
+                                )
+                            )
+                        ),
+                        self.get('condition', {}).get('subConditions', [])
+                    )
+                )
+            )
+        )
+
+    def rule_type_get(self) -> str:
+        return self['consequence'].get('ruleType')
+
+    def variables(self, id_ident: str = "id") -> set:
+
+        """
+            Return variables as a set from this cicJE.
+
+            Parameters
+            ----------
+                id_ident : str
+                    the id-property in component objects.
+
+            Returns
+            -------
+                out : Set[str]
+        """
+        return set().union(
+            cicJE._condition2variables(self, id_ident),
+            cicJE._obj_variables(self['consequence'], id_ident)
+        )
+
+    @staticmethod
+    def _obj_variables(obj, id_ident: str = "id") -> typing.Set[str]:
+        return set(map(lambda y: y[id_ident], obj.get('components', [])))
+
+    def _condition2variables(self, id_ident: str = "id") -> typing.Set[str]:
+        return set().union(
+            *map(
+                maz.pospartial(
+                    cicJE._obj_variables, 
+                    [(1, id_ident)]
+                ),
+                self.get('condition', {}).get('subConditions', [])
+            )
+        )
+
 
 class cicJEs(list):
 
@@ -295,6 +450,29 @@ class cicJEs(list):
         to_cicEs
             Converts to cicEs data type.
     """
+
+    def to_conjunctional_proposition(self, id_ident: str = "id") -> conjunctional_proposition:
+        
+        """
+            Converts into an conjunctional_proposition -class
+
+            Parameters
+            ----------
+                id_ident : str = "id"
+                    the id-property in component objects.
+
+            Returns
+            -------
+                out : conjunctional_proposition
+        """
+        return conjunctional_proposition(
+            list(
+                map(
+                    cicJE.to_implication_proposition, 
+                    self
+                )
+            )
+        )
 
     @staticmethod
     def _merge_consequences(rule1: dict, rule2: dict, id_ident: str = "id") -> tuple:
@@ -396,7 +574,7 @@ class cicJEs(list):
 
         return [cicJEs([self[index] for index in indices]) for indices in rules_in_relation_list]
 
-    def variables(self, id_ident: str = "id") -> list:
+    def variables(self, id_ident: str = "id") -> set:
 
         """
             Return variables as a set from this list of cicJE's.
@@ -411,16 +589,14 @@ class cicJEs(list):
                 out : Set[str]
         """
 
-        return list(
-            set(
-                itertools.chain(
-                    *map(
-                        functools.partial(
-                            cicJE.variables,
-                            id_ident=id_ident,
-                        ),
-                        self
-                    )
+        return set(
+            itertools.chain(
+                *map(
+                    functools.partial(
+                        cicJE.variables,
+                        id_ident=id_ident,
+                    ),
+                    self
                 )
             )
         )

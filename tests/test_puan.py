@@ -1,5 +1,7 @@
 import puan
+import puan.vmap
 import puan.logic
+import puan.logic.cic as cc
 import numpy
 import operator
 
@@ -67,7 +69,7 @@ def test_application_to_rules():
 
 def test_rules2variables():
 
-    rules = [
+    rules = cc.cicJEs([
         {
             "id": "",
             "condition": {},
@@ -116,9 +118,9 @@ def test_rules2variables():
                 ]
             }
         },
-    ]
+    ])
 
-    variables = puan.logic.cic.cicJEs.variables(rules, id_ident="code")
+    variables = rules.variables(id_ident="code")
     assert set(variables) == set(["a", "b", "c", "x", "y", "z"])
 
 def test_value_map2matrix():
@@ -302,9 +304,8 @@ def test_rules2matrix_with_mixed_condition_rules():
             }
         }
     ]
-    variables = sorted(puan.logic.cic.cicJEs.variables(rules))
-    cicrs = puan.logic.cic.cicJEs(rules).to_cicRs()
-    matrix = cicrs.to_ge_polyhedron(variables.index)
+    conj_props = cc.cicJEs(rules).to_conjunctional_proposition()
+    matrix = conj_props.to_polyhedron()
     expected_feasible_configurations = numpy.array([
        #"a  b  c  d  x  y"
         [0, 0, 0, 0, 0, 0],
@@ -681,7 +682,7 @@ def test_compress_rules():
             }
         }
     ]
-    actual = puan.logic.cic.cicJEs.compress(rules, id_ident="id")
+    actual = cc.cicJEs.compress(rules, id_ident="id")
     for rule in actual:
         rule['consequence']['components'] = sorted(rule['consequence']['components'], key=lambda d: d['id'])
     assert [i for i in actual if i not in expected_result] == []
@@ -1623,9 +1624,9 @@ def test_split_ruleset():
     split_ruleset = puan.logic.cic.cicJEs.split(rules)
     assert split_ruleset == expected_result
 
-def test_cicJE_to_cicE():
+def test_cicJE_to_implication_proposition():
 
-    json_rule = {
+    json_rule = cc.cicJE({
         "condition": {
             "relation": "ALL",
             "subConditions": [
@@ -1653,13 +1654,28 @@ def test_cicJE_to_cicE():
                 {"id": "o"},
             ]
         }
-    }
+    })
 
-    id_ident = "id"
-
-    expected_output = [(['x','y'],['a','b']),'REQUIRES_ALL',{'m','n','o'},()]
-    actual_output = puan.logic.cic.cicJE.to_cicE(json_rule, id_ident)
-    assert actual_output[0] == expected_output[0]
+    expected_output = cc.implication_proposition(
+        cc.Implication.ALL, 
+        cc.consequence_proposition("ALL", [
+            cc.boolean_variable_proposition("m"),
+            cc.boolean_variable_proposition("n"),
+            cc.boolean_variable_proposition("o"),
+        ]),
+        cc.conditional_proposition("ALL", [
+            cc.conditional_proposition("ANY", [
+                cc.boolean_variable_proposition("x"),
+                cc.boolean_variable_proposition("y"),
+            ]),
+            cc.conditional_proposition("ANY", [
+                cc.boolean_variable_proposition("a"),
+                cc.boolean_variable_proposition("b"),
+            ])
+        ]),
+    )
+    actual_output = json_rule.to_implication_proposition()
+    assert actual_output == expected_output
 
 def test_parsed_linerules2value_map():
 
