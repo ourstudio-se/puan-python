@@ -4,7 +4,7 @@ import functools
 import operator
 import maz
 import math
-import puan.npufunc
+# import puan.npufunc
 class variable(object):
 
     def __init__(self, id: str, dtype: typing.Union[bool, int], virtual: bool = False):
@@ -92,6 +92,7 @@ class ge_polyhedron(numpy.ndarray):
             pass
         return target
 
+    @property
     def A(self) -> numpy.ndarray:
         
         """
@@ -117,6 +118,7 @@ class ge_polyhedron(numpy.ndarray):
         """
         return numpy.array(self[:, 1:])
 
+    @property
     def b(self) -> numpy.ndarray:
         
         """

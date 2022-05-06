@@ -59,6 +59,9 @@ class variable_proposition(proposition):
     def __hash__(self):
         return self.var.__hash__()
 
+    def __eq__(self, o) -> bool:
+        return self.var == o.var
+
 class boolean_variable_proposition(variable_proposition):
 
     def __init__(self, var: typing.Union[puan.variable, str], value: bool = True):
@@ -67,6 +70,9 @@ class boolean_variable_proposition(variable_proposition):
 
     def __repr__(self):
         return f"({self.var.__repr__()} = {self.value})"
+
+    def __eq__(self, o) -> bool:
+        return self.var == o.var and self.value == o.value
 
 class discrete_variable_proposition(variable_proposition):
 
@@ -79,6 +85,9 @@ class discrete_variable_proposition(variable_proposition):
 
     def __hash__(self):
         return hash(self.var.id + self.operator + str(self.value))
+
+    def __eq__(self, o) -> bool:
+        return self.var == o.var and self.value == o.value and self.operator == o.operator
 
     @property
     def variables(self) -> typing.List[puan.variable]:
@@ -169,6 +178,9 @@ class conditional_proposition(proposition):
         join_on = [' & ', ' | ']
         return f"({join_on[self.relation == 'ANY'].join(map(operator.methodcaller('__repr__'), self.propositions))})"
 
+    def __eq__(self, o) -> bool:
+        return self.relation == o.relation and all(itertools.starmap(operator.eq, zip(self.propositions, o.propositions)))
+
 class consequence_proposition(conditional_proposition):
 
     def __init__(self, relation: str, propositions: typing.List[typing.Union["conditional_propositions", variable_proposition]], default: typing.List[variable_proposition] = []):
@@ -177,6 +189,9 @@ class consequence_proposition(conditional_proposition):
 
     def __repr__(self):
         return f"({super().__repr__()[:-1]}, {self.default})"
+
+    def __eq__(self, o) -> bool:
+        return super().__eq__(o) and self.default == o.default
 
 class Implication(enum.Enum):
 
@@ -269,6 +284,9 @@ class implication_proposition(proposition):
     def __repr__(self) -> str:
         return f"{self.condition.__repr__()} -[{self.implies.name}]> {self.consequence.__repr__()}"
 
+    def __eq__(self, o) -> bool:
+        return self.condition == o.condition and self.consequence == o.consequence and self.implies == o.implies
+
 class conjunctional_proposition(conditional_proposition):
 
     def __init__(self, propositions: typing.List[conditional_proposition]):
@@ -330,6 +348,71 @@ class conjunctional_proposition(conditional_proposition):
         return puan.ge_polyhedron(numpy.unique(matrix, axis=0), variables)
 
 
+class cicR(tuple):
+
+    implication_mapping = {
+        "REQUIRES_ALL": Implication.ALL, 
+        "REQUIRES_ANY": Implication.ANY, 
+        "REQUIRES_EXCLUSIVELY": Implication.XOR, 
+        "FORBIDS_ALL": Implication.NONE, 
+        "ONE_OR_NONE": Implication.MOST_ONE, 
+    }
+
+    def __new__(cls, instance):
+        return tuple.__new__(cls, instance)
+
+    def to_implication_proposition(self) -> implication_proposition:
+
+        """
+            Converts into an implication_proposition -class
+
+            Returns
+            -------
+                out : implication_proposition
+        """
+        condition_prop = cicR._condition_to_conditional_proposition(self[0])
+        return implication_proposition(
+            cicR.implication_mapping[self[1]], 
+            consequence_proposition(
+                "ALL", 
+                list(
+                    map(
+                        lambda variable: discrete_variable_proposition(variable[0], variable[1], variable[2]) if isinstance(variable, tuple) else boolean_variable_proposition(variable),
+                        self[2]  
+                    )
+                ),
+                default=list(
+                    map(
+                        boolean_variable_proposition,
+                        self[3] if len(self) == 4 else []   
+                    )
+                )
+            ),
+            condition_prop if isinstance(condition_prop, conditional_proposition) else conditional_proposition("ALL", [condition_prop])
+        )
+
+    @staticmethod
+    def _condition_to_conditional_proposition(condition) -> conditional_proposition:
+        if len(condition) == 3 and list(condition)[1] in [">=", "<="]:
+            return discrete_variable_proposition(*condition)
+        elif type(condition) == str:
+            return boolean_variable_proposition(condition)
+        else:
+            return conditional_proposition(
+                "ALL" if isinstance(condition, tuple) or isinstance(condition, set) else 'ANY', 
+                list(
+                    map(
+                        cicR._condition_to_conditional_proposition,
+                        condition
+                    )
+                )
+            )
+
+    @staticmethod
+    def from_string(string: str) -> "cicR":
+        return cicR(ast.literal_eval(string))
+
+
 class cicJE(dict):
 
     def __new__(cls, instance):
@@ -349,17 +432,10 @@ class cicJE(dict):
             -------
                 out : implication_proposition
         """
-        implication_mapping = {
-            "REQUIRES_ALL": Implication.ALL, 
-            "REQUIRES_ANY": Implication.ANY, 
-            "REQUIRES_EXCLUSIVELY": Implication.XOR, 
-            "FORBIDS_ALL": Implication.NONE, 
-            "ONE_OR_NONE": Implication.MOST_ONE, 
-        }
 
         map_component = lambda component: discrete_variable_proposition(component[id_ident], component['operator'], component['value']) if ('operator' in component and 'value' in component) else boolean_variable_proposition(component[id_ident])
         return implication_proposition(
-            implies=implication_mapping.get(self['consequence']['ruleType']), 
+            implies=cicR.implication_mapping.get(self['consequence']['ruleType']), 
             consequence=consequence_proposition(
                 "ALL", 
                 list(

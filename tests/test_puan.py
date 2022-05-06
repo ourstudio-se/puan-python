@@ -4,6 +4,7 @@ import puan.logic
 import puan.logic.cic as cc
 import numpy
 import operator
+import maz
 
 def test_application_to_rules():
     items = [
@@ -1702,8 +1703,7 @@ def test_parsed_linerules2value_map():
         ({'c', 'p', 'a'}, 'ONE_OR_NONE', ('x', 'y')),
         ({'a', 'q', 'e'}, 'REQUIRES_ALL', ('f', 'g', 'h'))
     ]
-
-    actual = puan.logic.cic.cicRs(line_rules).to_ge_polyhedron(puan.logic.cic.cicRs(line_rules).variables().index)
+    actual = cc.conjunctional_proposition(list(map(cc.cicR.to_implication_proposition, line_rules))).to_polyhedron()
     for v in numpy.nditer(actual):
         try:
             int(v)
@@ -1712,7 +1712,7 @@ def test_parsed_linerules2value_map():
 
 def test_parse_empty_line_rule_should_yield_no_variables():
     m = ["(()),'PREFERRED',(),()"]
-    actual = puan.logic.cic.cicEs.from_strings(m)
+    actual = list(map(cc.cicR.from_string, m))
     for parsed in actual:
         cond, _, cons, _ = parsed
         assert len(cond) == 0
@@ -1724,25 +1724,18 @@ def test_parte_line_rules_from_text():
         "[['x','d'], ('z','m')],            'REQUIRES_EXCLUSIVELY', ('a',),()",
         "[['x','d'], ('z','m')],            'FORBIDS_ALL',          ('a',),()"
     ]
-    actual = puan.logic.cic.cicEs.from_strings(text_lines).to_cicRs()
-    expected = [
-        ({'a', 'b', 'c'},       'REQUIRES_ALL', {'a', 'b', 'c'}, ()),
-        ({'a', 'b', 'e', 'c'},  'REQUIRES_ALL', {'a', 'b', 'c'}, ()),
-        ({'a', 'b', 'c', 'd'},  'REQUIRES_ALL', {'a', 'b', 'c'}, ()),
-        ({'a', 'b', 'e', 'd'},  'REQUIRES_ALL', {'a', 'b', 'c'}, ()),
-        ({'d'},                 'REQUIRES_ANY', {'a'}, ()),
-        ({'x'},                 'REQUIRES_ANY', {'a'}, ()),
-        ({'m', 'z'},            'REQUIRES_ANY', {'a'}, ()),
-        ({'d'},                 'ONE_OR_NONE',  {'a'}, ()),
-        ({'x'},                 'ONE_OR_NONE',  {'a'}, ()),
-        ({'m', 'z'},            'ONE_OR_NONE',  {'a'}, ()),
-        ({'d'},                 'FORBIDS_ALL',  {'a'}, ()),
-        ({'x'},                 'FORBIDS_ALL',  {'a'}, ()),
-        ({'m', 'z'},            'FORBIDS_ALL',  {'a'}, ()),
-    ]
-    assert len(actual) == len(expected)
-    for a in actual:
-        assert a in expected
+    actual = cc.conjunctional_proposition(
+        list(
+            map(
+                maz.compose(
+                    cc.cicR.to_implication_proposition, 
+                    cc.cicR.from_string
+                ), 
+                text_lines
+            )
+        )
+    ).to_polyhedron()
+    assert actual.shape == (10,9)
 
 def test_parse_line_rule_strings_with_different_combinations():
     line_rule_strs = [
@@ -1759,29 +1752,18 @@ def test_parse_line_rule_strings_with_different_combinations():
         "[],'REQUIRES_ALL',('x',)",
         "(),'REQUIRES_ALL',('x',)",
     ]
-    actual = puan.logic.cic.cicEs.from_strings(line_rule_strs).to_cicRs()
-    expected = [
-        ({'a'}, 'REQUIRES_ALL', {'x'}, ()),
-        ({'aa'}, 'REQUIRES_ALL', {'xx'}, ()),
-        ({'a'}, 'REQUIRES_ALL', {'b'}, ()),
-        ({'a','ab'}, 'REQUIRES_ALL', {'b','ba'}, ()),
-        ({'a','b','c','d'}, 'REQUIRES_ANY', {'x','y','z'}, ('x',)),
-        ({'a','b','c','d'}, 'ONE_OR_NONE', {'x','y','z'}, ('x',)),
-        ({'xc40'}, 'REQUIRES_ALL', {'o0'}, ()),
-        ({'T80'}, 'REQUIRES_ALL', {'o0'}, ()),
-        ({'xxx'}, 'REQUIRES_ALL', {'aaa','bbb'}, ()),
-        ({'yyy','zzz'}, 'REQUIRES_ALL', {'aaa','bbb'}, ()),
-        ({'xxx'}, 'REQUIRES_ALL', {'aaa','bbb'}, ()),
-        ({'yyy'}, 'REQUIRES_ALL', {'aaa','bbb'}, ()),
-        ({'zzz'}, 'REQUIRES_ALL', {'aaa','bbb'}, ()),
-        ({'aa','cc'}, 'REQUIRES_ALL', {'vv'}, ()),
-        ({'bb','cc'}, 'REQUIRES_ALL', {'vv'}, ()),
-        ({'aa','bb'}, 'REQUIRES_ALL', {'vv'}, ()),
-        ({'dd'}, 'REQUIRES_ALL', {'vv'}, ()),
-        ({}, 'REQUIRES_ALL', {'x'}, ())
-    ]
-    for a in actual:
-        assert a in expected
+    actual = cc.conjunctional_proposition(
+        list(
+            map(
+                maz.compose(
+                    cc.cicR.to_implication_proposition, 
+                    cc.cicR.from_string
+                ), 
+                line_rule_strs
+            )
+        )
+    )
+    assert actual.to_polyhedron().shape == (15,24)
 
 def test_parse_line_rule_when_an_empty_any_condition():
 
@@ -1789,23 +1771,62 @@ def test_parse_line_rule_when_an_empty_any_condition():
         "[],'REQUIRES_ALL',('x'),()",
         "(),'REQUIRES_ALL',('y'),()",
     ]
-    actual = puan.logic.cic.cicEs.from_strings(line_rule_strs).to_cicRs()
+    actual = list(
+        map(
+            maz.compose(
+                cc.cicR.to_implication_proposition, 
+                cc.cicR.from_string
+            ), 
+            line_rule_strs
+        )
+    )
     expected = [
-        ({}, 'REQUIRES_ALL', {'x'}, ()),
-        ({}, 'REQUIRES_ALL', {'y'}, ())
+        cc.implication_proposition(
+            cc.Implication.ALL, 
+            cc.consequence_proposition("ALL", [
+                cc.boolean_variable_proposition("x")
+            ]),
+            cc.conditional_proposition("ANY", [])
+        ),
+        cc.implication_proposition(
+            cc.Implication.ALL, 
+            cc.consequence_proposition("ALL", [
+                cc.boolean_variable_proposition("y")
+            ])
+        ),
     ]
     assert len(actual) == len(expected)
-    for a in actual:
-        assert a in expected
+    for a, e in zip(actual, expected):
+        assert a == e
 
 def test_parse_line_rules_when_having_numbers_inside():
 
     line_rule_strs = [
         "(('$§@£_-/', 'YY-0', 'X_y5')),'REQUIRES_ALL',('1','22','345')"
     ]
-    actual = puan.logic.cic.cicEs.from_strings(line_rule_strs).to_cicRs()
+    actual = list(
+        map(
+            maz.compose(
+                cc.cicR.to_implication_proposition, 
+                cc.cicR.from_string
+            ), 
+            line_rule_strs
+        )
+    )
     expected = [
-        ({"$§@£_-/", "YY-0", "X_y5"}, "REQUIRES_ALL", {"1", "22", "345"}, ())
+        cc.implication_proposition(
+            cc.Implication.ALL, 
+            cc.consequence_proposition("ALL", [
+                cc.boolean_variable_proposition("1"),
+                cc.boolean_variable_proposition("22"),
+                cc.boolean_variable_proposition("345"),
+            ]),
+            cc.conditional_proposition("ALL", [
+                cc.boolean_variable_proposition("$§@£_-/"),
+                cc.boolean_variable_proposition("YY-0"),
+                cc.boolean_variable_proposition("X_y5"),
+            ])
+        )
     ]
     assert actual[0] == expected[0]
 
@@ -1914,30 +1935,37 @@ def test_convert_one_or_none_to_matrix():
         "(('a','b','c'),'ONE_OR_NONE',('x','y','z'))",
     ]
 
-    cicrs = puan.logic.cic.cicEs.from_strings(expected_line_rules).to_cicRs()
-    variables = sorted(cicrs.variables())
-    actual_matrix = cicrs.to_ge_polyhedron(variables.index)
+    actual_matrix = cc.conjunctional_proposition(list(
+        map(
+            maz.compose(
+                cc.cicR.to_implication_proposition, 
+                cc.cicR.from_string
+            ), 
+            expected_line_rules
+        )
+    )).to_polyhedron()
 
-    expected_matrix = numpy.array([
-        [ -1,   0,   0,   0,   0,   0,   0],
-        [ -1,   0,   0,   0,  -1,   0,   0],
-        [ -1,   0,   0,   0,  -1,  -1,   0],
-        [ -1,   0,   0,   0,  -1,  -1,  -1],
-        [ -1,   0,   0,   0,   0,   0,   0],
-        [ -2,  -1,   0,   0,  -1,   0,   0],
-        [ -3,  -2,   0,   0,  -1,  -1,   0],
-        [ -4,  -3,   0,   0,  -1,  -1,  -1],
-        [ -1,   0,   0,   0,   0,   0,   0],
-        [ -3,  -1,  -1,   0,  -1,   0,   0],
-        [ -5,  -2,  -2,   0,  -1,  -1,   0],
-        [ -7,  -3,  -3,   0,  -1,  -1,  -1],
-        [ -1,   0,   0,   0,   0,   0,   0],
-        [ -4,  -1,  -1,  -1,  -1,   0,   0],
-        [ -7,  -2,  -2,  -2,  -1,  -1,   0],
-        [-10,  -3,  -3,  -3,  -1,  -1,  -1]
-    ])
+    expected_matrix_a = numpy.array([
+        [-3, -3, -3, -1, -1, -1],
+        [-3, -3, -1, -1, -1,  0],
+        [-2, -2, -2, -1, -1,  0],
+        [-2, -2, -1, -1,  0,  0],
+        [-3, -1, -1, -1,  0,  0],
+        [-1, -1, -1, -1,  0,  0],
+        [-2, -1, -1,  0,  0,  0],
+        [-1, -1, -1,  0,  0,  0],
+        [-1, -1,  0,  0,  0,  0],
+        [-1, -1, -1,  0,  0,  0],
+        [-1, -1,  0,  0,  0,  0],
+        [-1,  0,  0,  0,  0,  0],
+        [ 0,  0,  0,  0,  0,  0]], 
+        dtype=numpy.int16
+    )
+    expected_vector_b = numpy.array([-10, -7, -7, -5, -4, -4, -3, -3, -2, -1, -1, -1, -1], dtype=numpy.int16)
 
-    assert (actual_matrix == expected_matrix).all()
+    sorted_polyhedron = numpy.sort(actual_matrix)
+    assert (sorted_polyhedron.A == expected_matrix_a).all()
+    assert (sorted_polyhedron.b == expected_vector_b).all()
 
 def test_neglectable_columns():
     """Documentation example"""
