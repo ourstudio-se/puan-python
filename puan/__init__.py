@@ -6,6 +6,11 @@ import maz
 import math
 # import puan.npufunc
 class variable(object):
+    """
+        A `variable` consists of an id, data type (dtype) and if it is virtual or not.
+        A virtual variable is a variable that has been created along some reduction and
+        is not (necessary) interesting for the user.
+    """
 
     def __init__(self, id: str, dtype: typing.Union[bool, int], virtual: bool = False):
         self.id = id
@@ -76,15 +81,9 @@ class ge_polyhedron(numpy.ndarray):
     def __array_finalize__(self, obj):
         if obj is None:
             return
-
-        '''we essentially need to set all our attributes that are set in __new__ here again (including their default values). 
-        Otherwise numpy's view-casting and new-from-template mechanisms would break our class.
-        '''
-
         self.variables = getattr(obj, 'variables', None)
 
     def _copy_attrs_to(self, target):
-        '''copies all attributes of self to the target object. target must be a (subclass of) ndarray'''
         target = target.view(ArraySubclass)
         try:
             target.__dict__.update(self.__dict__)

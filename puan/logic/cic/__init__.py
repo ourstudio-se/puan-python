@@ -20,11 +20,27 @@ class ge_constraint(tuple):
 
 class proposition(object):
     
+    """
+        A proposition is a abstract class and a logical object that can be resolved into a true or false value.
+
+        Methods
+        -------
+        variables
+            the variables inside this proposition
+        to_constraints
+            converts this proposition into a list of (greater-or-equal) constraints
+
+    """
+    
     @abc.abstractclassmethod
     def variables(self) -> typing.List[puan.variable]:
 
         """
-            Returns variables for this proposition
+            Returns variables for this proposition.
+
+            Returns
+            -------
+                out : list : puan.variable
         """
         raise NotImplementedError()
 
@@ -32,14 +48,29 @@ class proposition(object):
     def to_constraints(self) -> typing.List[ge_constraint]:
 
         """
-            Proposition as a (dict) ge-constraint.
+            Proposition as a (dict) ge-constraint. 
 
-            Return:
-                ge_constraint
+            Returns
+            -------
+                out : list : ge_constraint
         """
         raise NotImplementedError()
 
 class variable_proposition(proposition):
+
+    """
+        A variable_proposition is a logical object that can be resolved into a true or false value.
+
+        Methods
+        -------
+        variables
+            the variables inside this proposition
+        to_constraints
+            converts this proposition into a list of (greater-or-equal) constraints
+        representation
+            is the string id representation of this proposition
+
+    """
 
     def __init__(self, var: typing.Union[puan.variable, str], dtype: typing.Union[bool, int] = bool):
         if type(var) == str:
@@ -64,6 +95,12 @@ class variable_proposition(proposition):
 
 class boolean_variable_proposition(variable_proposition):
 
+    """
+        A boolean_variable_proposition is a logical object that can be resolved into a true or false value.
+        The boolean_variable_proposition has a variable and a value it is expected to have.
+
+    """
+
     def __init__(self, var: typing.Union[puan.variable, str], value: bool = True):
         super().__init__(var, bool)
         self.value = value
@@ -75,6 +112,14 @@ class boolean_variable_proposition(variable_proposition):
         return self.var == o.var and self.value == o.value
 
 class discrete_variable_proposition(variable_proposition):
+
+    """
+        A discrete_variable_proposition is a logical object that can be resolved into a true or false value.
+        The discrete_variable_proposition has a variable, an operator and a value. The variable dtype will
+        be forced into an int and the value must be an int. The expression (x >= 1) is considered a
+        discrete variable proposition.
+
+    """
 
     def __init__(self, var: typing.Union[puan.variable, str], operator: str, value: int):
         if type(var) == str:
@@ -146,6 +191,14 @@ class discrete_variable_proposition(variable_proposition):
 
 class conditional_proposition(proposition):
 
+    """
+        A conditional_proposition is a logical object that can be resolved into a true or false value.
+        The conditional_proposition has a relation and a list of propositions. There are two relation
+        types (ALL/ANY) and the proposition will be considered true if either ALL or ANY of its propositions
+        are true (depending if relation is ALL or ANY).
+
+    """
+
     def __init__(self, relation: str, propositions: typing.List[typing.Union["conditional_propositions", variable_proposition]]):
         self.relation = relation
         self.propositions = propositions
@@ -182,6 +235,14 @@ class conditional_proposition(proposition):
         return self.relation == o.relation and all(itertools.starmap(operator.eq, zip(self.propositions, o.propositions)))
 
 class consequence_proposition(conditional_proposition):
+
+    """
+        A consequence_proposition is a logical object that can be resolved into a true or false value.
+        The consequence_proposition is a conditional_proposition with the exception of an extra field 
+        "default". This is used to mark which underlying propositions is default if many are considered
+        equally correct.
+
+    """
 
     def __init__(self, relation: str, propositions: typing.List[typing.Union["conditional_propositions", variable_proposition]], default: typing.List[variable_proposition] = []):
         super().__init__(relation, propositions)
@@ -241,6 +302,14 @@ class Implication(enum.Enum):
 
 class implication_proposition(proposition):
 
+    """
+        A implication_proposition is a logical object that can be resolved into a true or false value.
+        The implication_proposition has a logical structure of condition - implies -> consequence, or
+        the more common sentence "if this then that". In other words, the proposition is false only if
+        the condition is considered true while the consequence is false.
+
+    """
+
     def __init__(self, implies: Implication, consequence: consequence_proposition, condition: conditional_proposition = conditional_proposition("ALL", [])):
         self.condition = condition
         self.consequence = consequence
@@ -288,6 +357,12 @@ class implication_proposition(proposition):
         return self.condition == o.condition and self.consequence == o.consequence and self.implies == o.implies
 
 class conjunctional_proposition(conditional_proposition):
+
+    """
+        A conjunctional_proposition is a logical object that can be resolved into a true or false value.
+        The conjunctional_proposition is a conditional_proposition with the relation type set to ALL.
+
+    """
 
     def __init__(self, propositions: typing.List[conditional_proposition]):
         super().__init__(relation="ALL", propositions=propositions)
@@ -349,6 +424,12 @@ class conjunctional_proposition(conditional_proposition):
 
 
 class cicR(tuple):
+
+    """
+        cicR is a data type of the condition - implies - consequence format. It is a
+        tuple and is written as (condition, implies, consequence). 
+
+    """
 
     implication_mapping = {
         "REQUIRES_ALL": Implication.ALL, 
@@ -414,6 +495,12 @@ class cicR(tuple):
 
 
 class cicJE(dict):
+
+    """
+        cicJE is a data type of the condition - implies - consequence format. It is a
+        dict and must have the properties "condition" and "consquence". 
+
+    """
 
     def __new__(cls, instance):
         return dict.__new__(cicJE, instance)
