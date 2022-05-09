@@ -3,10 +3,12 @@
    You can adapt this file completely to your liking, but it should at least
    contain the root `toctree` directive.
 
-Summary
--------
-Puan is an open source toolkit for modelling combinatorial optimization problems and aims to minimize distance between users and their solutions
-while maintaining a model that can live for a longer period of time. 
+Puan documentation
+==================
+Puan is an open source toolkit for modelling combinatorial optimization problems on a higher level. Combinatorial optimization problems are in general hard and require a lot of both time and effort to
+solve, even for a computer. But not only are they hard to solve they are also hard to define and model. Puan aims to ease the work for problem modelling such that it can
+be worked on for a period of time and to optimize computation complexity for reducing into a linear programming problem.
+
 
 .. Puan API reference
 .. ==================
