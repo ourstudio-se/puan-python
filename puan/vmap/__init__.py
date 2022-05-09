@@ -8,7 +8,7 @@ class value_map(dict):
         Each key
 
         Methods
-        --------
+        -------
         to_matrix
             Expands the value map into a numpy matrix.
         merge
@@ -22,14 +22,14 @@ class value_map(dict):
         Expands the value map into a numpy matrix.
 
         Parameters
-        -----------
+        ----------
         m_max : int
             Maximimum column width
         d_type : data-type, optional
             The desired data-type for the array, e.g., `numpy.int8`.  Default is `numpy.int16`
 
         Examples
-        ---------
+        --------
         >>> value_map({1: [[0, 0, 2, 1], [0, 4, 2, 1]],
         >>>            2: [[1, 1, 2], [3, 4, 0]]}).to_matrix()
         array([[1, 0, 0, 0, 1],
@@ -38,7 +38,7 @@ class value_map(dict):
 
 
         Returns
-        --------
+        -------
         numpy.ndarray: (n x m)
         """
         if self == {}:

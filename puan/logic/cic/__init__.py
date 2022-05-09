@@ -5,6 +5,7 @@ import functools
 import itertools
 import operator
 import puan.misc as msc
+import puan.ndarray as pnd
 import puan
 import numpy
 import enum
@@ -21,7 +22,7 @@ class ge_constraint(tuple):
 class proposition(object):
     
     """
-        A proposition is a abstract class and a logical object that can be resolved into a true or false value.
+        A proposition is an abstract class and a logical object that can be resolved into a true or false value.
 
         Methods
         -------
@@ -85,6 +86,21 @@ class variable_proposition(proposition):
         return []
 
     def representation(self) -> str:
+
+        """
+            How this variable proposition is represented as a string, defaulted to variable.id. 
+
+            Examples
+            --------
+                >>> v = variable_proposition("x")
+                >>> v.representation()
+                >>> "x"
+
+            Returns
+            -------
+                out : str
+        """
+
         return self.var.id
 
     def __hash__(self):
@@ -138,7 +154,23 @@ class discrete_variable_proposition(variable_proposition):
     def variables(self) -> typing.List[puan.variable]:
         return [self.var, self.supporting_variable()]
 
-    def supporting_variable(self):
+    def supporting_variable(self) -> str:
+
+        """
+            A discrete variable is a combination of two variables: the one given and one
+            supporting variable. These two variables has a certain relation to one another.
+
+            Examples
+            --------
+                >>> dv = discrete_variable_proposition(variable("x"), ">=", 3)
+                >>> dv.supporting_variable()
+                >>> "x>=3"
+
+            Returns
+            -------
+                out : str
+        """
+        
         return puan.variable(self.var.id + self.operator + str(self.value), bool, True)
 
     def to_constraints(self, variable_predicate = lambda x: x, min_int: int = default_min_int, max_int: int = default_max_int) -> typing.List[ge_constraint]:
@@ -374,7 +406,7 @@ class conjunctional_proposition(conditional_proposition):
     def to_constraints(self, variable_predicate: lambda x: x, min_int=default_min_int, max_int=default_max_int) -> itertools.chain:
         return itertools.chain(*map(operator.methodcaller("to_constraints", variable_predicate=variable_predicate, min_int=min_int, max_int=max_int), self.propositions))
 
-    def to_polyhedron(self, variable_predicate = None, support_variable_index: int = 0, integer_bounds: tuple = (default_min_int, default_max_int)) -> puan.ge_polyhedron:
+    def to_polyhedron(self, variable_predicate = None, support_variable_index: int = 0, integer_bounds: tuple = (default_min_int, default_max_int)) -> pnd.ge_polyhedron:
 
         """
             Converts into a ge_polyhedron.
@@ -420,7 +452,7 @@ class conjunctional_proposition(conditional_proposition):
         for i, (indices, values) in enumerate(constraints_unique):
             matrix[i, indices] = values
 
-        return puan.ge_polyhedron(numpy.unique(matrix, axis=0), variables)
+        return pnd.ge_polyhedron(numpy.unique(matrix, axis=0), variables)
 
 
 class cicR(tuple):
@@ -450,6 +482,12 @@ class cicR(tuple):
             Returns
             -------
                 out : implication_proposition
+
+            Examples
+            --------
+                >>> cc = cicR.from_string("(('a','b')),'REQUIRES_ALL',('x','y','z')")
+                >>> cc.to_implication_proposition()
+                (('a': <class 'bool'>  = True) & ('b': <class 'bool'>  = True)) -[ALL]> ((('x': <class 'bool'>  = True) & ('y': <class 'bool'>  = True) & ('z': <class 'bool'>  = True), [])
         """
         condition_prop = cicR._condition_to_conditional_proposition(self[0])
         return implication_proposition(
@@ -518,6 +556,21 @@ class cicJE(dict):
             Returns
             -------
                 out : implication_proposition
+
+            Examples
+            --------
+                >>> r = cc.cicJE({
+                ...     "condition": {},
+                ...     "consequence": {
+                ...         "ruleType": "REQUIRES_ALL",
+                ...         "components": [
+                ...             {"id": "x"},
+                ...             {"id": "y"}
+                ...         ]
+                ...     }
+                ... })
+                >>> r.to_implication_proposition()
+                () -[ALL]> ((('x': <class 'bool'>  = True) & ('y': <class 'bool'>  = True), [])
         """
 
         map_component = lambda component: discrete_variable_proposition(component[id_ident], component['operator'], component['value']) if ('operator' in component and 'value' in component) else boolean_variable_proposition(component[id_ident])

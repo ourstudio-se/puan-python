@@ -4,6 +4,7 @@ import functools
 import itertools
 import operator
 import maz
+import puan.logic.cic as cc
 
 class application(dict):
 
@@ -14,8 +15,6 @@ class application(dict):
 
         Methods
         -------
-        replace_variables
-            Replaces literal values with variable if match.
         to_cicJEs
             Converts an application and items to one or many configuration rules.
     """
@@ -224,13 +223,13 @@ class application(dict):
         else:
             return list(
                 map(
-                    lambda variable: application.replace_variables(self, variable),
+                    lambda variable: application._replace_variables(self, variable),
                     self.get("variables", []),
                 )
             )
 
 
-    def replace_variables(self: dict, variable: dict, variable_sign: str = "$") -> "application":
+    def _replace_variables(self: dict, variable: dict, variable_sign: str = "$") -> "application":
 
         """
             Replaces literal values with variable if match. Returns a copy of application.
@@ -256,7 +255,299 @@ class application(dict):
 
         Returns
         -------
-            out : iterator (ConfigRule)
+            out : iterator : typing.List[puan.logic.cic.cicJE]
+
+        Examples
+        --------
+
+        Here we want to set that each category item (such as bottoms, shoes and jeans) requires exactly one
+        of the items that has category.id as "bottoms", "shoes" or "jeans". In result, we'll return three cicJE instances
+        where one binds the item "bottom" to requires exclusively all items with category.id == "bottoms", another the item "shoes"
+        to all items with category.id == "shoes" and lastly one binding the item "jeans" to all items with category.id == "jeans".
+
+            >>> import puan.logic.sta as sta
+            >>> >>> a = sta.application({
+            ...     "variables": [
+            ...         {
+            ...             "key": "variable",
+            ...             "value": "bottoms"
+            ...         },
+            ...         {
+            ...             "key": "variable",
+            ...             "value": "shoes"
+            ...         },
+            ...         {
+            ...             "key": "variable",
+            ...             "value": "jeans"
+            ...         }
+            ...     ],
+            ...     "source": {
+            ...         "selector": {
+            ...             "active": True,
+            ...             "conjunctionSelector": {
+            ...                 "disjunctions": [
+            ...                     {
+            ...                         "literals": [
+            ...                             {
+            ...                                 "key": "id",
+            ...                                 "operator": "==",
+            ...                                 "value": "$variable"
+            ...                             }
+            ...                         ]
+            ...                     }
+            ...                 ]
+            ...             }
+            ...         }
+            ...     },
+            ...     "target": {
+            ...         "selector": {
+            ...             "active": True,
+            ...             "conjunctionSelector": {
+            ...                 "disjunctions": [
+            ...                     {
+            ...                         "literals": [
+            ...                             {
+            ...                                 "key": "category.id",
+            ...                                 "operator": "==",
+            ...                                 "value": "$variable"
+            ...                             }
+            ...                         ]
+            ...                     }
+            ...                 ]
+            ...             }
+            ...         }
+            ...     },
+            ...     "apply": {
+            ...         "ruleType": "REQUIRES_EXCLUSIVELY"
+            ...     }
+            ... })
+            >>> list(a.to_cicJEs([
+            ...     {
+            ...         "id": "4c2f9300-cc0e-42c6-b5c8-75ec5bcf4532",
+            ...         "name": "Loose jeans",
+            ...         "category": {
+            ...             "name": "Jeans",
+            ...             "id": "jeans"
+            ...         }
+            ...     },
+            ...     {
+            ...         "id": "83893701-473c-44e9-9881-a9a403a8a0fc",
+            ...         "name": "Regular Mid Wash jeans",
+            ...         "category": {
+            ...             "name": "Jeans",
+            ...             "id": "jeans"
+            ...         }
+            ...     },
+            ...     {
+            ...         "id": "1dcb5259-73db-4e73-a2d0-2b883715ee18",
+            ...         "name": "Slim Stretch Chinos",
+            ...         "category": {
+            ...             "name": "Trousers",
+            ...             "id": "trousers"
+            ...         }
+            ...     },
+            ...     {
+            ...         "id": "517e4b9d-697d-47b4-9701-965c7d46a927",
+            ...         "name": "Regular Trousers Cotton Linen",
+            ...         "category": {
+            ...             "name": "Trousers",
+            ...             "id": "trousers"
+            ...         }
+            ...     },
+            ...     {
+            ...         "id": "670b14b7-91e8-4045-8bdc-0e24d152c826",
+            ...         "name": "T-shirt",
+            ...         "category": {
+            ...             "name": "T-shirts",
+            ...             "id": "t-shirts"
+            ...         }
+            ...     },
+            ...     {
+            ...         "id": "1b32e500-3999-4a09-92d1-866f6970153f",
+            ...         "name": "T-shirt",
+            ...         "category": {
+            ...             "name": "T-shirts",
+            ...             "id": "t-shirts"
+            ...         }
+            ...     },
+            ...     {
+            ...         "id": "e2f97d5e-d4fe-4a8c-933f-43ddb0bd21e6",
+            ...         "name": "Oxford Shirt",
+            ...         "category": {
+            ...             "name": "Shirts",
+            ...             "id": "shirts"
+            ...         }
+            ...     },
+            ...     {
+            ...         "id": "8a3a0c21-f6a7-4447-bb6a-d278d7077aaa",
+            ...         "name": "Relaxed Oxford Shirt",
+            ...         "category": {
+            ...             "name": "Shirts",
+            ...             "id": "shirts"
+            ...         }
+            ...     },
+            ...     {
+            ...         "id": "00cba936-1b43-4422-bb1c-b8c9c5b0f173",
+            ...         "name": "Relaxed Cotton Twill Overshirt",
+            ...         "category": {
+            ...             "name": "Shirts",
+            ...             "id": "shirts"
+            ...         }
+            ...     },
+            ...     {
+            ...         "id": "02ece6a3-a5bd-4ff9-9256-26b0938a621e",
+            ...         "name": "Heavy Knit Wool Jumper",
+            ...         "category": {
+            ...             "name": "Knits",
+            ...             "id": "knits"
+            ...         }
+            ...     },
+            ...     {
+            ...         "id": "59079abb-8fae-402a-9e44-126165a95fd7",
+            ...         "name": "Relaxed Heavyweight Hoodie",
+            ...         "category": {
+            ...             "name": "sweaters",
+            ...             "id": "sweaters"
+            ...         }
+            ...     },
+            ...     {
+            ...         "id": "14ec21ec-5892-45ae-adb1-c7dc12b11379",
+            ...         "name": "French Terry Sweatshirt",
+            ...         "category": {
+            ...             "name": "sweaters",
+            ...             "id": "sweaters"
+            ...         }
+            ...     },
+            ...     {
+            ...         "id": "71a02a66-2614-470d-afd1-c858470e1107",
+            ...         "name": "New Balance 997H",
+            ...         "category": {
+            ...             "name": "Sneakers",
+            ...             "id": "sneakers"
+            ...         }
+            ...     },
+            ...     {
+            ...         "id": "5c462102-f15d-4cbd-872e-a2a9df5446d5",
+            ...         "name": "Saucony Azura Trainers",
+            ...         "category": {
+            ...             "name": "Sneakers",
+            ...             "id": "sneakers"
+            ...         }
+            ...     },
+            ...     {
+            ...         "id": "4b89a145-9c2e-479d-8ff3-e8f96b31cc6a",
+            ...         "name": "Veja Esplar Trainers",
+            ...         "category": {
+            ...             "name": "Sneakers",
+            ...             "id": "sneakers"
+            ...         }
+            ...     },
+            ...     {
+            ...         "id": "ffed933f-8036-43db-89e4-569423840dd8",
+            ...         "name": "Leather Chelsea Boots",
+            ...         "category": {
+            ...             "name": "Boots",
+            ...             "id": "boots"
+            ...         }
+            ...     },
+            ...     {
+            ...         "name": "Bottoms",
+            ...         "id": "bottoms",
+            ...         "category": {
+            ...             "name": "Clothing",
+            ...             "id": "clothing"
+            ...         }
+            ...     },
+            ...     {
+            ...         "name": "Tops",
+            ...         "id": "tops",
+            ...         "category": {
+            ...             "name": "Clothing",
+            ...             "id": "clothing"
+            ...         }
+            ...     },
+            ...     {
+            ...         "name": "Shoes",
+            ...         "id": "shoes",
+            ...         "category": {
+            ...             "name": "Clothing",
+            ...             "id": "clothing"
+            ...         }
+            ...     },
+            ...     {
+            ...         "name": "Jeans",
+            ...         "id": "jeans",
+            ...         "category": {
+            ...             "name": "Bottoms",
+            ...             "id": "bottoms"
+            ...         }
+            ...     },
+            ...     {
+            ...         "name": "Trousers",
+            ...         "id": "trousers",
+            ...         "category": {
+            ...             "name": "Bottoms",
+            ...             "id": "bottoms"
+            ...         }
+            ...     },
+            ...     {
+            ...         "name": "Shorts",
+            ...         "id": "shorts",
+            ...         "category": {
+            ...             "name": "Bottoms",
+            ...             "id": "bottoms"
+            ...         }
+            ...     },
+            ...     {
+            ...         "name": "T-shirts",
+            ...         "id": "t-shirts",
+            ...         "category": {
+            ...             "name": "Tops",
+            ...             "id": "tops"
+            ...         }
+            ...     },
+            ...     {
+            ...         "name": "Sweaters",
+            ...         "id": "sweaters",
+            ...         "category": {
+            ...             "name": "Tops",
+            ...             "id": "tops"
+            ...         }
+            ...     },
+            ...     {
+            ...         "name": "Knits",
+            ...         "id": "knits",
+            ...         "category": {
+            ...             "name": "Tops",
+            ...             "id": "tops"
+            ...         }
+            ...     },
+            ...     {
+            ...         "name": "Shirts",
+            ...         "id": "shirts",
+            ...         "category": {
+            ...             "name": "Tops",
+            ...             "id": "tops"
+            ...         }
+            ...     },
+            ...     {
+            ...         "name": "Sneakers",
+            ...         "id": "sneakers",
+            ...         "category": {
+            ...             "name": "Shoes",
+            ...             "id": "shoes"
+            ...         }
+            ...     },
+            ...     {
+            ...         "name": "Boots",
+            ...         "id": "boots",
+            ...         "category": {
+            ...             "name": "Shoes",
+            ...             "id": "shoes"
+            ...         }
+            ...     }
+            ... ]))
+            [{'condition': {'relation': 'ALL', 'subConditions': [{'relation': 'ALL', 'components': [{'id': 'bottoms'}]}]}, 'consequence': {'ruleType': 'REQUIRES_EXCLUSIVELY', 'components': [{'id': 'jeans'}, {'id': 'trousers'}, {'id': 'shorts'}]}}, {'condition': {'relation': 'ALL', 'subConditions': [{'relation': 'ALL', 'components': [{'id': 'shoes'}]}]}, 'consequence': {'ruleType': 'REQUIRES_EXCLUSIVELY', 'components': [{'id': 'sneakers'}, {'id': 'boots'}]}}, {'condition': {'relation': 'ALL', 'subConditions': [{'relation': 'ALL', 'components': [{'id': 'jeans'}]}]}, 'consequence': {'ruleType': 'REQUIRES_EXCLUSIVELY', 'components': [{'id': '4c2f9300-cc0e-42c6-b5c8-75ec5bcf4532'}, {'id': '83893701-473c-44e9-9881-a9a403a8a0fc'}]}}]
     """
         for _application in application._explode_from_variables(self):
 
@@ -269,7 +560,7 @@ class application(dict):
                     if not (source_items or target_items):
                         continue
 
-                    yield {
+                    yield cc.cicJE({
                         "condition": {
                             "relation": "ALL",
                             "subConditions": [
@@ -289,4 +580,4 @@ class application(dict):
                                 for target_item in target_items
                             ]
                         }
-                    }
+                    })

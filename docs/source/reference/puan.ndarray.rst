@@ -1,5 +1,5 @@
-puan
-====
+Numpy Array objects
+===================
 
 
 Summary
@@ -20,7 +20,7 @@ Data types
 :class:`puan.boolean_ndarray`
    A numpy.ndarray sub class with only booleans.
 
-.. currentmodule:: puan
+.. currentmodule:: puan.ndarray
 
 Ge polyhedron
 +++++++++++++

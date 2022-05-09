@@ -3,22 +3,26 @@
    You can adapt this file completely to your liking, but it should at least
    contain the root `toctree` directive.
 
-Puan API reference
-==================
+Summary
+-------
+Puan is an open source toolkit for modelling combinatorial optimization problems and aims to minimize distance between users and their solutions
+while maintaining a model that can live for a longer period of time. 
+
+.. Puan API reference
+.. ==================
 
 .. toctree::
    :maxdepth: 1
-   :caption: Contents:
+   :hidden:
 
-   puan
-   puan.logic
-   puan.misc
-   puan.vmap
+   User Guide <guide/index>
+   API reference <reference/index>
+   Development <dev/index>
 
 
-Indices and tables
-==================
+.. Indices and tables
+.. ==================
 
-* :ref:`genindex`
-* :ref:`modindex`
-* :ref:`search`
+.. * :ref:`genindex`
+.. * :ref:`modindex`
+.. * :ref:`search`

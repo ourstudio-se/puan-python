@@ -1,5 +1,5 @@
-puan.misc
-==========
+Miscellaneous functions
+=======================
 
 .. automodule:: puan.misc
    :members:

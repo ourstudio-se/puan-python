@@ -1,5 +1,5 @@
-puan.logic
-===========
+Logic modelling
+===============
 
 .. toctree::
    :maxdepth: 1
@@ -8,7 +8,7 @@ puan.logic
    puan.logic.sta
 
 Summary
---------
+-------
 
 TODO: Add summary here
 
