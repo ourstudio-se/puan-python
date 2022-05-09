@@ -7,3 +7,4 @@ User Guide
 
    install
    quickstart
+   tutorial
