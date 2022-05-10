@@ -1,4 +1,5 @@
 import puan
+import puan.ndarray
 import puan.vmap
 import puan.logic
 import puan.logic.cic as cc
@@ -245,7 +246,7 @@ def test_randomly_gen_value_maps_to_mats_and_back():
         comparison = operator.eq(
             rand_matrix,
             puan.vmap.to_matrix(
-                puan.to_value_map(rand_matrix),
+                puan.ndarray.to_value_map(rand_matrix),
                 dtype=rand_matrix.dtype,
             ),
         )
@@ -1390,8 +1391,8 @@ def test_reduce_matrix():
         [ 0, 1, 1, 0, 1, 0], # remove
         [ 0, 1, 1, 0, 1,-1], # stay
     ])
-    reducable_rows = puan.reducable_rows(matrix)
-    actual = puan.reduce(matrix, rows_vector=reducable_rows)
+    reducable_rows = puan.ndarray.reducable_rows(matrix)
+    actual = puan.ndarray.reduce(matrix, rows_vector=reducable_rows)
     expected = numpy.array([
         [-1,-1,-1, 1, 0, 2], # stay
         [ 0,-1, 1, 1, 0, 0], # stay
@@ -1404,7 +1405,7 @@ def test_reduce_matrix():
 
 def test_reduce():
     """Documentation example"""
-    input = puan.ge_polyhedron(numpy.array([
+    input = puan.ndarray.ge_polyhedron(numpy.array([
         [ 0,-1, 1, 0, 0, 0, 0],
         [ 0, 0,-1, 1, 0, 0, 0],
         [-1, 0, 0,-1,-1, 0, 0],
@@ -1414,7 +1415,7 @@ def test_reduce():
     columns_vector = numpy.array([1,0,0,0,0,0])
 
     actual = input.reduce(columns_vector=columns_vector)
-    expected = puan.ge_polyhedron(numpy.array([
+    expected = puan.ndarray.ge_polyhedron(numpy.array([
             [ 1, 1, 0, 0, 0, 0],
             [ 0,-1, 1, 0, 0, 0],
             [-1, 0,-1,-1, 0, 0],
@@ -1439,47 +1440,47 @@ def test_reducable_rows_and_columns():
     expected_red_cols = numpy.array([-1, 0, 0, 1, -2])
     expected_red_rows = numpy.array([0, 0, 0, 1, 1, 1, 1])
 
-    actual_red_rows, actual_red_cols = puan.reducable_rows_and_columns(matrix)
+    actual_red_rows, actual_red_cols = puan.ndarray.reducable_rows_and_columns(matrix)
     assert numpy.array_equal(actual_red_rows, expected_red_rows)
     assert numpy.array_equal(actual_red_cols, expected_red_cols_approx)
 
 def test_reducable_columns_approx():
     """Documentation examples"""
-    input = puan.ge_polyhedron(numpy.array([[0, -1, -1, -1]]))
+    input = puan.ndarray.ge_polyhedron(numpy.array([[0, -1, -1, -1]]))
     actual = input.reducable_columns_approx()
-    expected = puan.ge_polyhedron(numpy.array([-2, -2, -2]))
+    expected = puan.ndarray.ge_polyhedron(numpy.array([-2, -2, -2]))
     assert numpy.array_equal(actual, expected)
-    input = puan.ge_polyhedron(numpy.array([[3, 1, 1, 1]]))
+    input = puan.ndarray.ge_polyhedron(numpy.array([[3, 1, 1, 1]]))
     actual = input.reducable_columns_approx()
-    expected = puan.ge_polyhedron(numpy.array([1, 1, 1]))
+    expected = puan.ndarray.ge_polyhedron(numpy.array([1, 1, 1]))
     assert numpy.array_equal(actual, expected)
-    input = puan.ge_polyhedron(numpy.array([[0, 1, 1, -3]]))
+    input = puan.ndarray.ge_polyhedron(numpy.array([[0, 1, 1, -3]]))
     actual = input.reducable_columns_approx()
-    expected = puan.ge_polyhedron(numpy.array([0, 0, -3]))
+    expected = puan.ndarray.ge_polyhedron(numpy.array([0, 0, -3]))
     assert numpy.array_equal(actual, expected)
-    input = puan.ge_polyhedron(numpy.array([[2, 1, 1, -1]]))
+    input = puan.ndarray.ge_polyhedron(numpy.array([[2, 1, 1, -1]]))
     actual = input.reducable_columns_approx()
-    expected = puan.ge_polyhedron(numpy.array([1, 1, -2]))
+    expected = puan.ndarray.ge_polyhedron(numpy.array([1, 1, -2]))
     assert numpy.array_equal(actual, expected)
-    input = puan.ge_polyhedron(numpy.array([
+    input = puan.ndarray.ge_polyhedron(numpy.array([
         [ 0,-1, 1, 0, 0, 0], # 1
         [ 0, 0,-1, 1, 0, 0], # 2
         [-1,-1, 0,-1, 0, 0], # 3 1+2+3 -> Force not variable 0
     ]))
     actual = input.reducable_columns_approx()
-    expected = puan.ge_polyhedron(numpy.array([ 0, 0, 0, 0, 0]))
+    expected = puan.ndarray.ge_polyhedron(numpy.array([ 0, 0, 0, 0, 0]))
     assert numpy.array_equal(actual, expected)
-    input = puan.ge_polyhedron(numpy.array([
+    input = puan.ndarray.ge_polyhedron(numpy.array([
         [1, 1],
         [1, -1]
     ]))
     actual = input.reducable_columns_approx()
-    expected = puan.ge_polyhedron(numpy.array([0]))
+    expected = puan.ndarray.ge_polyhedron(numpy.array([0]))
     assert numpy.array_equal(actual, expected)
 
 def test_reduce_columns():
     """Documentation example"""
-    input = puan.ge_polyhedron(numpy.array([
+    input = puan.ndarray.ge_polyhedron(numpy.array([
         [0,-1, 1, 0, 0],
         [0, 0,-1, 1, 0],
         [0, 0, 0,-1, 1],
@@ -1487,7 +1488,7 @@ def test_reduce_columns():
 
     columns_vector = numpy.array([1, 0, -1, 0]) # meaning assume index 0 and not assume index 2
     actual = input.reduce_columns(columns_vector)
-    expected = puan.ge_polyhedron(numpy.array([
+    expected = puan.ndarray.ge_polyhedron(numpy.array([
                         [1, 1, 0],
                         [0,-1, 0],
                         [0, 0, 1],
@@ -1496,36 +1497,36 @@ def test_reduce_columns():
 
 def test_reducable_rows():
     """Documentation example"""
-    input = puan.ge_polyhedron(numpy.array([[-3, -1, -1, 1, 0]]))
+    input = puan.ndarray.ge_polyhedron(numpy.array([[-3, -1, -1, 1, 0]]))
     actual = input.reducable_rows()
-    expected = puan.ge_polyhedron(numpy.array([True]))
+    expected = puan.ndarray.ge_polyhedron(numpy.array([True]))
     assert numpy.array_equal(actual, expected)
-    input = puan.ge_polyhedron(numpy.array([[0, 1, 1, 1, 0]]))
+    input = puan.ndarray.ge_polyhedron(numpy.array([[0, 1, 1, 1, 0]]))
     actual = input.reducable_rows()
-    expected = puan.ge_polyhedron(numpy.array([True]))
+    expected = puan.ndarray.ge_polyhedron(numpy.array([True]))
     assert numpy.array_equal(actual, expected)
 
 def test_reduce_rows():
     """Documentation example"""
-    input = puan.ge_polyhedron(numpy.array([
+    input = puan.ndarray.ge_polyhedron(numpy.array([
         [0,-1, 1, 0, 0], # Reduce
         [0, 0,-1, 1, 0], # Keep
         [0, 0, 0,-1, 1], # Reduce
     ]))
     rows_vector = numpy.array([1, 0, 1])
     actual = input.reduce_rows(rows_vector)
-    expected = puan.ge_polyhedron(numpy.array([
+    expected = puan.ndarray.ge_polyhedron(numpy.array([
         [0, 0,-1, 1, 0],
     ]))
     assert numpy.array_equal(actual, expected)
-    input = puan.ge_polyhedron(numpy.array([
+    input = puan.ndarray.ge_polyhedron(numpy.array([
         [0,-1, 1, 0, 0], # Reduce
         [0, 0,-1, 1, 0], # Keep
         [0, 0, 0,-1, 1], # Reduce
     ]))
     rows_vector = numpy.array([True, False, True])
     actual = input.reduce_rows(rows_vector)
-    expected = puan.ge_polyhedron(numpy.array([
+    expected = puan.ndarray.ge_polyhedron(numpy.array([
         [0, 0,-1, 1, 0],
     ]))
     assert numpy.array_equal(actual, expected)
@@ -1658,7 +1659,7 @@ def test_cicJE_to_implication_proposition():
     })
 
     expected_output = cc.implication_proposition(
-        cc.Implication.ALL, 
+        cc.Implication.ALL,
         cc.consequence_proposition("ALL", [
             cc.boolean_variable_proposition("m"),
             cc.boolean_variable_proposition("n"),
@@ -1728,9 +1729,9 @@ def test_parte_line_rules_from_text():
         list(
             map(
                 maz.compose(
-                    cc.cicR.to_implication_proposition, 
+                    cc.cicR.to_implication_proposition,
                     cc.cicR.from_string
-                ), 
+                ),
                 text_lines
             )
         )
@@ -1756,9 +1757,9 @@ def test_parse_line_rule_strings_with_different_combinations():
         list(
             map(
                 maz.compose(
-                    cc.cicR.to_implication_proposition, 
+                    cc.cicR.to_implication_proposition,
                     cc.cicR.from_string
-                ), 
+                ),
                 line_rule_strs
             )
         )
@@ -1774,22 +1775,22 @@ def test_parse_line_rule_when_an_empty_any_condition():
     actual = list(
         map(
             maz.compose(
-                cc.cicR.to_implication_proposition, 
+                cc.cicR.to_implication_proposition,
                 cc.cicR.from_string
-            ), 
+            ),
             line_rule_strs
         )
     )
     expected = [
         cc.implication_proposition(
-            cc.Implication.ALL, 
+            cc.Implication.ALL,
             cc.consequence_proposition("ALL", [
                 cc.boolean_variable_proposition("x")
             ]),
             cc.conditional_proposition("ANY", [])
         ),
         cc.implication_proposition(
-            cc.Implication.ALL, 
+            cc.Implication.ALL,
             cc.consequence_proposition("ALL", [
                 cc.boolean_variable_proposition("y")
             ])
@@ -1807,15 +1808,15 @@ def test_parse_line_rules_when_having_numbers_inside():
     actual = list(
         map(
             maz.compose(
-                cc.cicR.to_implication_proposition, 
+                cc.cicR.to_implication_proposition,
                 cc.cicR.from_string
-            ), 
+            ),
             line_rule_strs
         )
     )
     expected = [
         cc.implication_proposition(
-            cc.Implication.ALL, 
+            cc.Implication.ALL,
             cc.consequence_proposition("ALL", [
                 cc.boolean_variable_proposition("1"),
                 cc.boolean_variable_proposition("22"),
@@ -1938,9 +1939,9 @@ def test_convert_one_or_none_to_matrix():
     actual_matrix = cc.conjunctional_proposition(list(
         map(
             maz.compose(
-                cc.cicR.to_implication_proposition, 
+                cc.cicR.to_implication_proposition,
                 cc.cicR.from_string
-            ), 
+            ),
             expected_line_rules
         )
     )).to_polyhedron()
@@ -1958,7 +1959,7 @@ def test_convert_one_or_none_to_matrix():
         [-1, -1, -1,  0,  0,  0],
         [-1, -1,  0,  0,  0,  0],
         [-1,  0,  0,  0,  0,  0],
-        [ 0,  0,  0,  0,  0,  0]], 
+        [ 0,  0,  0,  0,  0,  0]],
         dtype=numpy.int16
     )
     expected_vector_b = numpy.array([-10, -7, -7, -5, -4, -4, -3, -3, -2, -1, -1, -1, -1], dtype=numpy.int16)
@@ -1971,7 +1972,7 @@ def test_neglectable_columns():
     """Documentation example"""
     # Case 1: keep common pattern
     inputs = (
-        puan.ge_polyhedron(numpy.array([  # M
+        puan.ndarray.ge_polyhedron(numpy.array([  # M
                     [-1,-1,-1, 0, 0, 0, 1],
                     [-1,-1, 0,-1, 0, 0, 1],
             ])),
@@ -1981,7 +1982,7 @@ def test_neglectable_columns():
                     [1, 0, 1]
             ])
     )
-    actual = puan.neglectable_columns(*inputs)
+    actual = puan.ndarray.neglectable_columns(*inputs)
     expected = numpy.array([0, 1, 1, 0, 0, 0])
     assert numpy.array_equal(actual, expected)
 
@@ -1997,7 +1998,7 @@ def test_neglectable_columns():
                     [1, 0, 0]
             ])
     )
-    actual = puan.neglectable_columns(*inputs)
+    actual = puan.ndarray.neglectable_columns(*inputs)
     expected = numpy.array([1, 0, 0, 0, 0, 0])
     assert numpy.array_equal(actual, expected)
 
@@ -2013,7 +2014,7 @@ def test_neglect_columns():
                     [1, 0, 1, 0]
             )
     )
-    actual = puan.neglect_columns(*inputs)
+    actual = puan.ndarray.neglect_columns(*inputs)
     expected = numpy.array([
                     [ 1, 0, 1, 0, 0],
                     [-1, 0,-1, 0, 0],
@@ -2029,7 +2030,7 @@ def test_configuration2value_map():
         ],
         ['a', 'b', 'c', 'd', 'e']
     )
-    actual = puan.boolean_ndarray.from_list(*inputs).to_value_map()
+    actual = puan.ndarray.boolean_ndarray.from_list(*inputs).to_value_map()
     expected = {
         1: [
             [0, 0, 0, 1, 1, 1],
@@ -2045,7 +2046,7 @@ def test_polyhedron2value_map():
                  [0, 0,-1, 1, 0],
                  [0, 0, 0,-1, 1],
              ])
-    actual = puan.ge_polyhedron(inputs).to_value_map()
+    actual = puan.ndarray.ge_polyhedron(inputs).to_value_map()
     expected = {
         1: [[0, 1, 2], [2, 3, 4]],
         -1: [[0, 1, 2], [1, 2, 3]]
@@ -2059,7 +2060,7 @@ def test_polyhedron2linalg():
                  [0, 0,-1, 1, 0],
                  [0, 0, 0,-1, 1],
              ])
-    actual = puan.ge_polyhedron(inputs).to_linalg()
+    actual = puan.ndarray.ge_polyhedron(inputs).to_linalg()
     expected = (numpy.array([
                     [-1, 1, 0, 0],
                     [0, -1, 1, 0],
@@ -2080,25 +2081,25 @@ def test_reducable_matrix_columns_should_keep_zero_columns():
         [-3,-2,-1,-1, 0],
     ], dtype="int32")
 
-    rows, cols = puan.reducable_rows_and_columns(M)
+    rows, cols = puan.ndarray.reducable_rows_and_columns(M)
     assert cols[3] == 0
 
 
 def test_truncate():
     test_cases = [
         (
-            puan.integer_ndarray([
+            puan.ndarray.integer_ndarray([
                 [
                     [-4, 1, 2,-4,-4,-4],
                     [ 0, 0, 0, 1, 0, 0],
                 ],
             ]),
-            puan.integer_ndarray([
+            puan.ndarray.integer_ndarray([
                 [-4, 1, 2, 16,-4,-4]
             ])
         ),
         (
-            puan.integer_ndarray([
+            puan.ndarray.integer_ndarray([
                 [
                     [ 0, 0, 0, 0, 0, 0],
                     [ 0, 0, 0, 0, 0, 0],
@@ -2106,23 +2107,23 @@ def test_truncate():
                     [ 1, 2, 3, 4, 5, 6]
                 ],
             ]),
-            puan.integer_ndarray([
+            puan.ndarray.integer_ndarray([
                 [ 1, 2, 4, 8, 16, 32],
             ])
         ),
         (
-            puan.integer_ndarray([
+            puan.ndarray.integer_ndarray([
                 [ 0, 0, 1, 0, 2, 3],
                 [-1,-1,-1,-1, 0, 0],
                 [ 0, 0, 1, 2, 0, 0],
                 [ 0, 0, 1, 0, 0, 0]
             ]),
-            puan.integer_ndarray([
+            puan.ndarray.integer_ndarray([
                 -4, -4, 24, 12, 1, 2
             ])
         ),
         (
-            puan.integer_ndarray([
+            puan.ndarray.integer_ndarray([
                 [
                     [ 0, 0, 1, 0, 2, 3],
                     [-1,-1,-1,-1, 0, 0],
@@ -2154,7 +2155,7 @@ def test_truncate():
                     [-3, 0, 7, 0, 0, 0]
                 ]
             ]),
-            puan.integer_ndarray([
+            puan.ndarray.integer_ndarray([
                 [-4,-4,24,12, 1, 2],
                 [ 0, 0, 0, 0, 0, 0],
                 [ 1, 2, 4, 8,16,32],
@@ -2171,27 +2172,27 @@ def test_truncate_documentation_examples():
     """Documentation example"""
     test_cases = [
         (
-            puan.integer_ndarray([1, 2, 3, 4]),
-            puan.integer_ndarray([1, 2, 4, 8])),
+            puan.ndarray.integer_ndarray([1, 2, 3, 4]),
+            puan.ndarray.integer_ndarray([1, 2, 4, 8])),
         (
-            puan.integer_ndarray([3, 6, 2, 8]),
-            puan.integer_ndarray([2, 4, 1, 8])),
+            puan.ndarray.integer_ndarray([3, 6, 2, 8]),
+            puan.ndarray.integer_ndarray([2, 4, 1, 8])),
         (
-            puan.integer_ndarray([-3, -6, 2, 8]),
-            puan.integer_ndarray([-2, -4, 1, 8])),
+            puan.ndarray.integer_ndarray([-3, -6, 2, 8]),
+            puan.ndarray.integer_ndarray([-2, -4, 1, 8])),
         (
-            puan.integer_ndarray([1, 1, 2, 2, 2, 3]),
-            puan.integer_ndarray([ 1,  1,  3,  3,  3, 12])),
+            puan.ndarray.integer_ndarray([1, 1, 2, 2, 2, 3]),
+            puan.ndarray.integer_ndarray([ 1,  1,  3,  3,  3, 12])),
         (
-            puan.integer_ndarray([
+            puan.ndarray.integer_ndarray([
                 [ 0, 0, 0, 0, 1, 2],
                 [-1,-1,-1,-1, 0, 0],
                 [ 0, 0, 1, 2, 0, 0],
                 [ 0, 0, 1, 0, 0, 0]
                 ]),
-            puan.integer_ndarray([-4, -4, 24, 12,  1,  2])),
+            puan.ndarray.integer_ndarray([-4, -4, 24, 12,  1,  2])),
         (
-            puan.integer_ndarray([
+            puan.ndarray.integer_ndarray([
                 [
                     [ 1,  2,  2,  2,  2],
                     [ 1, -2, -1,  2, -2],
@@ -2208,7 +2209,7 @@ def test_truncate_documentation_examples():
                     [ 2,  2,  1,  1, -2],
                     [ 1, -1,  1,  0,  2]
                 ]]),
-            puan.integer_ndarray([
+            puan.ndarray.integer_ndarray([
                 [ 8,  2,  2, -1,  2],
                 [-1, -4,  4,  4,  2],
                 [ 2, -2,  2,  1,  8]])
@@ -2219,7 +2220,7 @@ def test_truncate_documentation_examples():
 
 def test_separable():
     """Documentation example"""
-    ge = puan.ge_polyhedron([0, -2, 1, 1])
+    ge = puan.ndarray.ge_polyhedron([0, -2, 1, 1])
     actual_output = ge.separable(numpy.array([
         [1,0,1],
         [1,1,1],
@@ -2229,7 +2230,7 @@ def test_separable():
 
 def test_ineq_separate_points():
     """Documentation example"""
-    input = puan.ge_polyhedron(numpy.array([
+    input = puan.ndarray.ge_polyhedron(numpy.array([
             [ 0, 1, 0],
             [ 0, 1, -1],
             [ -1, -1, 1]
@@ -2238,7 +2239,7 @@ def test_ineq_separate_points():
     actual = input.ineq_separate_points(points)
     expected = numpy.array([False, False, True])
     assert numpy.array_equal(actual, expected)
-    input = puan.ge_polyhedron(numpy.array([
+    input = puan.ndarray.ge_polyhedron(numpy.array([
                 [ 0, 1, 0, -1],
                 [ 0, 1, -1, 0],
                 [ -1, -1, 1, -1]

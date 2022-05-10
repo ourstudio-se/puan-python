@@ -4,7 +4,7 @@ from setuptools import Extension
 if __name__ == "__main__":
     setup(
         name="puan",
-        version="0.1",
+        version="0.2",
         description = "Function tools for combinatorial optimization",
         author = "Our Studio Void AB",
         author_email = "moa@ourstudio.se",
@@ -14,17 +14,17 @@ if __name__ == "__main__":
             "scipy",
             "maz"
         ],
-        packages=['puan'],
+        packages=['puan', 'puan.logic', 'puan.logic.sta', 'puan.logic.cic', 'puan.misc', 'puan.ndarray'],
         url = "https://puan.io",
         long_description = "",
-        # ext_modules=[
-        #     Extension(
-        #         'puancore/ufunc',
-        #         ['puancore/uFuncs/optimized_bit_allocation_64.c'],
-        #         include_dirs=[
-        #             '/opt/homebrew/Frameworks/Python.framework/Headers', 
-        #             '/opt/homebrew/Cellar/numpy/1.22.3_1/lib/python3.9/site-packages/numpy/core/include/'
-        #         ]
-        #     )
-        # ]
+        ext_modules=[
+            Extension(
+                'puan/npufunc',
+                ['puan/ndarray/npufunc.c'],
+                include_dirs=[
+                    '/opt/homebrew/Frameworks/Python.framework/Headers',
+                    '/opt/homebrew/Cellar/numpy/1.22.3_1/lib/python3.9/site-packages/numpy/core/include/'
+                ]
+            )
+        ]
     )
