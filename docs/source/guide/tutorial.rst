@@ -350,8 +350,8 @@ Now we can compile into propositions and/or a polyhedron undependent on new item
 We check at the end if my outfit of Converse shoes, a pair of black trousers, a white t-shirt and a cool black hat is considered to be an
 outfit in this model.
 
-Finding combinations (with a solver)
-------------------------------------
+Finding specific solution (with a solver)
+-----------------------------------------
 
 .. _npycvx: https://github.com/ourstudio-se/puan-npycvx
 
