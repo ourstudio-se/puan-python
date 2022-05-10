@@ -6,7 +6,87 @@ import maz
 import math
 import puan
 
-class ge_polyhedron(numpy.ndarray):
+class variable_ndarray(numpy.ndarray):
+    
+    def __new__(cls, input_array, variables: typing.List[puan.variable] = []):
+        _arr = numpy.array(input_array)
+        if variables:
+            if len(variables) < _arr.shape[_arr.ndim-1]:
+                raise ValueError(f"variables length mismatch: variables of length {len(variables)} and column width is {_arr.shape[_arr.ndim-1]}")
+            elif len(variables) > _arr.shape[_arr.ndim-1]:
+                _arr = numpy.pad(_arr, ([(0, 0)] * (_arr.ndim-1)) + [(0,1)])
+        else:
+            variables = list(range(len(variables))) 
+            
+        arr = numpy.asarray(_arr).view(cls)
+        arr.variables = variables
+        
+        return arr
+
+    def __array_finalize__(self, obj):
+        if obj is None:
+            return
+        self.variables = getattr(obj, 'variables', None)
+
+    def _copy_attrs_to(self, target):
+        target = target.view(ArraySubclass)
+        try:
+            target.__dict__.update(self.__dict__)
+        except AttributeError:
+            pass
+        return target
+
+    def construct(self, variable_values: typing.List[typing.Tuple[str, int]], default_value: int = 0) -> "variable_ndarray":
+
+        """
+            Constructs a variable_ndarray from a list of tuples of variable ID's and integers.
+
+            Examples
+            --------
+            
+            Constructing a new 1D variable ndarray shadow from this array and setting x = 5
+                >>> vnd = variable_ndarray([[1,2,3], [2,3,4]], [puan.variable("x", int), puan.variable("y", int), puan.variable("z", int)])
+                >>> vnd.construct([("x", 5)])
+                variable_ndarray([5,0,0])
+
+            Constructing a new 2D variable ndarray shadow from this array and setting x0 = 5, y0 = 4 and y1 = 3
+                >>> vnd = variable_ndarray([[1,2,3], [2,3,4]], [puan.variable("x", int), puan.variable("y", int), puan.variable("z", int)])
+                >>> vnd.construct([[("x", 5), ("y", 4)], [("y", 3)]])
+                variable_ndarray([5,0,0])
+
+            Returns
+            -------
+                out : variable_ndarray 
+        """
+        if isinstance(variable_values[0], tuple):
+            variable_indices = list(
+                map(
+                    maz.compose(
+                        self.variables.index, 
+                        puan.variable, 
+                        operator.itemgetter(0)
+                    ), 
+                    variable_values
+                )
+            )
+            v = numpy.ones(len(self.variables)) * default_value
+            v[variable_indices] = list(map(operator.itemgetter(1), variable_values))
+            return self.__class__(v, self.variables)
+        else:
+            return self.__class__(
+                list(
+                    map(
+                        functools.partial(
+                            self.construct, 
+                            default_value=default_value
+                        ),
+                        variable_values
+                    )
+                ),
+                self.variables
+            )
+
+class ge_polyhedron(variable_ndarray):
     """
         A numpy.ndarray sub class and a system of linear inequalities forming
         a polyhedron. The "ge" stands for "greater or equal" (:math:`\\ge`)
@@ -48,22 +128,7 @@ class ge_polyhedron(numpy.ndarray):
     """
 
     def __new__(cls, input_array, variables: typing.List[puan.variable] = []):
-        arr = numpy.asarray(input_array).view(cls)
-        arr.variables = variables
-        return arr
-
-    def __array_finalize__(self, obj):
-        if obj is None:
-            return
-        self.variables = getattr(obj, 'variables', None)
-
-    def _copy_attrs_to(self, target):
-        target = target.view(ArraySubclass)
-        try:
-            target.__dict__.update(self.__dict__)
-        except AttributeError:
-            pass
-        return target
+        return super().__new__(cls, input_array, variables=[puan.variable("#b", int, True)]+variables)
 
     @property
     def A(self) -> numpy.ndarray:
@@ -83,13 +148,13 @@ class ge_polyhedron(numpy.ndarray):
                 >>>     [0, 0, 0,-1, 1],
                 >>> ]))
                 >>> ge_polyhedron.A()
-                array([
+                integer_ndarray([
                     [-1, 1, 0, 0],
                     [0,-1, 1, 0],
                     [0, 0,-1, 1],
                 ])
         """
-        return numpy.array(self[:, 1:])
+        return integer_ndarray(self[[slice(None, None)]*(self.ndim-1)+[slice(1, None)]], self.variables[1:])
 
     @property
     def b(self) -> numpy.ndarray:
@@ -235,13 +300,7 @@ class ge_polyhedron(numpy.ndarray):
                     [0, 0, -1, 1]]),
                 array([0,0,0]))
         """
-        if self.ndim < 2:
-            A = self[1:].copy()
-            b = self[0].copy()
-        else:
-            A = self[:, 1:].copy()
-            b = self.T[0].copy()
-        return numpy.array(A), numpy.array(b)
+        return self.A, self.b
 
     def reducable_columns_approx(self: numpy.ndarray) -> numpy.ndarray:
         """
@@ -792,7 +851,18 @@ class ge_polyhedron(numpy.ndarray):
         elif points.ndim == 1:
             return ge_polyhedron.ineq_separate_points(numpy.array([points]), self)
 
-class integer_ndarray(numpy.ndarray):
+    def construct_boolean_ndarray(self: numpy.ndarray, variables: typing.List[str]) -> "boolean_ndarray":
+
+        """
+            Constructs a boolean ndarray sharing self.A's variables (i.e. without support vector).
+
+            Returns
+            -------
+                out : boolean_ndarray
+        """
+        return boolean_ndarray.construct(self.A, variables)
+
+class integer_ndarray(variable_ndarray):
     """
         A numpy.ndarray sub class with only integers in it.
 
@@ -810,13 +880,6 @@ class integer_ndarray(numpy.ndarray):
             Turns a list (or list of list) of strings into an integer vector. (static)
 
     """
-
-    def __new__(cls, input_array):
-        return numpy.asarray(input_array, dtype=numpy.int64).view(cls)
-
-    def __array_finalize__(self, obj):
-        if obj is None:
-            return
 
     def truncate(self: numpy.ndarray) -> numpy.ndarray:
 
@@ -1012,7 +1075,7 @@ class integer_ndarray(numpy.ndarray):
 
         return integer_ndarray(result)
 
-class boolean_ndarray(integer_ndarray):
+class boolean_ndarray(variable_ndarray):
     """
         A numpy.ndarray sub class with only booleans in it.
 
@@ -1025,13 +1088,6 @@ class boolean_ndarray(integer_ndarray):
         from_list
             Turns a list of strings into a boolean (0/1) vector. (static)
     """
-
-    def __new__(cls, input_array):
-        return numpy.asarray(input_array, dtype=numpy.int64).view(cls)
-
-    def __array_finalize__(self, obj):
-        if obj is None:
-            return
 
     @staticmethod
     def from_list(lst: typing.List[str], context: typing.List[str]) -> "boolean_ndarray":
@@ -1072,6 +1128,49 @@ class boolean_ndarray(integer_ndarray):
             )
 
         return boolean_ndarray(result)
+
+    def construct(self, variable_values: typing.List[str]) -> "boolean_ndarray":
+        
+        if isinstance(variable_values[0], str):
+            return boolean_ndarray(variable_ndarray.construct(self, list(map(lambda x: (x, 1), variable_values))), self.variables)
+        else:
+            return boolean_ndarray(
+                list(
+                    map(
+                        self.construct,
+                        variable_values
+                    )
+                ),
+                self.variables
+            )
+
+    def to_list(self, skip_virtual_variables: bool = False) -> typing.List[puan.variable]:
+
+        """
+            Returns a list of variables for each value in self equal 1.
+
+            Returns
+            -------
+                out : list : puan.variable
+        """
+
+        if self.ndim == 1:
+            return list(
+                filter(
+                    lambda variable: not (skip_virtual_variables and variable.virtual),
+                    numpy.array(self.variables)[self == 1].tolist()
+                )
+            )
+        else:
+            return list(
+                map(
+                    functools.partial(
+                        boolean_ndarray.to_list,
+                        skip_virtual_variables=skip_virtual_variables,
+                    ),
+                    self
+                )
+            )
 
 """
     Function binding to function variables

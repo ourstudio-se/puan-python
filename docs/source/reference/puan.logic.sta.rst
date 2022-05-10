@@ -1,6 +1,8 @@
 Source-target Application 
 =========================
 
+.. _puan.logic.sta:
+
 Summary
 --------
 The "source-target-application" data format (`sta` for short) defines logical relations between items bound 

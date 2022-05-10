@@ -557,7 +557,7 @@ class application(dict):
             for source_items in source_items_group:
                 for target_items in target_items_group:
 
-                    if not (source_items or target_items):
+                    if not target_items:
                         continue
 
                     yield cc.cicJE({
@@ -567,7 +567,10 @@ class application(dict):
                                 {
                                     "relation": _application["apply"].get("conditionRelation", "ALL"),
                                     "components": [
-                                        {"id": application._extract_value(source_item, id_key)}
+                                        {
+                                            "id": application._extract_value(source_item, id_key), 
+                                            "virtual": source_item['virtual'] if 'virtual' in source_item else False
+                                        }
                                         for source_item in source_items
                                     ]
                                 }
@@ -576,8 +579,39 @@ class application(dict):
                         "consequence": {
                             "ruleType":_application["apply"]["ruleType"],
                             "components": [
-                                {"id": application._extract_value(target_item, id_key)}
+                                {
+                                    "id": application._extract_value(target_item, id_key),
+                                    "virtual": target_item['virtual'] if 'virtual' in target_item else False
+                                }
                                 for target_item in target_items
                             ]
                         }
                     })
+
+    @staticmethod
+    def to_conjunction_proposition(applications: typing.List["application"], from_items: typing.List[dict], id_key: str = "id") -> cc.conjunctional_proposition:
+
+        """
+            Compiles into a conjunction proposition from a list of applications and a list of items.
+
+            Returns
+            -------
+                out : conjunctional_proposition
+        """
+
+        return cc.conjunctional_proposition(
+            list(
+                map(
+                    cc.cicJE.to_implication_proposition,
+                    itertools.chain(
+                        *map(
+                            lambda x: x.to_cicJEs(from_items),
+                            map(
+                                application,
+                                applications
+                            )
+                        )
+                    )
+                )
+            )
+        )

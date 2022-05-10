@@ -573,7 +573,26 @@ class cicJE(dict):
                 () -[ALL]> ((('x': <class 'bool'>  = True) & ('y': <class 'bool'>  = True), [])
         """
 
-        map_component = lambda component: discrete_variable_proposition(component[id_ident], component['operator'], component['value']) if ('operator' in component and 'value' in component) else boolean_variable_proposition(component[id_ident])
+        def map_component(component):
+            if ('operator' in component and 'value' in component):
+                return discrete_variable_proposition(
+                    puan.variable(
+                        component[id_ident], 
+                        int,
+                        virtual=component['virtual'] if 'virtual' in component else False
+                    ), 
+                    component['operator'], 
+                    component['value']
+                )  
+            else: 
+                return boolean_variable_proposition(
+                    puan.variable(
+                        component[id_ident], 
+                        bool,
+                        virtual=component['virtual'] if 'virtual' in component else False
+                    )
+                )
+
         return implication_proposition(
             implies=cicR.implication_mapping.get(self['consequence']['ruleType']), 
             consequence=consequence_proposition(

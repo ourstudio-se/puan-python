@@ -8,153 +8,382 @@ illustrating how to use Puan.
    :alt: alternate text
    :align: center
 
-Model
------
+Creating an STA-model
+---------------------
 
 An **outfit** we say must have: 
     - exactly one pair of **shoes**
     - exactly one pair of **bottoms**
-    - exactly one **shirt**
+    - one or more **top** (s)
     - at most one **hat**
-    - one to many **accessories**
 
 Now we also add some more specific rules to our model:
-    - a **t-shirt** is a **shirt**
+    - a **top** is either a **shirt** (exclusive) or a **t-shirt**
     - **bottoms** are either **shorts** (exclusive) or **trousers**
 
-Explicit modelling
-------------------
-Let's say we were given a number of clothing items to directly to us:
+Now we would like to create an :ref:`STA -model <puan.logic.sta>`. First we create all category items:
 
-.. code:: json
+.. code:: python
 
-    [
+    virtual_items = [
         {
-            "id": "4c2f9300-cc0e-42c6-b5c8-75ec5bcf4532",
-            "name": "Loose jeans",
+            "id": "outfit",
+            "name": "Outfit",
+            "virtual": True
+        },
+        {
+            "id": "shoes",
+            "name": "Shoes",
+            "virtual": True,
             "category": {
-                "name": "Jeans",
-                "id": "jeans"
+                "id": "outfit"
             }
         },
         {
-            "id": "83893701-473c-44e9-9881-a9a403a8a0fc",
-            "name": "Regular Mid Wash jeans",
+            "id": "bottoms",
+            "name": "Bottoms",
+            "virtual": True,
             "category": {
-                "name": "Jeans",
-                "id": "jeans"
+                "id": "outfit"
             }
         },
         {
-            "id": "1dcb5259-73db-4e73-a2d0-2b883715ee18",
-            "name": "Slim Stretch Chinos",
+            "id": "shirt",
+            "name": "Shirt",
+            "virtual": True,
             "category": {
-                "name": "Trousers",
-                "id": "trousers"
+                "id": "outfit"
             }
         },
         {
-            "id": "517e4b9d-697d-47b4-9701-965c7d46a927",
-            "name": "Regular Trousers Cotton Linen",
+            "id": "hat",
+            "name": "Hat",
+            "virtual": True,
             "category": {
-                "name": "Trousers",
-                "id": "trousers"
+                "id": "outfit"
             }
         },
         {
-            "id": "670b14b7-91e8-4045-8bdc-0e24d152c826",
-            "name": "T-shirt",
+            "id": "t-shirt",
+            "name": "T-Shrit",
+            "virtual": True,
             "category": {
-                "name": "T-shirts",
-                "id": "t-shirts"
+                "id": "outfit"
             }
         },
         {
-            "id": "1b32e500-3999-4a09-92d1-866f6970153f",
-            "name": "T-shirt",
+            "id": "shorts",
+            "name": "Shorts",
+            "virtual": True,
             "category": {
-                "name": "T-shirts",
-                "id": "t-shirts"
+                "id": "bottoms"
             }
         },
         {
-            "id": "e2f97d5e-d4fe-4a8c-933f-43ddb0bd21e6",
-            "name": "Oxford Shirt",
+            "id": "trousers",
+            "name": "Trousers",
+            "virtual": True,
             "category": {
-                "name": "Shirts",
-                "id": "shirts"
-            }
-        },
-        {
-            "id": "8a3a0c21-f6a7-4447-bb6a-d278d7077aaa",
-            "name": "Relaxed Oxford Shirt",
-            "category": {
-                "name": "Shirts",
-                "id": "shirts"
-            }
-        },
-        {
-            "id": "00cba936-1b43-4422-bb1c-b8c9c5b0f173",
-            "name": "Relaxed Cotton Twill Overshirt",
-            "category": {
-                "name": "Shirts",
-                "id": "shirts"
-            }
-        },
-        {
-            "id": "02ece6a3-a5bd-4ff9-9256-26b0938a621e",
-            "name": "Heavy Knit Wool Jumper",
-            "category": {
-                "name": "Knits",
-                "id": "knits"
-            }
-        },
-        {
-            "id": "59079abb-8fae-402a-9e44-126165a95fd7",
-            "name": "Relaxed Heavyweight Hoodie",
-            "category": {
-                "name": "sweaters",
-                "id": "sweaters"
-            }
-        },
-        {
-            "id": "14ec21ec-5892-45ae-adb1-c7dc12b11379",
-            "name": "French Terry Sweatshirt",
-            "category": {
-                "name": "sweaters",
-                "id": "sweaters"
-            }
-        },
-        {
-            "id": "71a02a66-2614-470d-afd1-c858470e1107",
-            "name": "New Balance 997H",
-            "category": {
-                "name": "Sneakers",
-                "id": "sneakers"
-            }
-        },
-        {
-            "id": "5c462102-f15d-4cbd-872e-a2a9df5446d5",
-            "name": "Saucony Azura Trainers",
-            "category": {
-                "name": "Sneakers",
-                "id": "sneakers"
-            }
-        },
-        {
-            "id": "4b89a145-9c2e-479d-8ff3-e8f96b31cc6a",
-            "name": "Veja Esplar Trainers",
-            "category": {
-                "name": "Sneakers",
-                "id": "sneakers"
-            }
-        },
-        {
-            "id": "ffed933f-8036-43db-89e4-569423840dd8",
-            "name": "Leather Chelsea Boots",
-            "category": {
-                "name": "Boots",
-                "id": "boots"
+                "id": "bottoms"
             }
         }
     ]
+
+
+Notice the "virtual"-property on all these items. We do this to later keep control of what belongs as supporting variables in the model
+and what items we actually care about later when doing different computations.
+
+Now we create STA-rules that bound logic relations. The first rule we add will bound a requires-exclusively (xor) relation between an item and its 
+category item. In other words it says, if the category is selected then select exactly one of the items having that category.
+
+.. code:: python
+
+    rule1 = {
+        "variables": [
+            {
+                "key": "variable",
+                "value": "outfit"
+            },
+            {
+                "key": "variable",
+                "value": "bottoms"
+            },
+            {
+                "key": "variable",
+                "value": "shoes"
+            },
+            {
+                "key": "variable",
+                "value": "trousers"
+            },
+            {
+                "key": "variable",
+                "value": "shorts"
+            },
+            {
+                "key": "variable",
+                "value": "shirt"
+            },
+            {
+                "key": "variable",
+                "value": "t-shirt"
+            },
+            {
+                "key": "variable",
+                "value": "hat"
+            }
+        ],
+        "source": {
+            "selector": {
+                "active": True,
+                "conjunctionSelector": {
+                    "disjunctions": [
+                        {
+                            "literals": [
+                                {
+                                    "key": "id",
+                                    "operator": "==",
+                                    "value": "$variable"
+                                }
+                            ]
+                        }
+                    ]
+                }
+            }
+        },
+        "target": {
+            "selector": {
+                "active": True,
+                "conjunctionSelector": {
+                    "disjunctions": [
+                        {
+                            "literals": [
+                                {
+                                    "key": "category.id",
+                                    "operator": "==",
+                                    "value": "$variable"
+                                }
+                            ]
+                        }
+                    ]
+                }
+            }
+        },
+        "apply": {
+            "ruleType": "REQUIRES_EXCLUSIVELY"
+        }
+    }
+
+The second rule binds back from the items to their category item.
+
+.. code:: python
+
+    rule2 = {
+        "variables": [
+            {
+                "key": "variable",
+                "value": "bottom"
+            },
+            {
+                "key": "variable",
+                "value": "shoes"
+            },
+            {
+                "key": "variable",
+                "value": "trousers"
+            },
+            {
+                "key": "variable",
+                "value": "short"
+            },
+            {
+                "key": "variable",
+                "value": "shirt"
+            },
+            {
+                "key": "variable",
+                "value": "t-shirt"
+            },
+            {
+                "key": "variable",
+                "value": "top"
+            },
+            {
+                "key": "variable",
+                "value": "hat"
+            }
+        ],
+        "source": {
+            "groupBy": {
+                "onKey": "category.id"
+            },
+            "selector": {
+                "active": True,
+                "conjunctionSelector": {
+                    "disjunctions": [
+                        {
+                            "literals": [
+                                {
+                                    "key": "category.id",
+                                    "operator": "==",
+                                    "value": "$variable"
+                                }
+                            ]
+                        }
+                    ]
+                }
+            }
+        },
+        "target": {
+            "selector": {
+                "active": True,
+                "conjunctionSelector": {
+                    "disjunctions": [
+                        {
+                            "literals": [
+                                {
+                                    "key": "id",
+                                    "operator": "==",
+                                    "value": "$variable"
+                                }
+                            ]
+                        }
+                    ]
+                }
+            }
+        },
+        "apply": {
+            "ruleType": "REQUIRES_ALL",
+            "conditionRelation": "ANY"
+        }
+    }
+
+Now we can compile into propositions and/or a polyhedron undependent on new items.
+
+.. code:: python
+
+    import puan.logic.sta as sta
+    import puan.logic.cic as cc
+
+    # We assume items come from some other source...
+    # but hardcode some items here
+    non_virtual_items = [
+        {
+            "id": "black_trousers",
+            "name": "Black trousers",
+            "category": {
+                "id": "trousers"
+            }
+        },
+        {
+            "id": "blue_trousers",
+            "name": "Blue trousers",
+            "category": {
+                "id": "trousers"
+            }
+        },
+        {
+            "id": "white_t_shirt",
+            "name": "White T-Shirt",
+            "category": {
+                "id": "t-shirt"
+            }
+        },
+        {
+            "id": "blue_t_shirt",
+            "name": "Blue T-Shirt",
+            "category": {
+                "id": "t-shirt"
+            }
+        },
+        {
+            "id": "green_t_shirt",
+            "name": "Green T-Shirt",
+            "category": {
+                "id": "t-shirt"
+            }
+        },
+        {
+            "id": "converse",
+            "name": "Converse",
+            "category": {
+                "id": "shoes"
+            }
+        },
+        {
+            "id": "black_hat_with_cool_label",
+            "name": "Black Hat with Cool Label",
+            "category": {
+                "id": "hat"
+            }
+        },
+    ]
+    
+    # Add together all items
+    items = virtual_items + non_virtual_items
+    sta_rules = [rule1, rule2]
+
+    # Compile into a conjunctional proposition
+    conj_prop = sta.application.to_conjunction_proposition(sta_rules, items)
+
+    # Check if some combination is valid
+    polyhedron = conj_prop.to_polyhedron()
+
+    # Combination is not separable meaning it is inside the polyhedron
+    assert not polyhedron.separable(
+        polyhedron.construct_boolean_ndarray([
+            "converse",
+            "black_trousers",
+            "white_t_shirt",
+            "black_hat_with_cool_label",
+            
+            "hat",
+            "bottoms",
+            "outfit",
+            "top",
+            "t-shirt",
+            "trousers",
+            "shoes",
+        ])
+    )
+
+We check at the end if my outfit of Converse shoes, a pair of black trousers, a white t-shirt and a cool black hat is considered to be an
+outfit in this model.
+
+Finding combinations (with a solver)
+------------------------------------
+
+.. _npycvx: https://github.com/ourstudio-se/puan-npycvx
+
+It is easy to check if a model satisfies a specific combination. But since the combination space tends to be very large, finding a specific one is hard. 
+To find one in this context, we use a mixed integer linear programming solver and for this specific example we use `NpyCVX <npycvx>`.
+
+Using the same model, we now want to try and find the outfit with as much clothes on as possible. 
+
+.. code:: python
+
+    import npycvx
+    import puan.ndarray as pnd
+
+    # We convert our polyhedron into cvxopt's constraints format 
+    problem = npycvx.convert_numpy(*polyhedron.to_linalg())
+
+    # Here we compute the search and tries to find an outfit with as much clothes as possible (maximizing positive one-vector)
+    status, solution = npycvx.solve_lp(*problem, False, numpy.ones(len(polyhedron.A.variables)))
+
+    if status == "optimal":
+
+        # Print out the solution variables but skip the virtual ones 
+        print(
+            pnd.boolean_ndarray(
+                solution, 
+                polyhedron.A.variables
+            ).to_list(True)
+        )
+
+        # [
+        #   'black_hat_with_cool_label': <class 'bool'> , <- did you also read "class cool" 8) ?
+        #   'black_trousers': <class 'bool'> , 
+        #   'converse': <class 'bool'> , 
+        #   'white_t_shirt': <class 'bool'> 
+        # ]

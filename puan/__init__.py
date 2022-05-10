@@ -8,7 +8,7 @@ class variable(object):
         A virtual variable is a variable that has been created along some reduction and is not (necessary) interesting for the user.
     """
 
-    def __init__(self, id: str, dtype: typing.Union[bool, int], virtual: bool = False):
+    def __init__(self, id: str, dtype: typing.Union[bool, int] = bool, virtual: bool = False):
         self.id = id
         self.dtype = dtype
         self.virtual = virtual
