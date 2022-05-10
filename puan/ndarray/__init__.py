@@ -5,6 +5,7 @@ import operator
 import maz
 import math
 import puan
+import puan.ndarray.npufunc as npufunc
 
 class ge_polyhedron(numpy.ndarray):
     """
@@ -67,7 +68,7 @@ class ge_polyhedron(numpy.ndarray):
 
     @property
     def A(self) -> numpy.ndarray:
-        
+
         """
             Matrix 'A', as in Ax >= b.
 
@@ -93,7 +94,7 @@ class ge_polyhedron(numpy.ndarray):
 
     @property
     def b(self) -> numpy.ndarray:
-        
+
         """
             Support vector 'b', as in Ax >= b.
 
@@ -135,7 +136,7 @@ class ge_polyhedron(numpy.ndarray):
 
         return set(
             map(
-                operator.itemgetter(0), 
+                operator.itemgetter(0),
                 filter(
                     maz.compose(
                         functools.partial(operator.eq, int),
@@ -169,7 +170,7 @@ class ge_polyhedron(numpy.ndarray):
 
         return set(
             map(
-                operator.itemgetter(0), 
+                operator.itemgetter(0),
                 filter(
                     maz.compose(
                         functools.partial(operator.eq, bool),
@@ -925,7 +926,7 @@ class integer_ndarray(numpy.ndarray):
             # Sort priorities of each row and omit zero values
             ufunc_inp = ufunc_inp[numpy.arange(self_reduced_abs.shape[0]).reshape(-1,1), ufunc_inp_sorted_args]
             ufunc_inp = ufunc_inp[ufunc_inp != 0].flatten()
-            values = puan.npufunc.optimized_bit_allocation_64(ufunc_inp.astype(numpy.int64))
+            values = npufunc.optimized_bit_allocation_64(ufunc_inp.astype(numpy.int64))
             # Update priorities with optimized bit allocation values
             self_reduced_abs_sorted[self_reduced_abs_sorted != 0] = values
             # Get reversed sorting
