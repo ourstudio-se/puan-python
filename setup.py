@@ -14,7 +14,7 @@ if __name__ == "__main__":
             "scipy",
             "maz"
         ],
-        packages=['puan'],
+        packages=['puan', 'puan.logic', 'puan.logic.sta', 'puan.logic.cic', 'puan.misc', 'puan.ndarray'],
         url = "https://puan.io",
         long_description = "",
         ext_modules=[
