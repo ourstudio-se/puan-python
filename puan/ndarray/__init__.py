@@ -5,7 +5,7 @@ import operator
 import maz
 import math
 import puan
-import puan.ndarray.npufunc as npufunc
+import puan.npufunc as npufunc
 
 class ge_polyhedron(numpy.ndarray):
     """
