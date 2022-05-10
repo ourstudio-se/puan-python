@@ -87,6 +87,35 @@ class variable_ndarray(numpy.ndarray):
                 self.variables
             )
 
+    def to_value_map(self: numpy.ndarray) -> dict:
+
+        """
+            Reduces the polyhedron into a value map.
+
+            Returns
+            -------
+                out : dictionary: value -> indices
+
+            Notes
+            -----
+                Since zeros are excluded in a value map, leading zero rows/columns will not be included.
+
+            Examples
+            --------
+                >>> ge_polyhedron = ge_polyhedron(numpy.array([
+                >>>     [0,-1, 1, 0, 0],
+                >>>     [0, 0,-1, 1, 0],
+                >>>     [0, 0, 0,-1, 1],
+                >>> ]))
+                >>> ge_polyhedron.to_value_map()
+                {1: [[0, 1, 2], [2, 3, 4]], -1: [[0, 1, 2], [1, 2, 3]]}
+
+        """
+        return dict(map(lambda v:
+                    (v, # Dict key
+                    list(map(lambda x: x[1], enumerate(numpy.argwhere(self == v).T.tolist())))), # Dict value
+                    set(self[self != 0])))
+
 class ge_polyhedron(variable_ndarray):
     """
         A numpy.ndarray sub class and a system of linear inequalities forming
@@ -129,6 +158,10 @@ class ge_polyhedron(variable_ndarray):
     """
 
     def __new__(cls, input_array, variables: typing.List[puan.variable] = []):
+        if not variables:
+            arr = numpy.array(input_array)
+            variables = list(map(puan.variable, range(arr.shape[arr.ndim-1]-1)))
+
         return super().__new__(cls, input_array, variables=[puan.variable("#b", int, True)]+variables)
 
     @property
@@ -247,35 +280,6 @@ class ge_polyhedron(variable_ndarray):
             )
         )
 
-    def to_value_map(self: numpy.ndarray) -> dict:
-
-        """
-            Reduces the polyhedron into a value map.
-
-            Returns
-            -------
-                out : dictionary: value -> indices
-
-            Notes
-            -----
-                Since zeros are excluded in a value map, leading zero rows/columns will not be included.
-
-            Examples
-            --------
-                >>> ge_polyhedron = ge_polyhedron(numpy.array([
-                >>>     [0,-1, 1, 0, 0],
-                >>>     [0, 0,-1, 1, 0],
-                >>>     [0, 0, 0,-1, 1],
-                >>> ]))
-                >>> ge_polyhedron.to_value_map()
-                {1: [[0, 1, 2], [2, 3, 4]], -1: [[0, 1, 2], [1, 2, 3]]}
-
-        """
-        return dict(map(lambda v:
-                    (v, # Dict key
-                    list(map(lambda x: x[1], enumerate(numpy.argwhere(self == v).T.tolist())))), # Dict value
-                    set(self[self != 0])))
-
     def to_linalg(self: numpy.ndarray) -> tuple:
         """
             Assumes support vector index 0 in polyhedron
@@ -368,7 +372,7 @@ class ge_polyhedron(variable_ndarray):
                 ge_polyhedron([0])
 
         """
-        A, b = ge_polyhedron.to_linalg(self)
+        A, b = ge_polyhedron(self).to_linalg()
         r = (A*((A*(A <= 0) + (A*(A > 0)).sum(axis=1).reshape(-1,1)) < b.reshape(-1,1))) + A*((A * (A > 0)).sum(axis=1) == b).reshape(-1,1)
         return r.sum(axis=0)
 
@@ -411,7 +415,7 @@ class ge_polyhedron(variable_ndarray):
 
         """
 
-        A, b = ge_polyhedron.to_linalg(self)
+        A, b = ge_polyhedron(self).to_linalg()
         _b = b - (A.T*(columns_vector > 0).reshape(-1,1)).sum(axis=0)
         _A = numpy.delete(A, numpy.argwhere(columns_vector != 0).T[0], 1)
         return ge_polyhedron(numpy.append(_b.reshape(-1,1), _A, axis=1))
@@ -450,7 +454,7 @@ class ge_polyhedron(variable_ndarray):
                 ge_polyhedron([True])
 
         """
-        A, b = ge_polyhedron.to_linalg(self)
+        A, b = ge_polyhedron(self).to_linalg()
         return (((A * (A < 0)).sum(axis=1) >= b)) + ((A >= 0).all(axis=1) & (b<=0))
 
     def reduce_rows(self: numpy.ndarray, rows_vector: numpy.ndarray) -> numpy.ndarray:
@@ -664,7 +668,7 @@ class ge_polyhedron(variable_ndarray):
             array([1, 0, 0, 0, 0, 0])
 
         """
-        A, b = ge_polyhedron.to_linalg(self)
+        A, b = ge_polyhedron(self).to_linalg()
         # Extend patterns to be of same shape as A
         _patterns = patterns.copy()
         _patterns = numpy.pad(_patterns, ((0,0), (0, A.shape[1] - _patterns.shape[1])), 'constant')
@@ -724,7 +728,7 @@ class ge_polyhedron(variable_ndarray):
 
 
         """
-        A, b = ge_polyhedron.to_linalg(self)
+        A, b = ge_polyhedron(self).to_linalg()
         _b = b - (A.T*(columns_vector > 0).reshape(-1,1)).sum(axis=0)
         _A = A
         _A[:, columns_vector>0] = 0
@@ -773,7 +777,7 @@ class ge_polyhedron(variable_ndarray):
                 )
             )
         elif points.ndim == 2:
-            A, b = ge_polyhedron.to_linalg(self)
+            A, b = ge_polyhedron(self).to_linalg()
             return numpy.array(
                 (numpy.matmul(A, points.T) < b.reshape(-1,1)).any(axis=0)
             )
