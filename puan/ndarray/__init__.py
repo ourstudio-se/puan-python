@@ -6,8 +6,7 @@ import operator
 import maz
 import math
 import puan
-import puan.npufunc as npufunc
-import sys
+# import puan.npufunc as npufunc
 
 class variable_ndarray(numpy.ndarray):
     
