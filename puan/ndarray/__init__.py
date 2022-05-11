@@ -10,18 +10,8 @@ import puan.npufunc as npufunc
 class variable_ndarray(numpy.ndarray):
     
     def __new__(cls, input_array, variables: typing.List[puan.variable] = []):
-        _arr = numpy.array(input_array)
-        if variables:
-            if len(variables) < _arr.shape[_arr.ndim-1]:
-                raise ValueError(f"variables length mismatch: variables of length {len(variables)} and column width is {_arr.shape[_arr.ndim-1]}")
-            elif len(variables) > _arr.shape[_arr.ndim-1]:
-                _arr = numpy.pad(_arr, ([(0, 0)] * (_arr.ndim-1)) + [(0,1)])
-        else:
-            variables = list(range(len(variables))) 
-            
-        arr = numpy.asarray(_arr).view(cls)
+        arr = numpy.asarray(input_array).view(cls)
         arr.variables = variables
-        
         return arr
 
     def __array_finalize__(self, obj):
@@ -160,9 +150,9 @@ class ge_polyhedron(variable_ndarray):
     def __new__(cls, input_array, variables: typing.List[puan.variable] = []):
         if not variables:
             arr = numpy.array(input_array)
-            variables = list(map(puan.variable, range(arr.shape[arr.ndim-1]-1)))
+            variables = list(map(puan.variable, range(arr.shape[arr.ndim-1])))
 
-        return super().__new__(cls, input_array, variables=[puan.variable("#b", int, True)]+variables)
+        return super().__new__(cls, input_array, variables=variables)
 
     @property
     def A(self) -> numpy.ndarray:
@@ -188,7 +178,7 @@ class ge_polyhedron(variable_ndarray):
                     [0, 0,-1, 1],
                 ])
         """
-        return integer_ndarray(self[[slice(None, None)]*(self.ndim-1)+[slice(1, None)]], self.variables[1:])
+        return integer_ndarray(self[tuple([slice(None, None)]*(self.ndim-1)+[slice(1, None)])], self.variables[1:])
 
     @property
     def b(self) -> numpy.ndarray:

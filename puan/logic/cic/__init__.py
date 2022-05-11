@@ -82,7 +82,7 @@ class variable_proposition(proposition):
     def variables(self) -> typing.List[puan.variable]:
         return [self.var]
 
-    def to_constraints(self, variable_predicate, min_int: int = default_min_int, max_int: int = default_max_int) -> typing.List[ge_constraint]:
+    def to_constraints(self, min_int: int = default_min_int, max_int: int = default_max_int) -> typing.List[ge_constraint]:
         return []
 
     def representation(self) -> str:
@@ -126,6 +126,12 @@ class boolean_variable_proposition(variable_proposition):
 
     def __eq__(self, o) -> bool:
         return self.var == o.var and self.value == o.value
+
+    def __hash__(self):
+        return super().__hash__()
+
+    def __lt__(self, o):
+        return self.var.id < o.var.id
 
 class discrete_variable_proposition(variable_proposition):
 
@@ -173,22 +179,22 @@ class discrete_variable_proposition(variable_proposition):
         
         return puan.variable(self.var.id + self.operator + str(self.value), bool, True)
 
-    def to_constraints(self, variable_predicate = lambda x: x, min_int: int = default_min_int, max_int: int = default_max_int) -> typing.List[ge_constraint]:
+    def to_constraints(self, min_int: int = default_min_int, max_int: int = default_max_int) -> typing.List[ge_constraint]:
         if self.operator == ">=":
             return [
                 (
                     [
-                        variable_predicate(self.supporting_variable().id),
-                        variable_predicate(self.var.id),
-                        variable_predicate(0),
+                        self.supporting_variable(),
+                        self.var,
+                        puan.variable(0),
                     ],
                     [(max_int-self.value), -1, -self.value]
                 ),
                 (
                     [
-                        variable_predicate(self.supporting_variable().id),
-                        variable_predicate(self.var.id),
-                        variable_predicate(0),
+                        self.supporting_variable(),
+                        self.var,
+                        puan.variable(0),
                     ],
                     [-self.value, 1, 0]
                 )
@@ -197,17 +203,17 @@ class discrete_variable_proposition(variable_proposition):
             return [
                 (
                     [
-                        variable_predicate(self.supporting_variable().id),
-                        variable_predicate(self.var.id),
-                        variable_predicate(0),
+                        self.supporting_variable(),
+                        self.var,
+                        puan.variable(0),
                     ],
                     [max_int, -1, self.value]
                 ),
                 (
                     [
-                        variable_predicate(self.supporting_variable().id),
-                        variable_predicate(self.var.id),
-                        variable_predicate(0),
+                        self.supporting_variable(),
+                        self.var,
+                        puan.variable(0),
                     ],
                     [min_int+self.value, -1, min_int]
                 )
@@ -239,13 +245,18 @@ class conditional_proposition(proposition):
     def variables(self) -> typing.List[puan.variable]:
         return list(set(itertools.chain(*map(operator.attrgetter("variables"), self.propositions))))
 
-    def to_constraints(self, variable_predicate = lambda x: x, min_int: int = default_min_int, max_int: int = default_max_int) -> itertools.chain:
-        return itertools.chain(*map(operator.methodcaller("to_constraints", variable_predicate=variable_predicate, min_int=min_int, max_int=max_int), self.propositions))
+    def to_constraints(self, min_int: int = default_min_int, max_int: int = default_max_int) -> itertools.chain:
+        return itertools.chain(*map(operator.methodcaller("to_constraints", min_int=min_int, max_int=max_int), self.propositions))
 
-    def to_dnf(self) -> map:
+    def _to_dnf(self) -> map:
+
+        """
+            Converts this conditional proposition into many dnfs on format [[[vars], [vars]], [[vars], [vars]], ...].
+        """
+
         resolved = itertools.chain(
             map(
-                conditional_proposition.to_dnf, 
+                conditional_proposition._to_dnf, 
                 filter(lambda x: isinstance(x, conditional_proposition), self.propositions)
             ),
             map(
@@ -259,12 +270,85 @@ class conditional_proposition(proposition):
             itertools.product(*resolved) if self.relation == "ALL" else resolved
         )
 
+    def to_disjunctional_proposition(self) -> "disjunctional_proposition":
+
+        """
+            Convert to a disjunction proposition.
+
+            Returns
+            -------
+                out : list : disjunctional_conditional_proposition
+        """
+        return disjunctional_proposition(list(map(conjunctional_variable_proposition, self._to_dnf())))
+        
+
     def __repr__(self):
         join_on = [' & ', ' | ']
         return f"({join_on[self.relation == 'ANY'].join(map(operator.methodcaller('__repr__'), self.propositions))})"
 
     def __eq__(self, o) -> bool:
         return self.relation == o.relation and all(itertools.starmap(operator.eq, zip(self.propositions, o.propositions)))
+
+class conditional_variable_proposition(conditional_proposition):
+    """
+        A conditional variable proposition is a special type of conditional proposition with
+        the exception of only taking variable propositions as its propositions. 
+    """
+    def __init__(self, relation: str, variable_propositions: typing.List[variable_proposition]):
+        if any(filter(maz.compose(operator.not_, maz.pospartial(isinstance, [(1, variable_proposition)])), variable_propositions)):
+            raise ValueError("conditional_variable_proposition takes only variable propositions as propositions")
+
+        super().__init__(relation, variable_propositions)
+
+class conjunctional_variable_proposition(conditional_variable_proposition):
+
+    """
+        A conjunctional variable proposition is a special type of conjunctional proposition with
+        the exception of only taking variable propositions as its propositions. 
+    """
+    def __init__(self, variable_propositions: typing.List[variable_proposition]):
+        super().__init__("ALL", variable_propositions)
+
+class disjunctional_variable_proposition(conditional_variable_proposition):
+    """
+        A conjunctional variable proposition is a special type of conditional proposition with
+        the exception of only taking variable propositions as its propositions and relation is set to ANY. 
+    """
+    def __init__(self, variable_propositions: typing.List[variable_proposition]):
+        super().__init__("ANY", variable_propositions)
+
+class conjunctional_proposition(conditional_proposition):
+
+    """
+        A conjunctional proposition is a logical object that can be resolved into a true or false value.
+        The class is a special variant of a conditional proposition with the difference that it is on conjunction normal
+        form, wheras the conditional proposition could take on many forms. A conjunctional proposition has
+        "ALL" as its relation and requires all its propositions to be of type disjunctional variable proposition.
+
+        E.g. ((a | b) & (a | c))
+    """
+    def __init__(self, disjunctional_variable_propositions: typing.List[disjunctional_variable_proposition]):
+        if any(filter(maz.compose(operator.not_, maz.pospartial(isinstance, [(1, disjunctional_variable_proposition)])), disjunctional_variable_propositions)):
+            raise ValueError("conditional_proposition takes only variable propositions as propositions")
+
+        super().__init__("ALL", disjunctional_variable_propositions)
+
+class disjunctional_proposition(conditional_proposition):
+
+    """
+        A disjunctional proposition is a logical object that can be resolved into a true or false value.
+        The class is a special variant of a conditional proposition with the difference that it is on disjunction normal
+        form, wheras the conditional proposition could take on many forms. A disjunctional proposition has "ANY" as its 
+        relation and requires all its propositions to be of type conjunctional variable proposition.
+
+        E.g. ((a & b) | (a & c))
+    """
+
+    def __init__(self, conjunctional_variable_propositions: typing.List[conjunctional_variable_proposition]):
+        if any(filter(maz.compose(operator.not_, maz.pospartial(isinstance, [(1, conjunctional_variable_proposition)])), conjunctional_variable_propositions)):
+            raise ValueError("conditional_proposition takes only variable propositions as propositions")
+
+        super().__init__("ANY", conjunctional_variable_propositions)
 
 class consequence_proposition(conditional_proposition):
 
@@ -278,6 +362,10 @@ class consequence_proposition(conditional_proposition):
 
     def __init__(self, relation: str, propositions: typing.List[typing.Union["conditional_propositions", variable_proposition]], default: typing.List[variable_proposition] = []):
         super().__init__(relation, propositions)
+
+        if len(default) > 1:
+            raise ValueError("currently only 1 default variable is supported for consequence propositions")
+
         self.default = default
 
     def __repr__(self):
@@ -316,7 +404,7 @@ class Implication(enum.Enum):
     def constraint_values(self: "Implication", condition_indices: typing.List[int], consequence_indices: typing.List[int], support_variable_index: int = 0) -> zip:
         constant_functions = self.constant_functions()
         return zip(
-            itertools.repeat(condition_indices + consequence_indices + [support_variable_index], len(constant_functions)),
+            itertools.repeat(condition_indices + consequence_indices + [puan.variable(support_variable_index)], len(constant_functions)),
             itertools.starmap(
                 lambda cond_val, cons_val, support_val: list(
                     itertools.chain(
@@ -335,11 +423,10 @@ class Implication(enum.Enum):
 class implication_proposition(proposition):
 
     """
-        A implication_proposition is a logical object that can be resolved into a true or false value.
-        The implication_proposition has a logical structure of condition - implies -> consequence, or
-        the more common sentence "if this then that". In other words, the proposition is false only if
-        the condition is considered true while the consequence is false.
-
+        A implication_conditional_proposition is a logical object that can be resolved into a true or false value.
+        The implication_conditional_proposition has a logical structure of condition - implies -> consequence, or
+        the more common sentence "if this then that". implication_conditional_proposition differs from implication_proposition
+        in that it only accepts consequence and condition to be conditional propositions
     """
 
     def __init__(self, implies: Implication, consequence: consequence_proposition, condition: conditional_proposition = conditional_proposition("ALL", [])):
@@ -347,66 +434,194 @@ class implication_proposition(proposition):
         self.consequence = consequence
         self.implies = implies
 
-    @property
-    def variables(self) -> typing.List[puan.variable]:
-        return list(set(self.condition.variables + self.consequence.variables))
-
-    def to_constraints(self, variable_predicate = lambda x: x, min_int: int = default_min_int, max_int: int = default_max_int) -> itertools.chain:
-        varialble_predicate_map = maz.compose(
-            list, 
-            functools.partial(
-                map, 
-                maz.compose(
-                    variable_predicate, 
-                    operator.methodcaller("representation")
-                )
-            )
-        )
-        return itertools.chain(
-            (
-                itertools.chain(
-                    *itertools.starmap(
-                        maz.compose(list, self.implies.constraint_values),
-                        itertools.product(
-                            map(varialble_predicate_map, self.condition.to_dnf()), 
-                            map(varialble_predicate_map, self.consequence.to_dnf())
-                        )
-                    )
-                )
-            ),
-            self.condition.to_constraints(variable_predicate, min_int=min_int, max_int=max_int),
-            self.consequence.to_constraints(variable_predicate, min_int=min_int, max_int=max_int)
-        )
-
-    @staticmethod
-    def from_cicR(cicR: str) -> "implication_proposition":
-        return implication_proposition(condition, consequence)
-
     def __repr__(self) -> str:
         return f"{self.condition.__repr__()} -[{self.implies.name}]> {self.consequence.__repr__()}"
 
     def __eq__(self, o) -> bool:
         return self.condition == o.condition and self.consequence == o.consequence and self.implies == o.implies
 
-class conjunctional_proposition(conditional_proposition):
+    @property
+    def variables(self) -> typing.List[puan.variable]:
+        return list(set(self.condition.variables + self.consequence.variables))
+
+    @staticmethod
+    def from_cicR(cicR: str) -> "implication_proposition":
+        return implication_proposition(condition, consequence)
+
+    def to_implication_conjunctional_variable_propositions(self) -> typing.Union[itertools.starmap, typing.List["implication_conjunctional_variable_proposition"]]:
+
+        """
+            Converts condition and consequence into disjunctional conditional propositions
+            and creates all combinations from those two lists.
+
+            Returns
+            -------
+                out : itertools.starmap : implication_proposition
+        """
+
+        return itertools.starmap(
+            functools.partial(implication_conjunctional_variable_proposition, self.implies, default=self.consequence.default), 
+            itertools.product(
+                self.consequence.to_disjunctional_proposition().propositions,
+                self.condition.to_disjunctional_proposition().propositions
+            )
+        )
+
+class implication_conjunctional_variable_proposition(implication_proposition):
 
     """
-        A conjunctional_proposition is a logical object that can be resolved into a true or false value.
-        The conjunctional_proposition is a conditional_proposition with the relation type set to ALL.
+        A implication_disjunctional_proposition is a logical object that can be resolved into a true or false value.
+        The implication_disjunctional_proposition has a logical structure of condition - implies -> consequence, or
+        the more common sentence "if this then that". In other words, the proposition is false only if
+        the condition is considered true while the consequence is false. implication_disjunctional_proposition differs
+        from implication_conditional_proposition in that it only takes disjunctional_proposition(s) condition and consequences.
+    """
+
+    def __init__(self, implies: Implication, consequence: conjunctional_variable_proposition, condition: conjunctional_variable_proposition, default: typing.List[puan.variable] = []):
+        if any((not isinstance(consequence, conjunctional_variable_proposition), not isinstance(condition, conjunctional_variable_proposition))):
+            raise ValueError(f"a {implication_conjunctional_variable_proposition} does only take {conjunctional_variable_proposition} as consequence and condition")
+
+        super().__init__(implies, consequence, condition)
+        self.default = default
+
+    @property
+    def variables(self):
+        vrs = self.condition.variables + self.consequence.variables
+        if self.default:
+            vrs += [self.supporting_variable]
+
+        return vrs
+
+    @property
+    def supporting_variable(self) -> boolean_variable_proposition:
+
+        """
+            When a consequence proposition is having a default value, it creates an extra variable.
+            This variable is called a supporting variable and consists of all other proposition's variables
+            combined.
+
+            Examples
+            --------
+                >>> cons = cc.consequence_proposition("ANY", [cc.boolean_variable_proposition("x"), cc.boolean_variable_proposition("y"), cc.boolean_variable_proposition("z")], default=[cc.boolean_variable_proposition("z")])
+                >>> cons.supporting_variable()
+                "xy" : <class 'bool'>
+
+            Returns
+            -------
+                out : boolean_variable_proposition
+        """
+
+        return puan.variable(
+            "".join(
+                sorted(
+                    map(
+                        operator.attrgetter("id"), 
+                        self._supporting_propositions()
+                    )
+                )
+            ),
+            virtual=True,
+        )
+
+    def _supporting_propositions(self) -> set:
+        if self.default:
+            return set(self.consequence.variables).union(self.condition.variables).difference(set({self.default[0].var}))
+        else:
+            return set()
+
+    def _supporting_consequence_propositions(self) -> set:
+        if self.default:
+            return set(self.consequence.variables).difference(set({self.default[0].var}))
+        else:
+            return set()
+
+    def _supporting_constraints(self) -> itertools.chain:
+        if self.default and len(self.consequence.propositions) > 1:
+            return [
+                (
+                    list(
+                        itertools.chain(
+                            self.condition.variables,
+                            self._supporting_consequence_propositions(),
+                            [self.supporting_variable, puan.variable(0)]
+                        )
+                    ),
+                    list(
+                        itertools.chain(
+                            itertools.repeat(-len(self._supporting_consequence_propositions()), len(self.condition.propositions)),
+                            itertools.repeat(-1, len(self._supporting_consequence_propositions())),
+                            [1, -len(self._supporting_consequence_propositions())*len(self.condition.propositions)]
+                        )
+                    )
+                ),
+                (
+                    list(
+                        itertools.chain(
+                            self.condition.variables,
+                            self._supporting_consequence_propositions(),
+                            [self.supporting_variable, puan.variable(0)]
+                        )
+                    ),
+                    list(
+                        itertools.chain(
+                            itertools.repeat(len(self._supporting_consequence_propositions()), len(self.condition.propositions)),
+                            itertools.repeat(1, len(self._supporting_consequence_propositions())),
+                            [-len(self._supporting_consequence_propositions())*len(self.condition.propositions)-1, 0]
+                        )
+                    )
+                ),
+            ]
+
+        return []
+
+    def to_constraints(self, min_int: int = default_min_int, max_int: int = default_max_int) -> itertools.chain:
+        return itertools.chain(
+            self.implies.constraint_values(
+                list(map(operator.attrgetter("var"), self.condition.propositions)), 
+                list(map(operator.attrgetter("var"), self.consequence.propositions)),
+            ),
+            self._supporting_constraints(),
+            self.condition.to_constraints(min_int=min_int, max_int=max_int),
+            self.consequence.to_constraints(min_int=min_int, max_int=max_int)
+        )
+
+class conjunctional_implication_proposition(conditional_proposition):
+
+    """
+        A conjunctional implication proposition is a logical object that can be resolved into a true or false value.
+        The conjunctional implication proposition is a conditional_proposition with the relation type set to ALL and propositions
+        only of type implication proposition.
 
     """
 
-    def __init__(self, propositions: typing.List[conditional_proposition]):
+    def __init__(self, propositions: typing.List[implication_proposition]):
+        if any(filter(maz.compose(operator.not_, maz.pospartial(isinstance, [(1, implication_proposition)])), propositions)):
+            raise ValueError("conjunctional_implication_proposition takes only variable propositions as propositions")
+
         super().__init__(relation="ALL", propositions=propositions)
 
     @property
     def variables(self) -> typing.Set[puan.variable]:
         return set(itertools.chain(*map(operator.attrgetter("variables"), self.propositions)))
 
-    def to_constraints(self, variable_predicate: lambda x: x, min_int=default_min_int, max_int=default_max_int) -> itertools.chain:
-        return itertools.chain(*map(operator.methodcaller("to_constraints", variable_predicate=variable_predicate, min_int=min_int, max_int=max_int), self.propositions))
+    def to_constraints(self, min_int=default_min_int, max_int=default_max_int) -> itertools.chain:
+        return itertools.chain(
+            *map(
+                operator.methodcaller(
+                    "to_constraints", 
+                    min_int=min_int, 
+                    max_int=max_int
+                ), 
+                itertools.chain(
+                    *map(
+                        operator.methodcaller("to_implication_conjunctional_variable_propositions"),
+                        self.propositions
+                    )
+                )
+            )
+        )
 
-    def to_polyhedron(self, variable_predicate = None, support_variable_index: int = 0, integer_bounds: tuple = (default_min_int, default_max_int)) -> pnd.ge_polyhedron:
+    def to_polyhedron(self, support_variable_index: int = 0, integer_bounds: tuple = (default_min_int, default_max_int)) -> pnd.ge_polyhedron:
 
         """
             Converts into a ge_polyhedron.
@@ -440,19 +655,16 @@ class conjunctional_proposition(conditional_proposition):
                                [    0,     1,    -3,     0,     0,     0]], dtype=int16)
 
         """
-
-        variables = sorted(self.variables)
-        if variable_predicate is None:
-            variables_repr = [support_variable_index] + list(map(operator.attrgetter("id"), variables))
-            variable_predicate = variables_repr.index
-
-        constraints = list(self.to_constraints(variable_predicate, *integer_bounds))
+        implication_conjunctions = list(itertools.chain(*map(operator.methodcaller("to_implication_conjunctional_variable_propositions"), self.propositions)))
+        variables = [puan.variable(0, virtual=True)] + sorted(set(itertools.chain(*map(operator.attrgetter("variables"), implication_conjunctions))))
+        constraints = list(itertools.chain(*map(operator.methodcaller("to_constraints", *integer_bounds), implication_conjunctions)))
         constraints_unique = list(dict(zip(map(str, constraints), constraints)).values())
-        matrix = numpy.zeros((len(constraints_unique), len(variables)+1), dtype=numpy.int16)
+        matrix = numpy.zeros((len(constraints_unique), len(variables)), dtype=numpy.int16)
         for i, (indices, values) in enumerate(constraints_unique):
-            matrix[i, indices] = values
+            matrix[i, list(map(variables.index, indices))] = values
 
         return pnd.ge_polyhedron(numpy.unique(matrix, axis=0), variables)
+
 
 
 class cicR(tuple):
@@ -700,7 +912,7 @@ class cicJEs(list):
             -------
                 out : conjunctional_proposition
         """
-        return conjunctional_proposition(
+        return conjunctional_implication_proposition(
             list(
                 map(
                     cicJE.to_implication_proposition, 

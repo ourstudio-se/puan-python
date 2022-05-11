@@ -599,7 +599,7 @@ class application(dict):
                 out : conjunctional_proposition
         """
 
-        return cc.conjunctional_proposition(
+        return cc.conjunctional_implication_proposition(
             list(
                 map(
                     cc.cicJE.to_implication_proposition,
