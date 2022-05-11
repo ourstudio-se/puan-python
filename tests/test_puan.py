@@ -306,7 +306,7 @@ def test_rules2matrix_with_mixed_condition_rules():
             }
         }
     ]
-    conj_props = cc.cicJEs(rules).to_conjunctional_proposition()
+    conj_props = cc.cicJEs(rules).to_conjunctional_implication_proposition()
     matrix = conj_props.to_polyhedron()
     expected_feasible_configurations = numpy.array([
        #"a  b  c  d  x  y"
@@ -1659,8 +1659,8 @@ def test_cicJE_to_implication_proposition():
     })
 
     expected_output = cc.implication_proposition(
-        cc.Implication.ALL,
-        cc.consequence_proposition("ALL", [
+        cc.Operator.ALL,
+        cc.conditional_proposition("ALL", [
             cc.boolean_variable_proposition("m"),
             cc.boolean_variable_proposition("n"),
             cc.boolean_variable_proposition("o"),
@@ -1783,15 +1783,15 @@ def test_parse_line_rule_when_an_empty_any_condition():
     )
     expected = [
         cc.implication_proposition(
-            cc.Implication.ALL,
-            cc.consequence_proposition("ALL", [
+            cc.Operator.ALL,
+            cc.conditional_proposition("ALL", [
                 cc.boolean_variable_proposition("x")
             ]),
             cc.conditional_proposition("ANY", [])
         ),
         cc.implication_proposition(
-            cc.Implication.ALL,
-            cc.consequence_proposition("ALL", [
+            cc.Operator.ALL,
+            cc.conditional_proposition("ALL", [
                 cc.boolean_variable_proposition("y")
             ])
         ),
@@ -1816,8 +1816,8 @@ def test_parse_line_rules_when_having_numbers_inside():
     )
     expected = [
         cc.implication_proposition(
-            cc.Implication.ALL,
-            cc.consequence_proposition("ALL", [
+            cc.Operator.ALL,
+            cc.conditional_proposition("ALL", [
                 cc.boolean_variable_proposition("1"),
                 cc.boolean_variable_proposition("22"),
                 cc.boolean_variable_proposition("345"),
@@ -2287,10 +2287,10 @@ def test_or_replace():
     expected = {'a': 1, 'b': '1'}
     assert actual == expected
 
-def test_consequence_proposition_to_constraints_with_default_value():
+def test_implication_proposition_to_constraints_with_default_value():
 
-    consequence_proposition = cc.implication_conjunctional_variable_proposition(
-        cc.Implication.ANY, 
+    icvp = cc.implication_conjunctional_variable_proposition(
+        cc.Operator.ANY, 
         cc.conjunctional_variable_proposition(
             [
                 cc.boolean_variable_proposition("x"),
@@ -2310,8 +2310,8 @@ def test_consequence_proposition_to_constraints_with_default_value():
         ]
     )
 
-    assert consequence_proposition.supporting_variable.id == "abcxy"
-    assert sorted(map(operator.itemgetter(1), consequence_proposition.to_constraints())) == [
+    assert icvp.supporting_variable.id == "abcxy"
+    assert sorted(map(operator.itemgetter(1), icvp.to_constraints())) == [
         [-3,-3,-3, 1, 1, 1,-8],
         [-2,-2,-2,-1,-1, 1,-6],
         [ 2, 2, 2, 1, 1,-7, 0],
@@ -2321,22 +2321,19 @@ def test_conjunction_proposition_to_constraints_with_default_value():
 
     conj_prop = cc.conjunctional_implication_proposition([
         cc.implication_proposition(
-            cc.Implication.XOR, 
-            cc.consequence_proposition(
-                "ALL", 
-                [
-                    cc.boolean_variable_proposition("x"),
-                    cc.boolean_variable_proposition("y"),
-                    cc.boolean_variable_proposition("z"),
-                ],
-                default=[
-                    cc.boolean_variable_proposition("z")
-                ]
-            ),
+            cc.Operator.XOR, 
+            cc.conditional_proposition("ALL", [
+                cc.boolean_variable_proposition("x"),
+                cc.boolean_variable_proposition("y"),
+                cc.boolean_variable_proposition("z"),
+            ]),
             cc.conditional_proposition("ALL", [
                 cc.boolean_variable_proposition("a"),
                 cc.boolean_variable_proposition("b"),
-            ])
+            ]),
+            default=[
+                cc.boolean_variable_proposition("z")
+            ]
         )  
     ])
     assert conj_prop.to_polyhedron().shape == (4,7)
