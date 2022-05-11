@@ -13,6 +13,8 @@ For example, "if it is raining then I'll take the umbrella" could be written as 
 
 Data types
 ----------
+   :class:`puan.logic.cic.Operator` : Enum class of what operators exist. 
+
    :class:`puan.logic.cic.proposition` : A proposition is an abstract class and a logical object that can be resolved into a true or false value.
    
    :class:`puan.logic.cic.variable_proposition` : A variable_proposition is a logical object that can be resolved into a true or false value.
@@ -23,13 +25,21 @@ Data types
    
    :class:`puan.logic.cic.conditional_proposition` : A conditional_proposition is a logical object that can be resolved into a true or false value. The conditional_proposition has a relation and a list of propositions. There are two relation types (ALL/ANY) and the proposition will be considered true if either ALL or ANY of its propositions are true (depending if relation is ALL or ANY).
    
-   :class:`puan.logic.cic.consequence_proposition` : A consequence_proposition is a logical object that can be resolved into a true or false value. The consequence_proposition is a conditional_proposition with the exception of an extra field "default". This is used to mark which underlying propositions is default if many are considered equally correct.
+   :class:`puan.logic.cic.conditional_variable_proposition` : A conditional variable proposition is a special type of conditional proposition with the exception of only taking variable propositions as its propositions. 
    
-   :class:`puan.logic.cic.Implication` : Enum class of what implication methods exists. 
+   :class:`puan.logic.cic.conjunctional_variable_proposition` : A conjunctional variable proposition is a special type of conditional variable proposition with the exception of having **ALL** -relation set.
    
-   :class:`puan.logic.cic.implication_proposition` : A implication_proposition is a logical object that can be resolved into a true or false value. The implication_proposition has a logical structure of condition - implies -> consequence, or the more common sentence "if this then that". In other words, the proposition is false only if the condition is considered true while the consequence is false.
+   :class:`puan.logic.cic.disjunctional_variable_proposition` : A disjunctional variable proposition is a special type of conditional variable proposition with the exception of having **ANY** -relation set.
    
-   :class:`puan.logic.cic.conjunctional_proposition` : A conjunctional_proposition is a logical object that can be resolved into a true or false value. The conjunctional_proposition is a conditional_proposition with the relation type set to ALL.
+   :class:`puan.logic.cic.conjunction_normal_form` : A conjunction normal form proposition is a logical object that can be resolved into a true or false value. The class is a special variant of a conditional proposition with but on conjunction normal form, wheras the conditional proposition could take on many forms. A conjunctional proposition has **ALL** -relation and requires all its propositions to be of type disjunctional variable proposition.
+   
+   :class:`puan.logic.cic.disjunction_normal_form` : A disjunctional normal form proposition is a logical object that can be resolved into a true or false value. The class is a special variant of a conditional proposition nut on disjunction normal form, wheras the conditional proposition could take on many forms. A disjunctional proposition has **ANY** -relation relation and requires all its propositions to be of type conjunctional variable proposition.
+   
+   :class:`puan.logic.cic.implication_proposition` : A implication_conditional_proposition is a logical object that can be resolved into a true or false value. The implication_conditional_proposition has a logical structure of condition - implies -> consequence, or the more common sentence "if this then that".
+   
+   :class:`puan.logic.cic.implication_conjunctional_variable_proposition` : A implication_disjunction_normal_form differs from implication_proposition in that it only takes conjunctional_variable_proposition(s) as condition and consequences.
+   
+   :class:`puan.logic.cic.conjunctional_implication_proposition` : A conjunctional implication proposition is a logical object that can be resolved into a true or false value. The conjunctional implication proposition is a conditional_proposition with the relation type set to ALL and propositions only of type implication propositions.
 
    :class:`puan.logic.cic.cicR` : The RAW format of a cic, meaning the condition and consequence are both conjunctions. This format has a one-to-one mapping into a linear programming constraint.
 
@@ -37,6 +47,13 @@ Data types
 
 
 .. currentmodule:: puan.logic.cic
+
+Operator
+++++++++
+.. autoclass:: Operator
+   :members:
+   :show-inheritance:
+
 
 boolean_variable_proposition
 ++++++++++++++++++++++++++++
@@ -55,16 +72,34 @@ conditional_proposition
 .. autoclass:: conditional_proposition
    :members:
    :show-inheritance:
-
-consequence_proposition
-+++++++++++++++++++++++
-.. autoclass:: consequence_proposition
+   
+conditional_variable_proposition
+++++++++++++++++++++++++++++++++
+.. autoclass:: conditional_variable_proposition
+   :members:
+   :show-inheritance:
+   
+conjunctional_variable_proposition
+++++++++++++++++++++++++++++++++++
+.. autoclass:: conjunctional_variable_proposition
+   :members:
+   :show-inheritance:
+   
+disjunctional_variable_proposition
+++++++++++++++++++++++++++++++++++
+.. autoclass:: disjunctional_variable_proposition
    :members:
    :show-inheritance:
 
-Implication
-+++++++++++
-.. autoclass:: Implication
+conjunction_normal_form
++++++++++++++++++++++++
+.. autoclass:: conjunction_normal_form
+   :members:
+   :show-inheritance:
+
+disjunction_normal_form
++++++++++++++++++++++++
+.. autoclass:: disjunction_normal_form
    :members:
    :show-inheritance:
 
@@ -74,9 +109,15 @@ implication_proposition
    :members:
    :show-inheritance:
 
-conjunctional_proposition
-+++++++++++++++++++++++++
-.. autoclass:: conjunctional_proposition
+implication_conjunctional_variable_proposition
+++++++++++++++++++++++++++++++++++++++++++++++
+.. autoclass:: implication_conjunctional_variable_proposition
+   :members:
+   :show-inheritance:
+
+conjunctional_implication_proposition
++++++++++++++++++++++++++++++++++++++
+.. autoclass:: conjunctional_implication_proposition
    :members:
    :show-inheritance:
 

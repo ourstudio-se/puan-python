@@ -14,6 +14,52 @@ import typing
 default_min_int: int = numpy.iinfo(numpy.int16).min
 default_max_int: int = numpy.iinfo(numpy.int16).max
 
+class Operator(enum.Enum):
+
+    ALL         = 0
+    ANY         = 1
+    XOR         = 2
+    NONE        = 3
+    MOST_ONE    = 4
+
+    constants_map = {
+        0: lambda n_cond, n_cons: (-n_cons,  1, n_cons-n_cons*n_cond),
+        1: lambda n_cond, n_cons: (-n_cons,  1, -n_cons*n_cond+1),
+        3: lambda n_cond, n_cons: (-n_cons, -1, -n_cond*n_cons),
+        4: lambda n_cond, n_cons: (-n_cons, -1, -n_cons*n_cond-1),
+    }
+
+    def constant_functions(self) -> typing.List["Operator"]:
+        constants_map = {
+            0: lambda n_cond, n_cons: (-n_cons,  1, n_cons-n_cons*n_cond),
+            1: lambda n_cond, n_cons: (-n_cons,  1, -n_cons*n_cond+1),
+            3: lambda n_cond, n_cons: (-n_cons, -1, -n_cond*n_cons),
+            4: lambda n_cond, n_cons: (-n_cons, -1, -n_cons*n_cond-1),
+        }
+
+        if self == Operator.XOR:
+            return [constants_map[Operator.ANY.value], constants_map[Operator.MOST_ONE.value]]
+        return [constants_map[self.value]]
+
+    def constraint_values(self: "Operator", condition_indices: typing.List[int], consequence_indices: typing.List[int], support_variable_index: int = 0) -> zip:
+        constant_functions = self.constant_functions()
+        return zip(
+            itertools.repeat(condition_indices + consequence_indices + [puan.variable(support_variable_index)], len(constant_functions)),
+            itertools.starmap(
+                lambda cond_val, cons_val, support_val: list(
+                    itertools.chain(
+                        itertools.repeat(cond_val, len(condition_indices)),
+                        itertools.repeat(cons_val, len(consequence_indices)),
+                        itertools.repeat(support_val, 1),
+                    )
+                ),
+                map(
+                    lambda x: x(len(condition_indices), len(consequence_indices)),
+                    constant_functions
+                )
+            )
+        )
+
 class ge_constraint(tuple):
 
     def __new__(cls, instance) -> dict:
@@ -270,7 +316,7 @@ class conditional_proposition(proposition):
             itertools.product(*resolved) if self.relation == "ALL" else resolved
         )
 
-    def to_disjunctional_proposition(self) -> "disjunctional_proposition":
+    def to_disjunction_normal_form(self) -> "disjunction_normal_form":
 
         """
             Convert to a disjunction proposition.
@@ -279,7 +325,7 @@ class conditional_proposition(proposition):
             -------
                 out : list : disjunctional_conditional_proposition
         """
-        return disjunctional_proposition(list(map(conjunctional_variable_proposition, self._to_dnf())))
+        return disjunction_normal_form(list(map(conjunctional_variable_proposition, self._to_dnf())))
         
 
     def __repr__(self):
@@ -317,13 +363,13 @@ class disjunctional_variable_proposition(conditional_variable_proposition):
     def __init__(self, variable_propositions: typing.List[variable_proposition]):
         super().__init__("ANY", variable_propositions)
 
-class conjunctional_proposition(conditional_proposition):
+class conjunction_normal_form(conditional_proposition):
 
     """
-        A conjunctional proposition is a logical object that can be resolved into a true or false value.
-        The class is a special variant of a conditional proposition with the difference that it is on conjunction normal
+        A conjunction normal form proposition is a logical object that can be resolved into a true or false value.
+        The class is a special variant of a conditional proposition but on conjunction normal
         form, wheras the conditional proposition could take on many forms. A conjunctional proposition has
-        "ALL" as its relation and requires all its propositions to be of type disjunctional variable proposition.
+        **ALL** -relation and requires all its **propositions to be of type disjunctional variable proposition**.
 
         E.g. ((a | b) & (a | c))
     """
@@ -333,13 +379,13 @@ class conjunctional_proposition(conditional_proposition):
 
         super().__init__("ALL", disjunctional_variable_propositions)
 
-class disjunctional_proposition(conditional_proposition):
+class disjunction_normal_form(conditional_proposition):
 
     """
-        A disjunctional proposition is a logical object that can be resolved into a true or false value.
-        The class is a special variant of a conditional proposition with the difference that it is on disjunction normal
-        form, wheras the conditional proposition could take on many forms. A disjunctional proposition has "ANY" as its 
-        relation and requires all its propositions to be of type conjunctional variable proposition.
+        A disjunctional normal form proposition is a logical object that can be resolved into a true or false value.
+        The class is a special variant of a conditional proposition nut on disjunction normal
+        form, wheras the conditional proposition could take on many forms. A disjunctional proposition has **ANY** -relation 
+        relation and requires all its **propositions to be of type conjunctional variable proposition**.
 
         E.g. ((a & b) | (a & c))
     """
@@ -350,89 +396,19 @@ class disjunctional_proposition(conditional_proposition):
 
         super().__init__("ANY", conjunctional_variable_propositions)
 
-class consequence_proposition(conditional_proposition):
-
-    """
-        A consequence_proposition is a logical object that can be resolved into a true or false value.
-        The consequence_proposition is a conditional_proposition with the exception of an extra field 
-        "default". This is used to mark which underlying propositions is default if many are considered
-        equally correct.
-
-    """
-
-    def __init__(self, relation: str, propositions: typing.List[typing.Union["conditional_propositions", variable_proposition]], default: typing.List[variable_proposition] = []):
-        super().__init__(relation, propositions)
-
-        if len(default) > 1:
-            raise ValueError("currently only 1 default variable is supported for consequence propositions")
-
-        self.default = default
-
-    def __repr__(self):
-        return f"({super().__repr__()[:-1]}, {self.default})"
-
-    def __eq__(self, o) -> bool:
-        return super().__eq__(o) and self.default == o.default
-
-class Implication(enum.Enum):
-
-    ALL         = 0
-    ANY         = 1
-    XOR         = 2
-    NONE        = 3
-    MOST_ONE    = 4
-
-    constants_map = {
-        0: lambda n_cond, n_cons: (-n_cons,  1, n_cons-n_cons*n_cond),
-        1: lambda n_cond, n_cons: (-n_cons,  1, -n_cons*n_cond+1),
-        3: lambda n_cond, n_cons: (-n_cons, -1, -n_cond*n_cons),
-        4: lambda n_cond, n_cons: (-n_cons, -1, -n_cons*n_cond-1),
-    }
-
-    def constant_functions(self) -> typing.List["Implication"]:
-        constants_map = {
-            0: lambda n_cond, n_cons: (-n_cons,  1, n_cons-n_cons*n_cond),
-            1: lambda n_cond, n_cons: (-n_cons,  1, -n_cons*n_cond+1),
-            3: lambda n_cond, n_cons: (-n_cons, -1, -n_cond*n_cons),
-            4: lambda n_cond, n_cons: (-n_cons, -1, -n_cons*n_cond-1),
-        }
-
-        if self == Implication.XOR:
-            return [constants_map[Implication.ANY.value], constants_map[Implication.MOST_ONE.value]]
-        return [constants_map[self.value]]
-
-    def constraint_values(self: "Implication", condition_indices: typing.List[int], consequence_indices: typing.List[int], support_variable_index: int = 0) -> zip:
-        constant_functions = self.constant_functions()
-        return zip(
-            itertools.repeat(condition_indices + consequence_indices + [puan.variable(support_variable_index)], len(constant_functions)),
-            itertools.starmap(
-                lambda cond_val, cons_val, support_val: list(
-                    itertools.chain(
-                        itertools.repeat(cond_val, len(condition_indices)),
-                        itertools.repeat(cons_val, len(consequence_indices)),
-                        itertools.repeat(support_val, 1),
-                    )
-                ),
-                map(
-                    lambda x: x(len(condition_indices), len(consequence_indices)),
-                    constant_functions
-                )
-            )
-        )
-
 class implication_proposition(proposition):
 
     """
         A implication_conditional_proposition is a logical object that can be resolved into a true or false value.
         The implication_conditional_proposition has a logical structure of condition - implies -> consequence, or
-        the more common sentence "if this then that". implication_conditional_proposition differs from implication_proposition
-        in that it only accepts consequence and condition to be conditional propositions
+        the more common sentence "if this then that".
     """
 
-    def __init__(self, implies: Implication, consequence: consequence_proposition, condition: conditional_proposition = conditional_proposition("ALL", [])):
+    def __init__(self, implies: Operator, consequence: conditional_proposition, condition: conditional_proposition = conditional_proposition("ALL", []), default: typing.List[variable_proposition] = []):
         self.condition = condition
         self.consequence = consequence
         self.implies = implies
+        self.default = default
 
     def __repr__(self) -> str:
         return f"{self.condition.__repr__()} -[{self.implies.name}]> {self.consequence.__repr__()}"
@@ -460,24 +436,28 @@ class implication_proposition(proposition):
         """
 
         return itertools.starmap(
-            functools.partial(implication_conjunctional_variable_proposition, self.implies, default=self.consequence.default), 
+            functools.partial(
+                implication_conjunctional_variable_proposition, 
+                self.implies, 
+                default=self.default
+            ), 
             itertools.product(
-                self.consequence.to_disjunctional_proposition().propositions,
-                self.condition.to_disjunctional_proposition().propositions
+                self.consequence.to_disjunction_normal_form().propositions,
+                self.condition.to_disjunction_normal_form().propositions
             )
         )
 
 class implication_conjunctional_variable_proposition(implication_proposition):
 
     """
-        A implication_disjunctional_proposition is a logical object that can be resolved into a true or false value.
-        The implication_disjunctional_proposition has a logical structure of condition - implies -> consequence, or
-        the more common sentence "if this then that". In other words, the proposition is false only if
-        the condition is considered true while the consequence is false. implication_disjunctional_proposition differs
-        from implication_conditional_proposition in that it only takes disjunctional_proposition(s) condition and consequences.
+        implication_disjunction_normal_form differs from implication_proposition in that it only takes conjunctional_variable_proposition(s) as condition and consequences.
+
+        Notes
+        -----
+        This class has the ability to go to constraints efficiently and can also handle supporting variables if any defaults are included.
     """
 
-    def __init__(self, implies: Implication, consequence: conjunctional_variable_proposition, condition: conjunctional_variable_proposition, default: typing.List[puan.variable] = []):
+    def __init__(self, implies: Operator, consequence: conjunctional_variable_proposition, condition: conjunctional_variable_proposition, default: typing.List[puan.variable] = []):
         if any((not isinstance(consequence, conjunctional_variable_proposition), not isinstance(condition, conjunctional_variable_proposition))):
             raise ValueError(f"a {implication_conjunctional_variable_proposition} does only take {conjunctional_variable_proposition} as consequence and condition")
 
@@ -496,13 +476,12 @@ class implication_conjunctional_variable_proposition(implication_proposition):
     def supporting_variable(self) -> boolean_variable_proposition:
 
         """
-            When a consequence proposition is having a default value, it creates an extra variable.
-            This variable is called a supporting variable and consists of all other proposition's variables
-            combined.
+            When a implication proposition is having a default value, it creates an extra variable.
+            This variable is called a supporting variable and consists of all, except the defaulted variable, other proposition's variables combined.
 
             Examples
             --------
-                >>> cons = cc.consequence_proposition("ANY", [cc.boolean_variable_proposition("x"), cc.boolean_variable_proposition("y"), cc.boolean_variable_proposition("z")], default=[cc.boolean_variable_proposition("z")])
+                >>> cons = implication_conjunctional_variable_proposition(conditional_proposition("ANY", [boolean_variable_proposition("x"), boolean_variable_proposition("y"), boolean_variable_proposition("z")]), default=[boolean_variable_proposition("z")])
                 >>> cons.supporting_variable()
                 "xy" : <class 'bool'>
 
@@ -590,8 +569,7 @@ class conjunctional_implication_proposition(conditional_proposition):
     """
         A conjunctional implication proposition is a logical object that can be resolved into a true or false value.
         The conjunctional implication proposition is a conditional_proposition with the relation type set to ALL and propositions
-        only of type implication proposition.
-
+        only of type implication propositions.
     """
 
     def __init__(self, propositions: typing.List[implication_proposition]):
@@ -636,10 +614,10 @@ class conjunctional_implication_proposition(conditional_proposition):
 
             Examples
             --------
-                >>> cc.conjunctional_proposition([
+                >>> cc.conjunction_normal_form([
                 ...     cc.implication_proposition(
-                ...         cc.Implication.XOR,
-                ...         cc.consequence_proposition("ALL", [
+                ...         cc.Operator.XOR,
+                ...         cc.conditional_proposition("ALL", [
                 ...             cc.boolean_variable_proposition("x"),
                 ...             cc.boolean_variable_proposition("y"),
                 ...             cc.boolean_variable_proposition("z")
@@ -676,11 +654,11 @@ class cicR(tuple):
     """
 
     implication_mapping = {
-        "REQUIRES_ALL": Implication.ALL, 
-        "REQUIRES_ANY": Implication.ANY, 
-        "REQUIRES_EXCLUSIVELY": Implication.XOR, 
-        "FORBIDS_ALL": Implication.NONE, 
-        "ONE_OR_NONE": Implication.MOST_ONE, 
+        "REQUIRES_ALL": Operator.ALL, 
+        "REQUIRES_ANY": Operator.ANY, 
+        "REQUIRES_EXCLUSIVELY": Operator.XOR, 
+        "FORBIDS_ALL": Operator.NONE, 
+        "ONE_OR_NONE": Operator.MOST_ONE, 
     }
 
     def __new__(cls, instance):
@@ -704,22 +682,22 @@ class cicR(tuple):
         condition_prop = cicR._condition_to_conditional_proposition(self[0])
         return implication_proposition(
             cicR.implication_mapping[self[1]], 
-            consequence_proposition(
+            conditional_proposition(
                 "ALL", 
                 list(
                     map(
                         lambda variable: discrete_variable_proposition(variable[0], variable[1], variable[2]) if isinstance(variable, tuple) else boolean_variable_proposition(variable),
                         self[2]  
                     )
-                ),
-                default=list(
-                    map(
-                        boolean_variable_proposition,
-                        self[3] if len(self) == 4 else []   
-                    )
                 )
             ),
-            condition_prop if isinstance(condition_prop, conditional_proposition) else conditional_proposition("ALL", [condition_prop])
+            condition_prop if isinstance(condition_prop, conditional_proposition) else conditional_proposition("ALL", [condition_prop]),
+            default=list(
+                map(
+                    boolean_variable_proposition,
+                    self[3] if len(self) == 4 else []   
+                )
+            )
         )
 
     @staticmethod
@@ -807,20 +785,14 @@ class cicJE(dict):
 
         return implication_proposition(
             implies=cicR.implication_mapping.get(self['consequence']['ruleType']), 
-            consequence=consequence_proposition(
+            consequence=conditional_proposition(
                 "ALL", 
                 list(
                     map(
                         map_component,
                         self['consequence'].get('components', [])
                     )
-                ), 
-                list(
-                    map(
-                        map_component, 
-                        self['consequence'].get('default', [])
-                    )
-                )
+                ),           
             ), 
             condition=conditional_proposition(
                 self.get('condition', {}).get('relation', 'ALL'), 
@@ -837,6 +809,12 @@ class cicJE(dict):
                         ),
                         self.get('condition', {}).get('subConditions', [])
                     )
+                )
+            ),
+            default=list(
+                map(
+                    map_component, 
+                    self['consequence'].get('default', [])
                 )
             )
         )
@@ -898,10 +876,10 @@ class cicJEs(list):
             Converts to cicEs data type.
     """
 
-    def to_conjunctional_proposition(self, id_ident: str = "id") -> conjunctional_proposition:
+    def to_conjunctional_implication_proposition(self, id_ident: str = "id") -> conjunctional_implication_proposition:
         
         """
-            Converts into an conjunctional_proposition -class
+            Converts into an conjunctional_implication_proposition -class
 
             Parameters
             ----------
@@ -910,7 +888,7 @@ class cicJEs(list):
 
             Returns
             -------
-                out : conjunctional_proposition
+                out : conjunctional_implication_proposition
         """
         return conjunctional_implication_proposition(
             list(
