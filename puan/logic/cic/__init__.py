@@ -20,7 +20,7 @@ class ge_constraint(tuple):
         return tuple.__new__(cls, instance)
 
 class proposition(object):
-    
+
     """
         A proposition is an abstract class and a logical object that can be resolved into a true or false value.
 
@@ -32,7 +32,7 @@ class proposition(object):
             converts this proposition into a list of (greater-or-equal) constraints
 
     """
-    
+
     @abc.abstractclassmethod
     def variables(self) -> typing.List[puan.variable]:
 
@@ -49,7 +49,7 @@ class proposition(object):
     def to_constraints(self) -> typing.List[ge_constraint]:
 
         """
-            Proposition as a (dict) ge-constraint. 
+            Proposition as a (dict) ge-constraint.
 
             Returns
             -------
@@ -88,13 +88,13 @@ class variable_proposition(proposition):
     def representation(self) -> str:
 
         """
-            How this variable proposition is represented as a string, defaulted to variable.id. 
+            How this variable proposition is represented as a string, defaulted to variable.id.
 
             Examples
             --------
                 >>> v = variable_proposition("x")
                 >>> v.representation()
-                >>> "x"
+                'x'
 
             Returns
             -------
@@ -162,15 +162,15 @@ class discrete_variable_proposition(variable_proposition):
 
             Examples
             --------
-                >>> dv = discrete_variable_proposition(variable("x"), ">=", 3)
+                >>> dv = discrete_variable_proposition(puan.variable("x"), ">=", 3)
                 >>> dv.supporting_variable()
-                >>> "x>=3"
+                'x>=3': <class 'bool'> (virtual)
 
             Returns
             -------
                 out : str
         """
-        
+
         return puan.variable(self.var.id + self.operator + str(self.value), bool, True)
 
     def to_constraints(self, variable_predicate = lambda x: x, min_int: int = default_min_int, max_int: int = default_max_int) -> typing.List[ge_constraint]:
@@ -245,7 +245,7 @@ class conditional_proposition(proposition):
     def to_dnf(self) -> map:
         resolved = itertools.chain(
             map(
-                conditional_proposition.to_dnf, 
+                conditional_proposition.to_dnf,
                 filter(lambda x: isinstance(x, conditional_proposition), self.propositions)
             ),
             map(
@@ -253,7 +253,7 @@ class conditional_proposition(proposition):
                 filter(lambda x: not isinstance(x, conditional_proposition), self.propositions)
             )
         )
-        
+
         return itertools.starmap(
             maz.compose(list, itertools.chain),
             itertools.product(*resolved) if self.relation == "ALL" else resolved
@@ -270,7 +270,7 @@ class consequence_proposition(conditional_proposition):
 
     """
         A consequence_proposition is a logical object that can be resolved into a true or false value.
-        The consequence_proposition is a conditional_proposition with the exception of an extra field 
+        The consequence_proposition is a conditional_proposition with the exception of an extra field
         "default". This is used to mark which underlying propositions is default if many are considered
         equally correct.
 
@@ -353,11 +353,11 @@ class implication_proposition(proposition):
 
     def to_constraints(self, variable_predicate = lambda x: x, min_int: int = default_min_int, max_int: int = default_max_int) -> itertools.chain:
         varialble_predicate_map = maz.compose(
-            list, 
+            list,
             functools.partial(
-                map, 
+                map,
                 maz.compose(
-                    variable_predicate, 
+                    variable_predicate,
                     operator.methodcaller("representation")
                 )
             )
@@ -368,7 +368,7 @@ class implication_proposition(proposition):
                     *itertools.starmap(
                         maz.compose(list, self.implies.constraint_values),
                         itertools.product(
-                            map(varialble_predicate_map, self.condition.to_dnf()), 
+                            map(varialble_predicate_map, self.condition.to_dnf()),
                             map(varialble_predicate_map, self.consequence.to_dnf())
                         )
                     )
@@ -421,23 +421,23 @@ class conjunctional_proposition(conditional_proposition):
 
             Examples
             --------
-                >>> cc.conjunctional_proposition([
-                ...     cc.implication_proposition(
-                ...         cc.Implication.XOR,
-                ...         cc.consequence_proposition("ALL", [
-                ...             cc.boolean_variable_proposition("x"),
-                ...             cc.boolean_variable_proposition("y"),
-                ...             cc.boolean_variable_proposition("z")
+                >>> conjunctional_proposition([
+                ...     implication_proposition(
+                ...         Implication.XOR,
+                ...         consequence_proposition("ALL", [
+                ...             boolean_variable_proposition("x"),
+                ...             boolean_variable_proposition("y"),
+                ...             boolean_variable_proposition("z")
                 ...         ]),
-                ...         cc.conditional_proposition("ALL", [
-                ...             cc.discrete_variable_proposition("m", ">=", 3),
+                ...         conditional_proposition("ALL", [
+                ...             discrete_variable_proposition("m", ">=", 3),
                 ...         ])
                 ...     ),
                 ... ]).to_polyhedron(integer_bounds=(0, 52))
-                ge_polyhedron([[   -4,     0,    -3,    -1,    -1,    -1],
-                               [   -3,    -1, 32764,     0,     0,     0],
-                               [   -2,     0,    -3,     1,     1,     1],
-                               [    0,     1,    -3,     0,     0,     0]], dtype=int16)
+                ge_polyhedron([[-4,  0, -3, -1, -1, -1],
+                               [-3, -1, 49,  0,  0,  0],
+                               [-2,  0, -3,  1,  1,  1],
+                               [ 0,  1, -3,  0,  0,  0]])
 
         """
 
@@ -459,16 +459,16 @@ class cicR(tuple):
 
     """
         cicR is a data type of the condition - implies - consequence format. It is a
-        tuple and is written as (condition, implies, consequence). 
+        tuple and is written as (condition, implies, consequence).
 
     """
 
     implication_mapping = {
-        "REQUIRES_ALL": Implication.ALL, 
-        "REQUIRES_ANY": Implication.ANY, 
-        "REQUIRES_EXCLUSIVELY": Implication.XOR, 
-        "FORBIDS_ALL": Implication.NONE, 
-        "ONE_OR_NONE": Implication.MOST_ONE, 
+        "REQUIRES_ALL": Implication.ALL,
+        "REQUIRES_ANY": Implication.ANY,
+        "REQUIRES_EXCLUSIVELY": Implication.XOR,
+        "FORBIDS_ALL": Implication.NONE,
+        "ONE_OR_NONE": Implication.MOST_ONE,
     }
 
     def __new__(cls, instance):
@@ -491,19 +491,19 @@ class cicR(tuple):
         """
         condition_prop = cicR._condition_to_conditional_proposition(self[0])
         return implication_proposition(
-            cicR.implication_mapping[self[1]], 
+            cicR.implication_mapping[self[1]],
             consequence_proposition(
-                "ALL", 
+                "ALL",
                 list(
                     map(
                         lambda variable: discrete_variable_proposition(variable[0], variable[1], variable[2]) if isinstance(variable, tuple) else boolean_variable_proposition(variable),
-                        self[2]  
+                        self[2]
                     )
                 ),
                 default=list(
                     map(
                         boolean_variable_proposition,
-                        self[3] if len(self) == 4 else []   
+                        self[3] if len(self) == 4 else []
                     )
                 )
             ),
@@ -518,7 +518,7 @@ class cicR(tuple):
             return boolean_variable_proposition(condition)
         else:
             return conditional_proposition(
-                "ALL" if isinstance(condition, tuple) or isinstance(condition, set) else 'ANY', 
+                "ALL" if isinstance(condition, tuple) or isinstance(condition, set) else 'ANY',
                 list(
                     map(
                         cicR._condition_to_conditional_proposition,
@@ -536,7 +536,7 @@ class cicJE(dict):
 
     """
         cicJE is a data type of the condition - implies - consequence format. It is a
-        dict and must have the properties "condition" and "consquence". 
+        dict and must have the properties "condition" and "consquence".
 
     """
 
@@ -559,7 +559,7 @@ class cicJE(dict):
 
             Examples
             --------
-                >>> r = cc.cicJE({
+                >>> r = cicJE({
                 ...     "condition": {},
                 ...     "consequence": {
                 ...         "ruleType": "REQUIRES_ALL",
@@ -577,45 +577,45 @@ class cicJE(dict):
             if ('operator' in component and 'value' in component):
                 return discrete_variable_proposition(
                     puan.variable(
-                        component[id_ident], 
+                        component[id_ident],
                         int,
                         virtual=component['virtual'] if 'virtual' in component else False
-                    ), 
-                    component['operator'], 
+                    ),
+                    component['operator'],
                     component['value']
-                )  
-            else: 
+                )
+            else:
                 return boolean_variable_proposition(
                     puan.variable(
-                        component[id_ident], 
+                        component[id_ident],
                         bool,
                         virtual=component['virtual'] if 'virtual' in component else False
                     )
                 )
 
         return implication_proposition(
-            implies=cicR.implication_mapping.get(self['consequence']['ruleType']), 
+            implies=cicR.implication_mapping.get(self['consequence']['ruleType']),
             consequence=consequence_proposition(
-                "ALL", 
+                "ALL",
                 list(
                     map(
                         map_component,
                         self['consequence'].get('components', [])
                     )
-                ), 
+                ),
                 list(
                     map(
-                        map_component, 
+                        map_component,
                         self['consequence'].get('default', [])
                     )
                 )
-            ), 
+            ),
             condition=conditional_proposition(
-                self.get('condition', {}).get('relation', 'ALL'), 
+                self.get('condition', {}).get('relation', 'ALL'),
                 list(
                     map(
                         lambda sub_condition: conditional_proposition(
-                            sub_condition.get('relation', 'ALL'), 
+                            sub_condition.get('relation', 'ALL'),
                             list(
                                 map(
                                     map_component,
@@ -659,7 +659,7 @@ class cicJE(dict):
         return set().union(
             *map(
                 maz.pospartial(
-                    cicJE._obj_variables, 
+                    cicJE._obj_variables,
                     [(1, id_ident)]
                 ),
                 self.get('condition', {}).get('subConditions', [])
@@ -687,7 +687,7 @@ class cicJEs(list):
     """
 
     def to_conjunctional_proposition(self, id_ident: str = "id") -> conjunctional_proposition:
-        
+
         """
             Converts into an conjunctional_proposition -class
 
@@ -703,7 +703,7 @@ class cicJEs(list):
         return conjunctional_proposition(
             list(
                 map(
-                    cicJE.to_implication_proposition, 
+                    cicJE.to_implication_proposition,
                     self
                 )
             )

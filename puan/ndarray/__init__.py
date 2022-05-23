@@ -1,3 +1,4 @@
+from bz2 import compress
 import numpy
 import typing
 import functools
@@ -6,9 +7,10 @@ import maz
 import math
 import puan
 import puan.npufunc as npufunc
+import sys
 
 class variable_ndarray(numpy.ndarray):
-    
+
     def __new__(cls, input_array, variables: typing.List[puan.variable] = []):
         _arr = numpy.array(input_array)
         if variables:
@@ -17,11 +19,11 @@ class variable_ndarray(numpy.ndarray):
             elif len(variables) > _arr.shape[_arr.ndim-1]:
                 _arr = numpy.pad(_arr, ([(0, 0)] * (_arr.ndim-1)) + [(0,1)])
         else:
-            variables = list(range(len(variables))) 
-            
-        arr = numpy.asarray(_arr).view(cls)
+            variables = list(range(len(variables)))
+
+        arr = numpy.asarray(_arr, dtype=numpy.int64).view(cls)
         arr.variables = variables
-        
+
         return arr
 
     def __array_finalize__(self, obj):
@@ -44,29 +46,32 @@ class variable_ndarray(numpy.ndarray):
 
             Examples
             --------
-            
+
             Constructing a new 1D variable ndarray shadow from this array and setting x = 5
-                >>> vnd = variable_ndarray([[1,2,3], [2,3,4]], [puan.variable("x", int), puan.variable("y", int), puan.variable("z", int)])
+                >>> vnd = variable_ndarray([[1,2,3], [2,3,4]],
+                ...     [puan.variable("x", int), puan.variable("y", int), puan.variable("z", int)])
                 >>> vnd.construct([("x", 5)])
-                variable_ndarray([5,0,0])
+                variable_ndarray([5, 0, 0])
 
             Constructing a new 2D variable ndarray shadow from this array and setting x0 = 5, y0 = 4 and y1 = 3
-                >>> vnd = variable_ndarray([[1,2,3], [2,3,4]], [puan.variable("x", int), puan.variable("y", int), puan.variable("z", int)])
+                >>> vnd = variable_ndarray([[1,2,3], [2,3,4]],
+                ...     [puan.variable("x", int), puan.variable("y", int), puan.variable("z", int)])
                 >>> vnd.construct([[("x", 5), ("y", 4)], [("y", 3)]])
-                variable_ndarray([5,0,0])
+                variable_ndarray([[5, 4, 0],
+                                  [0, 3, 0]])
 
             Returns
             -------
-                out : variable_ndarray 
+                out : variable_ndarray
         """
         if isinstance(variable_values[0], tuple):
             variable_indices = list(
                 map(
                     maz.compose(
-                        self.variables.index, 
-                        puan.variable, 
+                        self.variables.index,
+                        puan.variable,
                         operator.itemgetter(0)
-                    ), 
+                    ),
                     variable_values
                 )
             )
@@ -78,7 +83,7 @@ class variable_ndarray(numpy.ndarray):
                 list(
                     map(
                         functools.partial(
-                            self.construct, 
+                            self.construct,
                             default_value=default_value
                         ),
                         variable_values
@@ -102,12 +107,10 @@ class variable_ndarray(numpy.ndarray):
 
             Examples
             --------
-                >>> ge_polyhedron = ge_polyhedron(numpy.array([
-                >>>     [0,-1, 1, 0, 0],
-                >>>     [0, 0,-1, 1, 0],
-                >>>     [0, 0, 0,-1, 1],
-                >>> ]))
-                >>> ge_polyhedron.to_value_map()
+                >>> ge_polyhedron(numpy.array([
+                ...     [0,-1, 1, 0, 0],
+                ...     [0, 0,-1, 1, 0],
+                ...     [0, 0, 0,-1, 1]])).to_value_map()
                 {1: [[0, 1, 2], [2, 3, 4]], -1: [[0, 1, 2], [1, 2, 3]]}
 
         """
@@ -176,19 +179,15 @@ class ge_polyhedron(variable_ndarray):
 
             Examples
             --------
-                >>> ge_polyhedron = ge_polyhedron(numpy.array([
-                >>>     [0,-1, 1, 0, 0],
-                >>>     [0, 0,-1, 1, 0],
-                >>>     [0, 0, 0,-1, 1],
-                >>> ]))
-                >>> ge_polyhedron.A()
-                integer_ndarray([
-                    [-1, 1, 0, 0],
-                    [0,-1, 1, 0],
-                    [0, 0,-1, 1],
-                ])
+                >>> ge_polyhedron(numpy.array([
+                ...     [0,-1, 1, 0, 0],
+                ...     [0, 0,-1, 1, 0],
+                ...     [0, 0, 0,-1, 1]])).A
+                integer_ndarray([[-1,  1,  0,  0],
+                                 [ 0, -1,  1,  0],
+                                 [ 0,  0, -1,  1]])
         """
-        return integer_ndarray(self[[slice(None, None)]*(self.ndim-1)+[slice(1, None)]], self.variables[1:])
+        return integer_ndarray(self[tuple([slice(None, None)]*(self.ndim-1)+[slice(1, None)])], self.variables[1:])
 
     @property
     def b(self) -> numpy.ndarray:
@@ -202,13 +201,11 @@ class ge_polyhedron(variable_ndarray):
 
             Examples
             --------
-                >>> ge_polyhedron = ge_polyhedron(numpy.array([
-                >>>     [0,-1, 1, 0, 0],
-                >>>     [0, 0,-1, 1, 0],
-                >>>     [0, 0, 0,-1, 1],
-                >>> ]))
-                >>> ge_polyhedron.b()
-                array([0,0,0])
+                >>> ge_polyhedron(numpy.array([
+                ...     [0,-1, 1, 0, 0],
+                ...     [0, 0,-1, 1, 0],
+                ...     [0, 0, 0,-1, 1]])).b
+                array([0, 0, 0])
         """
         return numpy.array(self.T[0])
 
@@ -223,13 +220,15 @@ class ge_polyhedron(variable_ndarray):
 
             Examples
             --------
-                >>> ge_polyhedron = ge_polyhedron(numpy.array([
-                >>>     [0,-1, 1, 0, 0],
-                >>>     [0, 0,-1, 1, 0],
-                >>>     [0, 0, 0,-1, 1],
-                >>> ]), [variable("a", int), variable("b"), variable("c", int), variable("d")])
-                >>> ge_polyhedron.integer_variable_indices()
-                [0,2]
+                >>> ge_polyhedron(numpy.array([
+                ...     [0,-1, 1, 0, 0],
+                ...     [0, 0,-1, 1, 0],
+                ...     [0, 0, 0,-1, 1]]),
+                ...     [puan.variable("a", int),
+                ...      puan.variable("b"),
+                ...      puan.variable("c", int),
+                ...      puan.variable("d")]).integer_variable_indices()
+                {0, 1, 3}
         """
 
         return set(
@@ -257,13 +256,15 @@ class ge_polyhedron(variable_ndarray):
 
             Examples
             --------
-                >>> ge_polyhedron = ge_polyhedron(numpy.array([
-                >>>     [0,-1, 1, 0, 0],
-                >>>     [0, 0,-1, 1, 0],
-                >>>     [0, 0, 0,-1, 1],
-                >>> ]), [variable("a", int), variable("b"), variable("c", int), variable("d")])
-                >>> ge_polyhedron.integer_variable_indices()
-                [1,3]
+                >>> ge_polyhedron(numpy.array([
+                ...     [0,-1, 1, 0, 0],
+                ...     [0, 0,-1, 1, 0],
+                ...     [0, 0, 0,-1, 1]]),
+                ...     [puan.variable("a", int),
+                ...      puan.variable("b"),
+                ...      puan.variable("c", int),
+                ...      puan.variable("d")]).integer_variable_indices()
+                {0, 1, 3}
         """
 
         return set(
@@ -293,17 +294,13 @@ class ge_polyhedron(variable_ndarray):
 
             Examples
             --------
-                >>> ge = ge_polyhedron(numpy.array([
-                >>>    [0,-1, 1, 0, 0],
-                >>>    [0, 0,-1, 1, 0],
-                >>>    [0, 0, 0,-1, 1],
-                >>> ]))
-                >>> ge.to_linalg()
-                (array([
-                    [-1, 1, 0, 0],
-                    [0, -1, 1, 0],
-                    [0, 0, -1, 1]]),
-                array([0,0,0]))
+                >>> ge_polyhedron(numpy.array([
+                ...     [0,-1, 1, 0, 0],
+                ...     [0, 0,-1, 1, 0],
+                ...     [0, 0, 0,-1, 1]])).to_linalg()
+                (integer_ndarray([[-1,  1,  0,  0],
+                                 [ 0, -1,  1,  0],
+                                 [ 0,  0, -1,  1]]), array([0, 0, 0]))
         """
         return self.A, self.b
 
@@ -332,44 +329,34 @@ class ge_polyhedron(variable_ndarray):
             --------
             All columns could be *assumed not* since picking any of the corresponding variable would violate the inequlity
 
-                >>> ge = ge_polyhedron(numpy.array([[0, -1, -1, -1]]))
-                >>> ge.reducable_columns_approx()
-                ge_polyhedron([-2, -2, -2])
+                >>> ge_polyhedron(numpy.array([[0, -1, -1, -1]])).reducable_columns_approx()
+                integer_ndarray([-2, -2, -2])
 
             All columns could be *assumed* since not picking any of the corresponding variable would violate the inequlity
 
-                >>> ge = ge_polyhedron(numpy.array([[3, 1, 1, 1]]))
-                >>> ge.reducable_columns_approx()
-                ge_polyhedron([1, 1, 1])
+                >>> ge_polyhedron(numpy.array([[3, 1, 1, 1]])).reducable_columns_approx()
+                integer_ndarray([1, 1, 1])
 
             Combination of *assume* and *not assume*
 
-                >>> ge = ge_polyhedron(numpy.array([[0, 1, 1, -3]]))
-                >>> ge.reducable_columns_approx()
-                ge_polyhedron([0, 0, -3])
+                >>> ge_polyhedron(numpy.array([[0, 1, 1, -3]])).reducable_columns_approx()
+                integer_ndarray([ 0,  0, -3])
 
-                >>> ge = ge_polyhedron(numpy.array([[2, 1, 1, -1]]))
-                >>> ge.reducable_columns_approx()
-                ge_polyhedron([1, 1, -2])
+                >>> ge_polyhedron(numpy.array([[2, 1, 1, -1]])).reducable_columns_approx()
+                integer_ndarray([ 1,  1, -2])
 
             Combination of rows would give reducable column. Note that zero coulmns are kept.
 
-                >>> ge = ge_polyhedron(numpy.array([
-                >>>     [ 0,-1, 1, 0, 0, 0], # 1
-                >>>     [ 0, 0,-1, 1, 0, 0], # 2
-                >>>     [-1,-1, 0,-1, 0, 0], # 3 1+2+3 -> Force not variable 0
-                >>> ]))
-                >>> ge.reducable_columns_approx()
-                ge_polyhedron([0, 0, 0, 0, 0])
+                >>> ge_polyhedron(numpy.array([
+                ...     [ 0,-1, 1, 0, 0, 0],
+                ...     [ 0, 0,-1, 1, 0, 0],
+                ...     [-1,-1, 0,-1, 0, 0]])).reducable_columns_approx()
+                integer_ndarray([0, 0, 0, 0, 0])
 
             Contradicting rules
 
-                >>> ge = ge_polyhedron(numpy.array([
-                >>>     [1, 1], # Force variable 0
-                >>>     [1, -1] # Force not variable 0
-                >>> ]))
-                >>> ge.reducable_columns_approx()
-                ge_polyhedron([0])
+                >>> ge_polyhedron(numpy.array([[1, 1], [1, -1]])).reducable_columns_approx()
+                integer_ndarray([0])
 
         """
         A, b = ge_polyhedron(self).to_linalg()
@@ -403,15 +390,14 @@ class ge_polyhedron(variable_ndarray):
             Examples
             --------
                 >>> ge_polyhedron = ge_polyhedron(numpy.array([
-                >>>     [0,-1, 1, 0, 0],
-                >>>     [0, 0,-1, 1, 0],
-                >>>     [0, 0, 0,-1, 1],
-                >>> ]))
+                ...     [0,-1, 1, 0, 0],
+                ...     [0, 0,-1, 1, 0],
+                ...     [0, 0, 0,-1, 1]]))
                 >>> columns_vector = numpy.array([1, 0,-1, 0]) # meaning assume index 0 and not assume index 2
                 >>> ge_polyhedron.reduce_columns(columns_vector)
-                ge_polyhedron([[1, 1, 0],
-                               [0,-1, 0],
-                               [0, 0, 1]])
+                ge_polyhedron([[ 1,  1,  0],
+                               [ 0, -1,  0],
+                               [ 0,  0,  1]])
 
         """
 
@@ -442,16 +428,14 @@ class ge_polyhedron(variable_ndarray):
             The sum of all negative numbers of the row in :math:`A` is :math:`\\ge b`, i.e.
             :math:`Ax \\ge b` will always hold, regardless of :math:`x`.
 
-                >>> ge_polyhedron = ge_polyhedron(numpy.array([[-3, -1, -1, 1, 0]]))
-                >>> ge_polyhedron.reducable_rows()
-                ge_polyhedron([True])
+                >>> ge_polyhedron(numpy.array([[-3, -1, -1, 1, 0]])).reducable_rows()
+                integer_ndarray([ True])
 
             All elements of the row in :math:`A` is :math:`\\ge 0` and :math:`b` is :math:`\\le 0`,
             again :math:`Ax \\ge b` will always hold, regardless of :math:`x`.
 
-                >>> ge_polyhedron = ge_polyhedron(numpy.array([[0, 1, 1, 1, 0]]))
-                >>> ge_polyhedron.reducable_rows()
-                ge_polyhedron([True])
+                >>> ge_polyhedron(numpy.array([[0, 1, 1, 1, 0]])).reducable_rows()
+                integer_ndarray([ True])
 
         """
         A, b = ge_polyhedron(self).to_linalg()
@@ -482,25 +466,23 @@ class ge_polyhedron(variable_ndarray):
             Examples
             --------
 
-            >>> ge_polyhedron = ge_polyhedron(numpy.array([
-            >>>     [0,-1, 1, 0, 0], # Reduce
-            >>>     [0, 0,-1, 1, 0], # Keep
-            >>>     [0, 0, 0,-1, 1], # Reduce
-            >>> ]))
             >>> rows_vector = numpy.array([1, 0, 1])
-            >>> ge_polyhedron.reduce_rows(rows_vector)
-            ge_polyhedron([[0, 0, -1, 1, 0]])
+            >>> ge_polyhedron(numpy.array([
+            ...     [0,-1, 1, 0, 0], # Reduce
+            ...     [0, 0,-1, 1, 0], # Keep
+            ...     [0, 0, 0,-1, 1]  # Reduce
+            ... ])).reduce_rows(rows_vector)
+            ge_polyhedron([[ 0,  0, -1,  1,  0]])
 
             :code:`rows_vector` could be boolean
 
-            >>> ge_polyhedron = ge_polyhedron(numpy.array([
-            >>>     [0,-1, 1, 0, 0], # Reduce
-            >>>     [0, 0,-1, 1, 0], # Keep
-            >>>     [0, 0, 0,-1, 1], # Reduce
-            >>> ]))
             >>> rows_vector = numpy.array([True, False, True])
-            >>> ge_polyhedron.reduce_rows(rows_vector)
-            ge_polyhedron([[0, 0, -1, 1, 0]])
+            >>> ge_polyhedron(numpy.array([
+            ...     [0,-1, 1, 0, 0], # Reduce
+            ...     [0, 0,-1, 1, 0], # Keep
+            ...     [0, 0, 0,-1, 1]  # Reduce
+            ... ])).reduce_rows(rows_vector)
+            ge_polyhedron([[ 0,  0, -1,  1,  0]])
         """
 
         return self[rows_vector == 0]
@@ -526,16 +508,15 @@ class ge_polyhedron(variable_ndarray):
 
             Examples
             --------
-                >>> ge_polyhedron = ge_polyhedron(np.array([
-                >>>     [ 0,-1, 1, 0, 0, 0], # 1
-                >>>     [ 0, 0,-1, 1, 0, 0], # 2
-                >>>     [-1,-1, 0,-1, 0, 0], # 3 1+2+3 -> Force not variable 0, not identified under the approximate conditions
-                >>>     [ 1, 0, 0, 0, 1, 0], # Force variable 3
-                >>>     [ 0, 0, 0, 0, 0,-1], # Force not variable 4
-                >>>     [ 0, 1, 1, 0, 1, 0], # Redundant rule
-                >>>     [ 0, 1, 1, 0, 1,-1], # Redundant when variable 4 forced not
-                >>> ]))
-                >>> reducable_rows_and_columns(ge_polyhedron)
+                >>> ge_polyhedron(numpy.array([
+                ...     [ 0,-1, 1, 0, 0, 0], # 1
+                ...     [ 0, 0,-1, 1, 0, 0], # 2
+                ...     [-1,-1, 0,-1, 0, 0], # 3 1+2+3 -> Force not variable 0
+                ...     [ 1, 0, 0, 0, 1, 0], # Force variable 3
+                ...     [ 0, 0, 0, 0, 0,-1], # Force not variable 4
+                ...     [ 0, 1, 1, 0, 1, 0], # Redundant rule
+                ...     [ 0, 1, 1, 0, 1,-1]  # Redundant when variable 4 forced not
+                ... ])).reducable_rows_and_columns()
                 (array([0, 0, 0, 1, 1, 1, 1]), array([ 0,  0,  0,  1, -2]))
 
         """
@@ -587,18 +568,16 @@ class ge_polyhedron(variable_ndarray):
             Examples
             --------
                 >>> ge_polyhedron = ge_polyhedron(numpy.array([
-                >>>     [ 0,-1, 1, 0, 0, 0, 0],
-                >>>     [ 0, 0,-1, 1, 0, 0, 0],
-                >>>     [-1, 0, 0,-1,-1, 0, 0],
-                >>>     [ 1, 0, 0, 0, 0, 1, 1],
-                >>> ]))
+                ...     [ 0,-1, 1, 0, 0, 0, 0],
+                ...     [ 0, 0,-1, 1, 0, 0, 0],
+                ...     [-1, 0, 0,-1,-1, 0, 0],
+                ...     [ 1, 0, 0, 0, 0, 1, 1]]))
                 >>> columns_vector = numpy.array([1,0,0,0,0,0])
                 >>> ge_polyhedron.reduce(columns_vector=columns_vector)
-                ge_polyhedron([[ 1, 1, 0, 0, 0, 0],
-                               [ 0,-1, 1, 0, 0, 0],
-                               [-1, 0,-1,-1, 0, 0],
-                               [ 1, 0, 0, 0, 1, 1]
-                            ])
+                ge_polyhedron([[ 1,  1,  0,  0,  0,  0],
+                               [ 0, -1,  1,  0,  0,  0],
+                               [-1,  0, -1, -1,  0,  0],
+                               [ 1,  0,  0,  0,  1,  1]])
         """
         gp = self.copy()
         if rows_vector is not None:
@@ -640,32 +619,20 @@ class ge_polyhedron(variable_ndarray):
             ge_polyhedron with two out of three patterns. Variables 1 and 2 are not differentiating the patterns
             in ge_polyhedron from those that are not, and can therefore be neglected.
 
-            >>> ge_polyhedron = ge_polyhedron(numpy.array([
-            >>>     [-1,-1,-1, 0, 0, 0, 1],
-            >>>     [-1,-1, 0,-1, 0, 0, 1],
-            >>> ]))
-            >>> patterns = numpy.array([
-            >>>     [1, 1, 0], # Pattern in ge_polyhedron
-            >>>     [0, 1, 1], # Pattern not in ge_polyhedron
-            >>>     [1, 0, 1]  # Pattern in ge_polyhedron
-            >>> ])
-            >>> neglectable_columns(ge_polyhedron, patterns)
-            ge_polyhedron([0, 1, 1, 0, 0, 0])
+            >>> patterns = numpy.array([[1, 1, 0], [0, 1, 1], [1, 0, 1]])
+            >>> ge_polyhedron(numpy.array([
+            ...     [-1,-1,-1, 0, 0, 0, 1],
+            ...     [-1,-1, 0,-1, 0, 0, 1]])).neglectable_columns(patterns)
+            integer_ndarray([0, 1, 1, 0, 0, 0])
 
             Neglect common pattern:
             Variable 0 is part of all patterns and can therefore be neglected.
 
-            >>> ge_polyhedron = ge_polyhedron(numpy.array([
-            >>>         [-1,-1,-1, 0, 0, 0, 1],
-            >>>         [-1,-1, 0,-1, 0, 0, 1],
-            >>> ]))
-            >>> patterns = numpy.array([
-            >>>        [1, 1, 0],
-            >>>        [1, 0, 1],
-            >>>        [1, 0, 0]
-            >>> ])
-            >>> neglectable_columns(ge_polyhedron, patterns)
-            array([1, 0, 0, 0, 0, 0])
+            >>> patterns = numpy.array([[1, 1, 0], [1, 0, 1], [1, 0, 0]])
+            >>> ge_polyhedron(numpy.array([
+            ...     [-1,-1,-1, 0, 0, 0, 1],
+            ...     [-1,-1, 0,-1, 0, 0, 1]])).neglectable_columns(patterns)
+            integer_ndarray([1, 0, 0, 0, 0, 0])
 
         """
         A, b = ge_polyhedron(self).to_linalg()
@@ -715,18 +682,12 @@ class ge_polyhedron(variable_ndarray):
 
             Examples
             --------
-                >>> ge_polyhedron = ge_polyhedron(numpy.array([
-                >>>     [0,-1, 1, 0, 0],
-                >>>     [0, 0,-1, 1, 0],
-                >>>     [0, 0, 0,-1, 1],
-                >>>  ]))
+                >>> ge_polyhedron = ge_polyhedron(numpy.array([[0,-1, 1, 0, 0], [0, 0,-1, 1, 0], [0, 0, 0,-1, 1]]))
                 >>> columns_vector = numpy.array([1, 0, 1, 0])
                 >>> neglect_columns(ge_polyhedron, columns_vector)
-                ge_polyhedron([[ 1, 0, 1, 0, 0],
-                               [-1, 0,-1, 0, 0],
-                               [ 1, 0, 0, 0, 1]])
-
-
+                ge_polyhedron([[ 1,  0,  1,  0,  0],
+                               [-1,  0, -1,  0,  0],
+                               [ 1,  0,  0,  0,  1]])
         """
         A, b = ge_polyhedron(self).to_linalg()
         _b = b - (A.T*(columns_vector > 0).reshape(-1,1)).sum(axis=0)
@@ -762,13 +723,12 @@ class ge_polyhedron(variable_ndarray):
 
             Examples
             --------
-                >>> ge_polyhedron = ge_polyhedron([[0,-2,1,1]])
-                >>> ge_polyhedron.seaperable(numpy.array([
-                >>>     [1, 0, 1],
-                >>>     [1, 1, 1],
-                >>>     [0, 0, 0]
-                >>> ]))
-                array([True, False, False])
+                >>> ge_polyhedron = ge_polyhedron([[0,-2, 1, 1]])
+                >>> ge_polyhedron.separable(numpy.array([
+                ...     [1, 0, 1],
+                ...     [1, 1, 1],
+                ...     [0, 0, 0]]))
+                array([ True, False, False])
         """
         if points.ndim > 2:
             return numpy.array(
@@ -817,29 +777,26 @@ class ge_polyhedron(variable_ndarray):
 
             Examples
             --------
-            >>> ge = ge_polyhedron(numpy.array([
-            >>>     [ 0, 1, 0],
-            >>>     [ 0, 1,-1],
-            >>>     [-1,-1, 1]
-            >>> ]))
             >>> points = numpy.array([[1, 1], [4, 2]])
-            >>> ge.ineq_separate_points(points)
-            array([True, True, False])
+            >>> ge_polyhedron(numpy.array([
+            ...     [ 0, 1, 0],
+            ...     [ 0, 1,-1],
+            ...     [-1,-1, 1]])).ineq_separate_points(points)
+            array([False, False,  True])
 
             Points in 3-d
 
-            >>> ge = ge_polyhedron(numpy.array([
-            >>>     [ 0, 1, 0,-1],
-            >>>     [ 0, 1,-1, 0],
-            >>>     [-1,-1, 1,-1]
-            >>> ]))
             >>> points = numpy.array([
-            >>>    [[1, 1, 1], [4, 2, 1]],
-            >>>    [[0, 1, 0], [1, 2, 1]]
-            >>> ])
-            >>> ge.ineq_separate_points(points)
-            array([[True, True, False],
-                   [True, False, True]])
+            ...     [[1, 1, 1],
+            ...      [4, 2, 1]],
+            ...     [[0, 1, 0],
+            ...      [1, 2, 1]]])
+            >>> ge_polyhedron(numpy.array([
+            ...     [ 0, 1, 0,-1],
+            ...     [ 0, 1,-1, 0],
+            ...     [-1,-1, 1,-1]])).ineq_separate_points(points)
+            array([[False, False,  True],
+                   [False,  True, False]])
 
         """
         if points.ndim > 2:
@@ -877,138 +834,269 @@ class integer_ndarray(variable_ndarray):
 
         Methods
         -------
-        truncate
-            Takes an integer ndarray and truncates it into a vector.
+        compress
+            Takes an integer ndarray and compresses it into a vector.
         to_value_map
             reduces the matrix into a value map.
         from_list
             Turns a list (or list of list) of strings into an integer vector. (static)
 
     """
+    def reduce2d(self: numpy.ndarray, method: typing.Literal["first", "last"]="first", axis: int=0) -> numpy.ndarray:
+        """
+            Reduces integer ndarray to only keeping one value of the given axis (default is 0) according to the provided method.
+        """
+        if not self.ndim == 2:
+            raise ValueError(f"ndarray must be 2-D, is {self.ndim}-D")
+        self = numpy.swapaxes(self, 0, axis)
+        col_idxs = numpy.arange(self.shape[1])
+        self_reduced = numpy.zeros(self.shape)
+        if method == "first":
+            row_idxs = (self != 0).argmax(axis=0).flatten()
+            self_reduced[row_idxs, col_idxs] = 1
+            self_reduced = (self_reduced * self)
+        elif method == "last":
+            row_idxs = (self[::-1] != 0).argmax(axis=0).flatten()
+            self_reduced[row_idxs, col_idxs] = 1
+            self_reduced = (self_reduced * self[::-1])[::-1]
+        else:
+            raise ValueError(f"Method not recognized, must be either 'first' or 'last', is {method}.")
+        return numpy.swapaxes(self_reduced, 0, axis)
 
-    def truncate(self: numpy.ndarray) -> numpy.ndarray:
+    def ranking(self: numpy.ndarray) -> numpy.ndarray:
+        if self.ndim > 1:
+            return list(map(integer_ndarray.ranking, self))
+        elif self.ndim == 1:
+            idx_sorted = numpy.argsort(self)
+            self = self[idx_sorted]
+            current_ranking = 1 if (self[0] > 0) else 0
+            current_val = self[0]
+            for i in range(len(self)):
+                if not current_val == self[i]:
+                    current_ranking += 1
+                    current_val = self[i]
+                self[i] = current_ranking
+            rev = numpy.argsort(idx_sorted)
+            return self[rev]
+        else:
+            raise ValueError("Dimension out of bounds")
+
+    def ndint_compress(self: numpy.ndarray, method: typing.Literal["first", "last", "min", "max", "prio", "shadow"]="min", axis: int=None) -> numpy.ndarray:
 
         """
-            Takes an integer ndarray and truncates it such that the values of the output array totally
-            shadows the inferior values of the input array. Specifically,
-                - If integer ndarray is 1-D it returns a 1-D integer ndarray where each value of the output vector
-                  totally shadows the values for lower input values. The lowest non-zero number, regardless of sign,
-                  gets output value 1.
+            Takes an integer ndarray and compresses it into a vector under different conditions given by `method`.
 
-                - If integer ndarray is 2-D it returns a 1-D integer ndarray where each value of the output vector
-                  totally shadows the values for lower input values and values of preceding rows.
+            Parameters
+            ----------
+                method : {'first', 'last', 'min', 'max', 'prio', 'shadow'}, optional
+                    The method used to compress the `integer ndarray`. The following methods are available (default is 'min')
 
-                - If integer ndarray is M-D it is seen as M-2 collections of 2-D arrays which are truncated. The
-                  output is of size (M-1)-D
+                    - 'min' Takes the minimum non-zero value
+                    - 'max' Takes the maximum value
+                    - 'last' Takes the last value
+                    - 'prio' Treats the values as prioritizations with prioritizations increasing along the axis.
+                    - 'shadow' Treats the values as prioritizations as for 'prio' but the result value of a higher prioritization totally shadows lower priorities
+                axis : {None, int}, optional
+                    Axis along which to perform the compressing. If None, the data array is first flattened.
 
             Returns
             -------
                 out : numpy.ndarray
-
-            Notes
-            -----
-            This function is used in the context of combinatorial optimization where items have different priorities among each other.
-            Priorities can be positive or negative, where positive priorities means prefer and negative means disprefer.
-            High number means higher priority and higher row index means higher priority than the rows below.
+                    If input integer ndarray is input array is M-D the returned array is (M-1)-D
 
             Examples
             --------
-                >>> integer_ndarray([1, 2, 3, 4]).truncate()
-                integer_ndarray([1, 2, 4, 8])
-
-                >>> integer_ndarray([3, 6, 2, 8]).truncate()
-                integer_ndarray([2, 4, 1, 8])
-
-                >>> integer_ndarray([-3, -6, 2, 8]).truncate()
-                integer_ndarray([-2, -4, 1, 8])
-
-                >>> integer_ndarray([1, 1, 2, 2, 2, 3]).truncate()
-                integer_ndarray([ 1,  1,  3,  3,  3, 12])
-
-                2-d
+            Method 'min'
+                >>> integer_ndarray([[1, 2], [0, 3]]).ndint_compress()
+                integer_ndarray([1, 2, 0, 3])
 
                 >>> integer_ndarray([
-                >>>     [ 0, 0, 0, 0, 1, 2],
-                >>>     [-1,-1,-1,-1, 0, 0],
-                >>>     [ 0, 0, 1, 2, 0, 0],
-                >>>     [ 0, 0, 1, 0, 0, 0]
-                >>> ]).truncate()
-                integer_ndarray([-4, -4, 24, 12,  1,  2])
-
-                3-d
+                ...     [1, 2],
+                ...     [0, 3]]).ndint_compress(method='min', axis=0)
+                integer_ndarray([1, 2])
 
                 >>> integer_ndarray([
-                >>>    [
-                >>>         [ 1,  2,  2,  2,  2],
-                >>>         [ 1, -2, -1,  2, -2],
-                >>>         [ 1,  0,  2, -1, -1],
-                >>>         [ 2,  1,  1,  0,  1]
-                >>>    ], [
-                >>>         [-1,  0, -1,  2,  0],
-                >>>         [-1,  1, -2,  2, -1],
-                >>>         [ 0, -2,  1, -2,  2],
-                >>>         [ 0, -2,  2,  2,  0]
-                >>>     ], [
-                >>>         [ 1, -1,  0,  1,  1],
-                >>>         [ 2,  2,  1,  1, -2],
-                >>>         [ 2, -1, -2, -2,  0],
-                >>>         [ 1, -1,  1,  0,  2]
-                >>>     ]])
-                integer_ndarray([
-                    [ 8,  2,  2, -1,  2],
-                    [-1, -4,  4,  4,  2],
-                    [ 2, -2,  2,  1,  8]])
-                )
+                ...     [1, 2],
+                ...     [0, 3]]).ndint_compress(method='min', axis=1)
+                integer_ndarray([1, 3])
+
+            Method 'max'
+                >>> integer_ndarray([
+                ...     [1, 2],
+                ...     [0, 3]]).ndint_compress(method='max', axis=0)
+                integer_ndarray([1, 3])
+
+                >>> integer_ndarray([
+                ...     [1, 2],
+                ...     [0, 3]]).ndint_compress(method='max', axis=1)
+                integer_ndarray([2, 3])
+
+            Method 'first'
+
+                >>> integer_ndarray([
+                ...     [1, 2, 0, 0],
+                ...     [0, 3, 4, 0],
+                ...     [5, 0, 0, 6]]).ndint_compress(method='first', axis=0)
+                integer_ndarray([1, 2, 4, 6])
+
+                >>> integer_ndarray([
+                ...     [1, 2, 0, 0],
+                ...     [0, 3, 4, 0],
+                ...     [5, 0, 0, 6]]).ndint_compress(method='first', axis=1)
+                integer_ndarray([1, 3, 5])
+
+            Method 'last'
+
+                >>> integer_ndarray([
+                ...     [1, 2, 0, 0],
+                ...     [0, 3, 4, 0],
+                ...     [5, 0, 0, 6]]).ndint_compress(method='last', axis=0)
+                integer_ndarray([5, 3, 4, 6])
+
+                >>> integer_ndarray([
+                ...     [1, 2, 0, 0],
+                ...     [0, 3, 4, 0],
+                ...     [5, 0, 0, 6]]).ndint_compress(method='last', axis=1)
+                integer_ndarray([2, 4, 6])
+
+            Method 'prio'
+                >>> integer_ndarray([1, 2, 1, 0, 4, 4, 6]).ndint_compress(method='prio')
+                integer_ndarray([1, 2, 1, 0, 3, 3, 4])
+
+                >>> integer_ndarray([
+                ...     [1, 2, 0, 0],
+                ...     [0, 3, 4, 0],
+                ...     [5, 0, 0, 6]]).ndint_compress(method='prio', axis=0)
+                integer_ndarray([3, 1, 2, 4])
+
+                >>> integer_ndarray([
+                ...     [1, 2, 0, 0],
+                ...     [0, 3, 4, 0],
+                ...     [5, 0, 0, 6]]).ndint_compress(method='prio', axis=1)
+                integer_ndarray([1, 2, 3])
+
+            Method 'shadow'
+                >>> integer_ndarray([1, 2, 1, 0, 4, 4, 6]).ndint_compress(method='shadow')
+                integer_ndarray([ 1,  3,  1,  0,  6,  6, 18])
+
+                >>> integer_ndarray([
+                ...     [1, 2, 0, 0],
+                ...     [0, 3, 4, 0],
+                ...     [5, 0, 0, 6]]).ndint_compress(method='shadow', axis=0)
+                integer_ndarray([4, 1, 2, 8])
+
+                >>> integer_ndarray([
+                ...     [1, 2, 0, 0],
+                ...     [0, 3, 4, 0],
+                ...     [5, 0, 0, 6]]).ndint_compress(method='shadow', axis=1)
+                integer_ndarray([1, 2, 4])
 
         """
-        if self.ndim > 2:
-            return integer_ndarray(
-                        list(
-                            map(
-                                integer_ndarray.truncate,
-                                self
+        if not isinstance(axis, int):
+            self = integer_ndarray([self.flatten()])
+            axis=0
+        if method == "last":
+            func = lambda x: x[numpy.max(numpy.argwhere(x!=0), axis=0)]
+            return numpy.add.reduce(numpy.apply_along_axis(func, axis=axis, arr=self), axis=axis)
+        elif method == "first":
+            self = numpy.swapaxes(self, 0, axis)
+            if self.ndim > 2:
+                return numpy.swapaxes(integer_ndarray(
+                            list(
+                                map(
+                                    lambda x: integer_ndarray.ndint_compress(x, method=method, axis=0),
+                                    self
+                                )
                             )
-                        )
-                    )
+                        ), 0, axis)
+            elif self.ndim == 2:
+                self = self[numpy.argmax(self!=0, axis=0),numpy.arange(self.shape[1])]
+                return numpy.swapaxes(self, 0, axis-1)
+            elif self.ndim == 1:
+                return numpy.swapaxes(self, 0, axis-1)
+            else:
+                raise ValueError("Dimension out of bound")
+        elif method == "min":
+            tmp = self.copy()
+            tmp[tmp==0] = sys.maxsize
+            tmp = numpy.min(tmp, axis=axis)
+            tmp[(self == 0).all(axis=axis)] = 0
+            return tmp
+        elif method == "max":
+            return numpy.max(self, axis=axis)
+        elif method == "prio":
+            self = numpy.swapaxes(self, 0, axis)
+            if self.ndim > 2:
+                return numpy.swapaxes(integer_ndarray(
+                            list(
+                                map(
+                                    lambda x: integer_ndarray.ndint_compress(x, method=method, axis=0),
+                                    self
+                                )
+                            )
+                        ), 0, axis)
+            elif self.ndim == 2:
+                self_reduced = integer_ndarray(self).reduce2d(method="last", axis=0)
+                self_reduced = integer_ndarray(self_reduced.ranking())
+                self_reduced = self_reduced + ((self_reduced.T>0) * numpy.concatenate(([0], (numpy.cumsum(self_reduced.max(axis=1)))))[:-1]).T
+                return self_reduced.ndint_compress(method="first", axis=0)
+            elif self.ndim == 1:
+                return self.ranking()
+            else:
+                raise ValueError("Dimension out of bounds")
 
-        elif self.ndim == 2:
-            # Reduce self to only include higest priorities
-            row_idxs = (self[::-1] != 0).argmax(axis=0).flatten()
-            col_idxs = numpy.arange(self.shape[1])
-            self_reduced = numpy.zeros(self.shape)
-            self_reduced[row_idxs, col_idxs] = 1
-            self_reduced = (self_reduced * self[::-1])[::-1]
-            # Convert negatives to positives
-            self_reduced_abs = numpy.abs(self_reduced)
-            #Remove zero rows
-            self_reduced_abs = self_reduced_abs[~numpy.all(self_reduced_abs == 0, axis=1)]
-            if self_reduced_abs.shape[0] == 0:
-                return numpy.zeros(self.shape[1], dtype=numpy.int64)
-            # Prepare input to optimized bit allocation
-            # Priorities of each row must be sorted and later converted back
-            ufunc_inp_sorted_args = numpy.argsort(self_reduced_abs)
-            self_reduced_abs_sorted = self_reduced_abs[numpy.arange(self_reduced_abs.shape[0]).reshape(-1,1), ufunc_inp_sorted_args]
-            # Multiply every second row with -1, this will distinguish the priorities between the rows
-            ufunc_inp = self_reduced_abs * numpy.array(list(map(lambda x: math.pow(-1, x), range(self_reduced_abs.shape[0])))).reshape(-1,1)
-            # Sort priorities of each row and omit zero values
-            ufunc_inp = ufunc_inp[numpy.arange(self_reduced_abs.shape[0]).reshape(-1,1), ufunc_inp_sorted_args]
-            ufunc_inp = ufunc_inp[ufunc_inp != 0].flatten()
-            values = npufunc.optimized_bit_allocation_64(ufunc_inp.astype(numpy.int64))
-            # Update priorities with optimized bit allocation values
-            self_reduced_abs_sorted[self_reduced_abs_sorted != 0] = values
-            # Get reversed sorting
-            ufunc_inp_sorted_args_rev = numpy.argsort(ufunc_inp_sorted_args)
-            # Convert back to original sorting
-            self_reduced_abs = self_reduced_abs_sorted[numpy.arange(self_reduced_abs.shape[0]).reshape(-1,1), ufunc_inp_sorted_args_rev]
-            # Truncate matrix and convert back to original negatives
-            truncated = self_reduced_abs.max(axis=0)
-            truncated_neg = self_reduced.min(axis=0)
-            truncated[truncated_neg < 0] = truncated[truncated_neg < 0] * -1
-            return truncated.astype(numpy.int64)
-        elif self.ndim == 1:
-            return integer_ndarray.truncate(numpy.array([self]))
+
+        elif method == "shadow":
+            self = numpy.swapaxes(self, 0, axis)
+            if self.ndim > 2:
+                return numpy.swapaxes(integer_ndarray(
+                            list(
+                                map(
+                                    lambda x: integer_ndarray.ndint_compress(x, method=method, axis=0),
+                                    self
+                                )
+                            )
+                        ), 0, axis)
+            elif self.ndim == 2:
+                # Reduce self to only include last values of columns
+                self_reduced = integer_ndarray(self).reduce2d(method="last", axis=0)
+                # Convert negatives to positives
+                self_reduced_abs = numpy.abs(self_reduced)
+                #Remove zero rows
+                self_reduced_abs = self_reduced_abs[~numpy.all(self_reduced_abs == 0, axis=1)]
+                if self_reduced_abs.shape[0] == 0:
+                    return numpy.zeros(self.shape[1], dtype=numpy.int64)
+                # Prepare input to optimized bit allocation
+                # Values of each row must be sorted and later converted back
+                ufunc_inp_sorted_args = numpy.argsort(self_reduced_abs)
+                self_reduced_abs_sorted = self_reduced_abs[numpy.arange(self_reduced_abs.shape[0]).reshape(-1,1), ufunc_inp_sorted_args]
+                # Multiply every second row with -1, this will distinguish the rows
+                ufunc_inp = self_reduced_abs * numpy.array(list(map(lambda x: math.pow(-1, x), range(self_reduced_abs.shape[0])))).reshape(-1,1)
+                # Sort values of each row and omit zero values
+                ufunc_inp = ufunc_inp[numpy.arange(self_reduced_abs.shape[0]).reshape(-1,1), ufunc_inp_sorted_args]
+                ufunc_inp = ufunc_inp[ufunc_inp != 0].flatten()
+                values = npufunc.optimized_bit_allocation_64(ufunc_inp.astype(numpy.int64))
+                # Update values with optimized bit allocation values
+                self_reduced_abs_sorted[self_reduced_abs_sorted != 0] = values
+                # Get reversed sorting
+                ufunc_inp_sorted_args_rev = numpy.argsort(ufunc_inp_sorted_args)
+                # Convert back to original sorting
+                self_reduced_abs = self_reduced_abs_sorted[numpy.arange(self_reduced_abs.shape[0]).reshape(-1,1), ufunc_inp_sorted_args_rev]
+                # Truncate matrix and convert back to original negatives
+                compressed = self_reduced_abs.max(axis=0)
+                compressed_neg = self_reduced.min(axis=0)
+                compressed[compressed_neg < 0] = compressed[compressed_neg < 0] * -1
+                return numpy.swapaxes(compressed.astype(numpy.int64), 0, axis-1)
+            elif self.ndim == 1:
+                return integer_ndarray.ndint_compress(numpy.array([self]), method=method, axis=0)
+            else:
+                raise ValueError("Dimension out of bounds, is {self.ndim}")
         else:
-            return -1
+            print("Method not recognized")
+            return
+
+
+
 
 
     def to_value_map(self: numpy.ndarray, mapping: dict = {}) -> dict:
@@ -1060,10 +1148,10 @@ class integer_ndarray(variable_ndarray):
 
             Examples
             --------
-                >>> variables   = ["a","c","b"]
-                >>> context     = ["a","b","c","d"]
+                >>> variables = ["a","c","b"]
+                >>> context = ["a","b","c","d"]
                 >>> integer_ndarray.from_list(variables, context)
-                integer_ndarray([1,3,2,0])
+                integer_ndarray([1, 3, 2, 0])
 
         """
         if len(lst) == 0:
@@ -1117,7 +1205,7 @@ class boolean_ndarray(variable_ndarray):
                 >>> variables = ["a","c","b"]
                 >>> context = ["a","b","c","d"]
                 >>> boolean_ndarray.from_list(variables, context)
-                boolean_ndarray([1,1,1,0])
+                boolean_ndarray([1, 1, 1, 0])
 
         """
         if len(lst) == 0:
@@ -1135,7 +1223,7 @@ class boolean_ndarray(variable_ndarray):
         return boolean_ndarray(result)
 
     def construct(self, variable_values: typing.List[str]) -> "boolean_ndarray":
-        
+
         if isinstance(variable_values[0], str):
             return boolean_ndarray(variable_ndarray.construct(self, list(map(lambda x: (x, 1), variable_values))), self.variables)
         else:
@@ -1194,4 +1282,4 @@ neglectable_columns =           ge_polyhedron.neglectable_columns
 neglect_columns =               ge_polyhedron.neglect_columns
 separable =                     ge_polyhedron.separable
 ineq_separate_points =          ge_polyhedron.ineq_separate_points
-truncate =                      integer_ndarray.truncate
+ndint_compress =                integer_ndarray.ndint_compress

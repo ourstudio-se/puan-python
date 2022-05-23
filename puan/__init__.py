@@ -2,7 +2,7 @@ import typing
 
 # import puan.npufunc
 class variable(object):
-    
+
     """
         The variable class is a central key in all Puan packages. It consists of an id, data type (dtype) and if it is virtual or not.
         A virtual variable is a variable that has been created along some reduction and is not (necessary) interesting for the user.
