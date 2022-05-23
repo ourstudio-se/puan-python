@@ -28,7 +28,8 @@ class application(dict):
             E.g. from_dict = {'k': {'g': 1}}, selector_string = 'k.g'
             and value 1 is returned.
 
-            Return:
+            Returns
+            -------
                 any
         """
         keys = selector_string.split(".")
@@ -266,7 +267,7 @@ class application(dict):
         to all items with category.id == "shoes" and lastly one binding the item "jeans" to all items with category.id == "jeans".
 
             >>> import puan.logic.sta as sta
-            >>> >>> a = sta.application({
+            >>> a = sta.application({
             ...     "variables": [
             ...         {
             ...             "key": "variable",
@@ -547,7 +548,7 @@ class application(dict):
             ...         }
             ...     }
             ... ]))
-            [{'condition': {'relation': 'ALL', 'subConditions': [{'relation': 'ALL', 'components': [{'id': 'bottoms'}]}]}, 'consequence': {'ruleType': 'REQUIRES_EXCLUSIVELY', 'components': [{'id': 'jeans'}, {'id': 'trousers'}, {'id': 'shorts'}]}}, {'condition': {'relation': 'ALL', 'subConditions': [{'relation': 'ALL', 'components': [{'id': 'shoes'}]}]}, 'consequence': {'ruleType': 'REQUIRES_EXCLUSIVELY', 'components': [{'id': 'sneakers'}, {'id': 'boots'}]}}, {'condition': {'relation': 'ALL', 'subConditions': [{'relation': 'ALL', 'components': [{'id': 'jeans'}]}]}, 'consequence': {'ruleType': 'REQUIRES_EXCLUSIVELY', 'components': [{'id': '4c2f9300-cc0e-42c6-b5c8-75ec5bcf4532'}, {'id': '83893701-473c-44e9-9881-a9a403a8a0fc'}]}}]
+            [{'condition': {'relation': 'ALL', 'subConditions': [{'relation': 'ALL', 'components': [{'id': 'bottoms', 'virtual': False}]}]}, 'consequence': {'ruleType': 'REQUIRES_EXCLUSIVELY', 'components': [{'id': 'jeans', 'virtual': False}, {'id': 'trousers', 'virtual': False}, {'id': 'shorts', 'virtual': False}]}}, {'condition': {'relation': 'ALL', 'subConditions': [{'relation': 'ALL', 'components': [{'id': 'shoes', 'virtual': False}]}]}, 'consequence': {'ruleType': 'REQUIRES_EXCLUSIVELY', 'components': [{'id': 'sneakers', 'virtual': False}, {'id': 'boots', 'virtual': False}]}}, {'condition': {'relation': 'ALL', 'subConditions': [{'relation': 'ALL', 'components': [{'id': 'jeans', 'virtual': False}]}]}, 'consequence': {'ruleType': 'REQUIRES_EXCLUSIVELY', 'components': [{'id': '4c2f9300-cc0e-42c6-b5c8-75ec5bcf4532', 'virtual': False}, {'id': '83893701-473c-44e9-9881-a9a403a8a0fc', 'virtual': False}]}}]
     """
         for _application in application._explode_from_variables(self):
 
@@ -568,7 +569,7 @@ class application(dict):
                                     "relation": _application["apply"].get("conditionRelation", "ALL"),
                                     "components": [
                                         {
-                                            "id": application._extract_value(source_item, id_key), 
+                                            "id": application._extract_value(source_item, id_key),
                                             "virtual": source_item['virtual'] if 'virtual' in source_item else False
                                         }
                                         for source_item in source_items
