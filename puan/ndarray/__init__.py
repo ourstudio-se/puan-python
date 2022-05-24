@@ -1,5 +1,4 @@
 from bz2 import compress
-import statistics
 import numpy
 import typing
 import functools
