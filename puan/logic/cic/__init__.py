@@ -189,22 +189,23 @@ class discrete_variable_proposition(variable_proposition):
 
     """
 
-    def __init__(self, var: typing.Union[puan.variable, str], operator: str, value: int):
+    def __init__(self, var: typing.Union[puan.variable, str], operator: str, value: int, attachable: bool = False):
         if type(var) == str:
             var = puan.variable(var, int)
         super().__init__(var)
         self.operator = operator
         self.value = value
+        self.attachable = attachable
 
     def __hash__(self):
-        return hash(self.var.id + self.operator + str(self.value))
+        return hash(self.var.id + self.operator + str(self.value) + str(self.attachable))
 
     def __eq__(self, o) -> bool:
-        return self.var == o.var and self.value == o.value and self.operator == o.operator
+        return self.var == o.var and self.value == o.value and self.operator == o.operator and self.attachable == o.attachable
 
     @property
     def variables(self) -> typing.List[puan.variable]:
-        return [self.var, self.supporting_variable()]
+        return [self.var, self.supporting_variable()] if self.attachable else [self.var]
 
     def supporting_variable(self) -> str:
 
@@ -226,46 +227,49 @@ class discrete_variable_proposition(variable_proposition):
         return puan.variable(self.var.id + self.operator + str(self.value), bool, True)
 
     def to_constraints(self, min_int: int = default_min_int, max_int: int = default_max_int) -> typing.List[ge_constraint]:
-        if self.operator == ">=":
-            return [
-                (
-                    [
-                        self.supporting_variable(),
-                        self.var,
-                        puan.variable(0),
-                    ],
-                    [(max_int-self.value), -1, -self.value]
-                ),
-                (
-                    [
-                        self.supporting_variable(),
-                        self.var,
-                        puan.variable(0),
-                    ],
-                    [-self.value, 1, 0]
-                )
-            ]
-        elif self.operator == "<=":
-            return [
-                (
-                    [
-                        self.supporting_variable(),
-                        self.var,
-                        puan.variable(0),
-                    ],
-                    [max_int, -1, self.value]
-                ),
-                (
-                    [
-                        self.supporting_variable(),
-                        self.var,
-                        puan.variable(0),
-                    ],
-                    [min_int+self.value, -1, min_int]
-                )
-            ]
+        if self.attachable:
+            if self.operator == ">=":
+                return [
+                    (
+                        [
+                            self.supporting_variable(),
+                            self.var,
+                            puan.variable(0),
+                        ],
+                        [(max_int-self.value), -1, -self.value]
+                    ),
+                    (
+                        [
+                            self.supporting_variable(),
+                            self.var,
+                            puan.variable(0),
+                        ],
+                        [-self.value, 1, 0]
+                    )
+                ]
+            elif self.operator == "<=":
+                return [
+                    (
+                        [
+                            self.supporting_variable(),
+                            self.var,
+                            puan.variable(0),
+                        ],
+                        [max_int, -1, self.value]
+                    ),
+                    (
+                        [
+                            self.supporting_variable(),
+                            self.var,
+                            puan.variable(0),
+                        ],
+                        [min_int+self.value, -1, min_int]
+                    )
+                ]
+            else:
+                raise Exception(f"continuous variable has invalid operator: '{self.operator}'")
         else:
-            raise Exception(f"continuous variable has invalid operator: '{self.operator}'")
+            return []
 
     def __repr__(self):
         return f"('{self.var.id}': {self.var.dtype}  {self.operator} {self.value})"
@@ -574,7 +578,7 @@ class conjunctional_implication_proposition(conditional_proposition):
 
     def __init__(self, propositions: typing.List[implication_proposition]):
         if any(filter(maz.compose(operator.not_, maz.pospartial(isinstance, [(1, implication_proposition)])), propositions)):
-            raise ValueError("conjunctional_implication_proposition takes only variable propositions as propositions")
+            raise ValueError("conjunctional_implication_proposition takes only implication propositions as propositions")
 
         super().__init__(relation="ALL", propositions=propositions)
 

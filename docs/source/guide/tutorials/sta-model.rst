@@ -1,6 +1,6 @@
-Tutorial
-========
-In this tutorial we are going to create a part of a backend for a app called Wardrobe Wizard. The app is for creating 
+Building a Wardrobe Wizard
+==========================
+In this tutorial we are going to use STA-modelling to create a part of a backend for a app called Wardrobe Wizard. The app is for creating 
 outfits based on certain criterias. An outfit ends up in a vast number of combinations and are a perfect example of
 illustrating how to use Puan.
 

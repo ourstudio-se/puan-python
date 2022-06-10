@@ -7,4 +7,4 @@ User Guide
 
    install
    quickstart
-   tutorial
+   Tutorials <tutorials/index>

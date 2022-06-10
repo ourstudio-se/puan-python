@@ -27,6 +27,40 @@ class variable_ndarray(numpy.ndarray):
             pass
         return target
 
+    def integer_variable_indices(self) -> typing.Set[int]:
+
+        """
+            Variable indices where variable dtype is int.
+
+            Returns
+            -------
+                out : Set : int
+
+            Examples
+            --------
+                >>> ge_polyhedron = ge_polyhedron(numpy.array([
+                >>>     [0,-1, 1, 0, 0],
+                >>>     [0, 0,-1, 1, 0],
+                >>>     [0, 0, 0,-1, 1],
+                >>> ]), [variable("a", int), variable("b"), variable("c", int), variable("d")])
+                >>> ge_polyhedron.integer_variable_indices()
+                [0,2]
+        """
+
+        return set(
+            map(
+                operator.itemgetter(0),
+                filter(
+                    maz.compose(
+                        functools.partial(operator.eq, int),
+                        operator.attrgetter("dtype"),
+                        operator.itemgetter(1)
+                    ),
+                    enumerate(self.variables)
+                )
+            )
+        )
+
     def construct(self, variable_values: typing.List[typing.Tuple[str, int]], default_value: int = 0) -> "variable_ndarray":
 
         """
@@ -54,7 +88,6 @@ class variable_ndarray(numpy.ndarray):
                 map(
                     maz.compose(
                         self.variables.index, 
-                        puan.variable, 
                         operator.itemgetter(0)
                     ), 
                     variable_values
@@ -201,40 +234,6 @@ class ge_polyhedron(variable_ndarray):
                 array([0,0,0])
         """
         return numpy.array(self.T[0])
-
-    def integer_variable_indices(self) -> typing.Set[int]:
-
-        """
-            Variable indices where variable dtype is int.
-
-            Returns
-            -------
-                out : Set : int
-
-            Examples
-            --------
-                >>> ge_polyhedron = ge_polyhedron(numpy.array([
-                >>>     [0,-1, 1, 0, 0],
-                >>>     [0, 0,-1, 1, 0],
-                >>>     [0, 0, 0,-1, 1],
-                >>> ]), [variable("a", int), variable("b"), variable("c", int), variable("d")])
-                >>> ge_polyhedron.integer_variable_indices()
-                [0,2]
-        """
-
-        return set(
-            map(
-                operator.itemgetter(0),
-                filter(
-                    maz.compose(
-                        functools.partial(operator.eq, int),
-                        operator.attrgetter("dtype"),
-                        operator.itemgetter(1)
-                    ),
-                    enumerate(self.variables)
-                )
-            )
-        )
 
     def boolean_variable_indices(self) -> typing.Set[int]:
 
@@ -856,6 +855,18 @@ class ge_polyhedron(variable_ndarray):
                 out : boolean_ndarray
         """
         return boolean_ndarray.construct(self.A, variables)
+
+    def compress(self, connective: str) -> "ge_polyhedron":
+
+        """
+
+        """
+        if connective == "conjunction":
+            pass
+        elif connective == "disjunction":
+            pass
+        else:
+            raise Exception(f"no connective named '{connective}'")
 
 class integer_ndarray(variable_ndarray):
     """

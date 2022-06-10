@@ -1,6 +1,5 @@
 import typing
 
-# import puan.npufunc
 class variable(object):
     
     """
@@ -27,3 +26,7 @@ class variable(object):
 
     def __str__(self):
         return f"'{self.id}': {self.dtype} {'(virtual)' if self.virtual else ''}"
+
+    @staticmethod
+    def construct(*variable_ids: typing.List[str], dtype: typing.Union[bool, int] = bool, virtual: bool = False) -> typing.List["variable"]:
+        return list(map(lambda v: variable(v, dtype, virtual), variable_ids))
