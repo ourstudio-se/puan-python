@@ -306,7 +306,7 @@ def test_rules2matrix_with_mixed_condition_rules():
             }
         }
     ]
-    conj_props = cc.cicJEs(rules).to_conjunctional_proposition()
+    conj_props = cc.cicJEs(rules).to_conjunctional_implication_proposition()
     matrix = conj_props.to_polyhedron()
     expected_feasible_configurations = numpy.array([
        #"a  b  c  d  x  y"
@@ -1564,8 +1564,8 @@ def test_cicJE_to_implication_proposition():
     })
 
     expected_output = cc.implication_proposition(
-        cc.Implication.ALL,
-        cc.consequence_proposition("ALL", [
+        cc.Operator.ALL,
+        cc.conditional_proposition("ALL", [
             cc.boolean_variable_proposition("m"),
             cc.boolean_variable_proposition("n"),
             cc.boolean_variable_proposition("o"),
@@ -1609,7 +1609,7 @@ def test_parsed_linerules2value_map():
         ({'c', 'p', 'a'}, 'ONE_OR_NONE', ('x', 'y')),
         ({'a', 'q', 'e'}, 'REQUIRES_ALL', ('f', 'g', 'h'))
     ]
-    actual = cc.conjunctional_proposition(list(map(cc.cicR.to_implication_proposition, line_rules))).to_polyhedron()
+    actual = cc.conjunctional_implication_proposition(list(map(cc.cicR.to_implication_proposition, line_rules))).to_polyhedron()
     for v in numpy.nditer(actual):
         try:
             int(v)
@@ -1630,7 +1630,7 @@ def test_parte_line_rules_from_text():
         "[['x','d'], ('z','m')],            'REQUIRES_EXCLUSIVELY', ('a',),()",
         "[['x','d'], ('z','m')],            'FORBIDS_ALL',          ('a',),()"
     ]
-    actual = cc.conjunctional_proposition(
+    actual = cc.conjunctional_implication_proposition(
         list(
             map(
                 maz.compose(
@@ -1645,11 +1645,11 @@ def test_parte_line_rules_from_text():
 
 def test_parse_line_rule_strings_with_different_combinations():
     line_rule_strs = [
+        "(('a','b','c'),('d',)),'REQUIRES_EXCLUSIVELY',('x','y','z'),('x',)",
         "(('a',),),'REQUIRES_ALL',('x',)",
         "(('aa','aa'),),'REQUIRES_ALL',('xx','xx')",
         "(('a')),'REQUIRES_ALL',('b',)",
         "(('a','ab')),'REQUIRES_ALL',('b','ba')",
-        "(('a','b','c'),('d',)),'REQUIRES_EXCLUSIVELY',('x','y','z'),('x',)",
         "(['xc40','T80']),'REQUIRES_ALL',['o0']",
         "['xxx', ('yyy','zzz')],'REQUIRES_ALL',['aaa','bbb']",
         "['xxx', ['yyy','zzz']],'REQUIRES_ALL',['aaa','bbb']",
@@ -1658,7 +1658,7 @@ def test_parse_line_rule_strings_with_different_combinations():
         "[],'REQUIRES_ALL',('x',)",
         "(),'REQUIRES_ALL',('x',)",
     ]
-    actual = cc.conjunctional_proposition(
+    actual = cc.conjunctional_implication_proposition(
         list(
             map(
                 maz.compose(
@@ -1669,7 +1669,7 @@ def test_parse_line_rule_strings_with_different_combinations():
             )
         )
     )
-    assert actual.to_polyhedron().shape == (15,24)
+    assert actual.to_polyhedron().shape == (17,25)
 
 def test_parse_line_rule_when_an_empty_any_condition():
 
@@ -1688,15 +1688,15 @@ def test_parse_line_rule_when_an_empty_any_condition():
     )
     expected = [
         cc.implication_proposition(
-            cc.Implication.ALL,
-            cc.consequence_proposition("ALL", [
+            cc.Operator.ALL,
+            cc.conditional_proposition("ALL", [
                 cc.boolean_variable_proposition("x")
             ]),
             cc.conditional_proposition("ANY", [])
         ),
         cc.implication_proposition(
-            cc.Implication.ALL,
-            cc.consequence_proposition("ALL", [
+            cc.Operator.ALL,
+            cc.conditional_proposition("ALL", [
                 cc.boolean_variable_proposition("y")
             ])
         ),
@@ -1721,8 +1721,8 @@ def test_parse_line_rules_when_having_numbers_inside():
     )
     expected = [
         cc.implication_proposition(
-            cc.Implication.ALL,
-            cc.consequence_proposition("ALL", [
+            cc.Operator.ALL,
+            cc.conditional_proposition("ALL", [
                 cc.boolean_variable_proposition("1"),
                 cc.boolean_variable_proposition("22"),
                 cc.boolean_variable_proposition("345"),
@@ -1841,7 +1841,7 @@ def test_convert_one_or_none_to_matrix():
         "(('a','b','c'),'ONE_OR_NONE',('x','y','z'))",
     ]
 
-    actual_matrix = cc.conjunctional_proposition(list(
+    actual_matrix = cc.conjunctional_implication_proposition(list(
         map(
             maz.compose(
                 cc.cicR.to_implication_proposition,
@@ -2008,5 +2008,175 @@ def test_ndint_compress():
         ),
     ]
     for inpt, expected_output in test_cases:
-        actual_output = inpt.ndint_compress(method="shadow", axis=0)
-        assert numpy.array_equal(actual_output,expected_output)
+        actual_output = inpt.truncate()
+        assert (actual_output == expected_output).all()
+
+def test_truncate_documentation_examples():
+    """Documentation example"""
+    test_cases = [
+        (
+            puan.ndarray.integer_ndarray([1, 2, 3, 4]),
+            puan.ndarray.integer_ndarray([1, 2, 4, 8])),
+        (
+            puan.ndarray.integer_ndarray([3, 6, 2, 8]),
+            puan.ndarray.integer_ndarray([2, 4, 1, 8])),
+        (
+            puan.ndarray.integer_ndarray([-3, -6, 2, 8]),
+            puan.ndarray.integer_ndarray([-2, -4, 1, 8])),
+        (
+            puan.ndarray.integer_ndarray([1, 1, 2, 2, 2, 3]),
+            puan.ndarray.integer_ndarray([ 1,  1,  3,  3,  3, 12])),
+        (
+            puan.ndarray.integer_ndarray([
+                [ 0, 0, 0, 0, 1, 2],
+                [-1,-1,-1,-1, 0, 0],
+                [ 0, 0, 1, 2, 0, 0],
+                [ 0, 0, 1, 0, 0, 0]
+                ]),
+            puan.ndarray.integer_ndarray([-4, -4, 24, 12,  1,  2])),
+        (
+            puan.ndarray.integer_ndarray([
+                [
+                    [ 1,  2,  2,  2,  2],
+                    [ 1, -2, -1,  2, -2],
+                    [ 1,  0,  2, -1, -1],
+                    [ 2,  1,  1,  0,  1]
+                ], [
+                    [-1,  0, -1,  2,  0],
+                    [-1,  1, -2,  2, -1],
+                    [ 0, -2,  1, -2,  2],
+                    [ 0, -2,  2,  2,  0]
+                ], [
+                    [ 1, -1,  0,  1,  1],
+                    [ 2, -1, -2, -2,  0],
+                    [ 2,  2,  1,  1, -2],
+                    [ 1, -1,  1,  0,  2]
+                ]]),
+            puan.ndarray.integer_ndarray([
+                [ 8,  2,  2, -1,  2],
+                [-1, -4,  4,  4,  2],
+                [ 2, -2,  2,  1,  8]])
+        )]
+    for inpt, expected_output in test_cases:
+        actual_output = inpt.truncate()
+        assert (actual_output == expected_output).all()
+
+def test_separable():
+    """Documentation example"""
+    ge = puan.ndarray.ge_polyhedron([0, -2, 1, 1])
+    actual_output = ge.separable(numpy.array([
+        [1,0,1],
+        [1,1,1],
+        [0,0,0]]))
+    expected_output = numpy.array([True, False, False])
+    assert numpy.array_equal(actual_output, expected_output)
+
+def test_ineq_separate_points():
+    """Documentation example"""
+    input = puan.ndarray.ge_polyhedron(numpy.array([
+            [ 0, 1, 0],
+            [ 0, 1, -1],
+            [ -1, -1, 1]
+        ]))
+    points = numpy.array([[1, 1], [4, 2]])
+    actual = input.ineq_separate_points(points)
+    expected = numpy.array([False, False, True])
+    assert numpy.array_equal(actual, expected)
+    input = puan.ndarray.ge_polyhedron(numpy.array([
+                [ 0, 1, 0, -1],
+                [ 0, 1, -1, 0],
+                [ -1, -1, 1, -1]
+            ]))
+    points = numpy.array([
+            [[1, 1, 1], [4, 2, 1]],
+            [[0, 1, 0], [1, 2, 1]]
+        ])
+    actual = input.ineq_separate_points(points)
+    expected = numpy.array([[False, False, True],
+                            [False, True, False]])
+    assert numpy.array_equal(actual, expected)
+
+def test_or_get():
+    """Documentation example"""
+    input = dict((("a", 1), ("b", 2)))
+    keys = ["1", "a"]
+    actual = puan.misc.or_get(input, keys)
+    expected = 1
+    assert actual == expected
+    input = dict((("a", 1), ("b", 2)))
+    keys = ["b", "a"]
+    actual = puan.misc.or_get(input, keys)
+    expected = 2
+    assert actual == expected
+    input = dict((("a", 1), ("b", 2)))
+    keys = [1]
+    default_value = 0
+    actual = puan.misc.or_get(input, keys, default_value)
+    expected = 0
+    assert actual == expected
+
+def test_or_replace():
+    """Documentation example"""
+    input = dict((("a", 1), ("b", 2)))
+    keys = ["1", "a"]
+    value = "1"
+    actual = puan.misc.or_replace(input, keys, value)
+    expected = {'a': '1', 'b': 2}
+    assert actual == expected
+    input = dict((("a", 1), ("b", 2)))
+    keys = ["b", "a"]
+    value = "1"
+    actual = puan.misc.or_replace(input, keys, value)
+    expected = {'a': 1, 'b': '1'}
+    assert actual == expected
+
+def test_implication_proposition_to_constraints_with_default_value():
+
+    icvp = cc.implication_conjunctional_variable_proposition(
+        cc.Operator.ANY, 
+        cc.conjunctional_variable_proposition(
+            [
+                cc.boolean_variable_proposition("x"),
+                cc.boolean_variable_proposition("y"),
+                cc.boolean_variable_proposition("z"),
+            ],
+        ),
+        cc.conjunctional_variable_proposition(
+            [
+                cc.boolean_variable_proposition("a"),
+                cc.boolean_variable_proposition("b"),
+                cc.boolean_variable_proposition("c"),
+            ]
+        ),
+        default=[
+            cc.boolean_variable_proposition("z")
+        ]
+    )
+
+    assert icvp.supporting_variable.id == "abcxy"
+    assert sorted(map(operator.itemgetter(1), icvp.to_constraints())) == [
+        [-3,-3,-3, 1, 1, 1,-8],
+        [-2,-2,-2,-1,-1, 1,-6],
+        [ 2, 2, 2, 1, 1,-7, 0],
+    ]
+
+def test_conjunction_proposition_to_constraints_with_default_value():
+
+    conj_prop = cc.conjunctional_implication_proposition([
+        cc.implication_proposition(
+            cc.Operator.XOR, 
+            cc.conditional_proposition("ALL", [
+                cc.boolean_variable_proposition("x"),
+                cc.boolean_variable_proposition("y"),
+                cc.boolean_variable_proposition("z"),
+            ]),
+            cc.conditional_proposition("ALL", [
+                cc.boolean_variable_proposition("a"),
+                cc.boolean_variable_proposition("b"),
+            ]),
+            default=[
+                cc.boolean_variable_proposition("z")
+            ]
+        )  
+    ])
+    assert conj_prop.to_polyhedron().shape == (4,7)

@@ -9,12 +9,11 @@ if __name__ == "__main__":
         author = "Our Studio Void AB",
         author_email = "moa@ourstudio.se",
         install_requires=[
-            "numpy",
+            "numpy>=1.22.3",
             "more-itertools",
-            "scipy",
-            "maz"
+            "maz>=0.0.1"
         ],
-        packages=['puan', 'puan.logic', 'puan.logic.sta', 'puan.logic.cic', 'puan.misc', 'puan.ndarray'],
+        packages=['puan', 'puan.logic', 'puan.logic.sta', 'puan.logic.plog', 'puan.misc', 'puan.ndarray'],
         url = "https://puan.io",
         long_description = "",
         ext_modules=[
@@ -22,9 +21,17 @@ if __name__ == "__main__":
                 'puan/npufunc',
                 ['puan/ndarray/npufunc.c'],
                 include_dirs=[
-                    '/opt/homebrew/Frameworks/Python.framework/Headers',
-                    '/opt/homebrew/Cellar/numpy/1.22.3_1/lib/python3.9/site-packages/numpy/core/include/'
+                    "/usr/local/Cellar/python@3.9/3.9.12/Frameworks/Python.framework/Versions/3.9/include/python3.9",
+                    "/usr/local/Cellar/numpy/1.22.3_1/lib/python3.9/site-packages/numpy/core/include/",
                 ]
-            )
+            ),
+            Extension(
+                'puan/logicfunc',
+                ['puan/logic/plog/logicfunc.c'],
+                include_dirs=[
+                    "/usr/local/Cellar/python@3.9/3.9.12/Frameworks/Python.framework/Versions/3.9/include/python3.9",
+                    "/usr/local/Cellar/numpy/1.22.3_1/lib/python3.9/site-packages/numpy/core/include/",
+                ]
+            ),
         ]
     )

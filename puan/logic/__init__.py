@@ -1,2 +1,2 @@
-from . import cic
+from . import plog
 from . import sta
