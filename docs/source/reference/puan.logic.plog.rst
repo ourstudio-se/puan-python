@@ -4,11 +4,12 @@ Propositional Logic
 Summary
 --------
 
-Propositional Logic (plog) system is an abstract data type defining logical relationships
-between variables in a combinatorial optimization manner.
+Propositional Logic (plog) system is an abstract data type defining logical relationships between variables in a combinatorial optimization manner.
 
 Data types
 ----------
+   :class:`puan.logic.plog.Proposition` : A Proposition is an abstract class and an extension of the puan.variable class with the intention of being the atomic version of a compound proposition. When evaluated, the Proposition will take on a value and is later at some point evaluated to either true or false.
+
    :class:`puan.logic.plog.AtLeast` : AtLeast is a compound proposition which takes propositions and represents a lower bound on the result of those propositions. For example, select at least one of x, y and z would be defined as AtLeast("x","y","z", value=1) and represented as x+y+z >= 1.
 
    :class:`puan.logic.plog.AtMost` : AtMost is a compound proposition which takes propositions and represents a lower bound on the result of those propositions. For example, select at least one of x, y and z would be defined as AtMost("x","y","z", value=2) and represented as -x-y-z >= -2.
@@ -25,6 +26,13 @@ Data types
 
 
 .. currentmodule:: puan.logic.plog
+
+Proposition
++++++++++++
+.. autoclass:: Proposition
+   :members:
+   :inherited-members:
+   :show-inheritance:
 
 AtLeast
 +++++++
