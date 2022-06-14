@@ -17,13 +17,21 @@ if __name__ == "__main__":
         url = "https://puan.io",
         long_description = "",
         ext_modules=[
-            # Extension(
-            #     'puan/npufunc',
-            #     ['puan/ndarray/npufunc.c'],
-            #     include_dirs=[
-            #         "/usr/local/Cellar/python@3.9/3.9.12/Frameworks/Python.framework/Versions/3.9/include/python3.9",
-            #         "/usr/local/Cellar/numpy/1.22.3_1/lib/python3.9/site-packages/numpy/core/include/",
-            #     ]
-            # )
+            Extension(
+                'puan/npufunc',
+                ['puan/ndarray/npufunc.c'],
+                include_dirs=[
+                    "/usr/local/Cellar/python@3.9/3.9.12/Frameworks/Python.framework/Versions/3.9/include/python3.9",
+                    "/usr/local/Cellar/numpy/1.22.3_1/lib/python3.9/site-packages/numpy/core/include/",
+                ]
+            ),
+            Extension(
+                'puan/logicfunc',
+                ['puan/logic/plog/logicfunc.c'],
+                include_dirs=[
+                    "/usr/local/Cellar/python@3.9/3.9.12/Frameworks/Python.framework/Versions/3.9/include/python3.9",
+                    "/usr/local/Cellar/numpy/1.22.3_1/lib/python3.9/site-packages/numpy/core/include/",
+                ]
+            ),
         ]
     )

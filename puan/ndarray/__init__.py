@@ -9,15 +9,17 @@ import puan.npufunc as npufunc
 
 class variable_ndarray(numpy.ndarray):
     
-    def __new__(cls, input_array, variables: typing.List[puan.variable] = []):
+    def __new__(cls, input_array, variables: typing.List[puan.variable] = [], index: typing.List[typing.Union[int, puan.variable]] = []):
         arr = numpy.asarray(input_array).view(cls)
-        arr.variables = variables
+        arr.variables = numpy.array(variables)
+        arr.index = numpy.array(index)
         return arr
 
     def __array_finalize__(self, obj):
         if obj is None:
             return
-        self.variables = getattr(obj, 'variables', None)
+        self.variables  = getattr(obj, 'variables', None)
+        self.index      = getattr(obj, 'index', None)
 
     def _copy_attrs_to(self, target):
         target = target.view(ArraySubclass)
@@ -83,11 +85,12 @@ class variable_ndarray(numpy.ndarray):
             -------
                 out : variable_ndarray 
         """
+        variable_values = list(variable_values)
         if isinstance(variable_values[0], tuple):
             variable_indices = list(
                 map(
                     maz.compose(
-                        self.variables.index, 
+                        self.variables.tolist().index, 
                         operator.itemgetter(0)
                     ), 
                     variable_values
@@ -180,12 +183,12 @@ class ge_polyhedron(variable_ndarray):
 
     """
 
-    def __new__(cls, input_array, variables: typing.List[puan.variable] = []):
-        if not variables:
+    def __new__(cls, input_array, variables: typing.List[puan.variable] = [], index: typing.List[typing.Union[int, puan.variable]] = []):
+        if len(variables) == 0:
             arr = numpy.array(input_array)
-            variables = list(map(puan.variable, range(arr.shape[arr.ndim-1])))
+            variables = list(map(functools.partial(puan.variable, dtype=bool, virtual=False), range(arr.shape[arr.ndim-1])))
 
-        return super().__new__(cls, input_array, variables=variables)
+        return super().__new__(cls, input_array, variables=variables, index=index)
 
     @property
     def A(self) -> numpy.ndarray:
@@ -268,6 +271,44 @@ class ge_polyhedron(variable_ndarray):
                 )
             )
         )
+
+    def construct(self, variable_values: typing.List[str]) -> "boolean_ndarray":
+        return self.A.construct(variable_values)
+
+    def evaluate(self: numpy.ndarray, interpretation: "integer_ndarray") -> typing.Tuple[bool, "integer_ndarray"]:
+
+        """
+            Evaluates interpretation by updating corresponding true row values
+            per iteration until either interpretation satisfies polyhedron OR
+            no change was made in the iteration.
+
+            Notes
+            -----
+            Super ge-polytope is assumed which assumes that each row index represents a column index (except row 0) 
+
+            Examples
+            --------
+                >>> ph = ge_polyhedron([[1,1,1,1,0,0,0,0],[0,-2,0,0,1,0,1,0],[0,0,-2,0,1,1,0,0],[0,0,0,-1,0,0,1,0]],variables=puan.variable.construct(*list("0ABCdefX")),index=puan.variable.construct(*list("XABC")))
+                >>> interpretation = ph.A.construct(list(zip(puan.variable.construct(*list("de")), [1,1])))
+                >>> ph.evaluate(interpretation)
+
+        """
+
+        res = self.A.dot(interpretation) >= self.b
+        if res.all():
+            return True, interpretation
+
+        _interpretation = self.A.construct(zip(self.index,res*1))
+        _interpretation += (_interpretation == 0)*interpretation
+        _res = self.A.dot(_interpretation) >= self.b
+        __res = (~res*_res)+(res*_res) >= 1
+        __interpretation = self.A.construct(zip(self.index,__res*1))
+        __interpretation += (__interpretation == 0)*interpretation
+        
+        if (__interpretation == interpretation).all():
+            return False, _interpretation
+            
+        return self.evaluate(__interpretation)
 
     def to_linalg(self: numpy.ndarray) -> tuple:
         """
@@ -361,7 +402,7 @@ class ge_polyhedron(variable_ndarray):
                 ge_polyhedron([0])
 
         """
-        A, b = ge_polyhedron(self).to_linalg()
+        A, b = ge_polyhedron(self, self.variables, self.index).to_linalg()
         r = (A*((A*(A <= 0) + (A*(A > 0)).sum(axis=1).reshape(-1,1)) < b.reshape(-1,1))) + A*((A * (A > 0)).sum(axis=1) == b).reshape(-1,1)
         return r.sum(axis=0)
 
@@ -404,10 +445,10 @@ class ge_polyhedron(variable_ndarray):
 
         """
 
-        A, b = ge_polyhedron(self).to_linalg()
+        A, b = ge_polyhedron(self, self.variables, self.index).to_linalg()
         _b = b - (A.T*(columns_vector > 0).reshape(-1,1)).sum(axis=0)
         _A = numpy.delete(A, numpy.argwhere(columns_vector != 0).T[0], 1)
-        return ge_polyhedron(numpy.append(_b.reshape(-1,1), _A, axis=1))
+        return ge_polyhedron(numpy.append(_b.reshape(-1,1), _A, axis=1), self.variables, self.index)
 
     def reducable_rows(self: numpy.ndarray) -> numpy.ndarray:
         """
@@ -443,7 +484,7 @@ class ge_polyhedron(variable_ndarray):
                 ge_polyhedron([True])
 
         """
-        A, b = ge_polyhedron(self).to_linalg()
+        A, b = ge_polyhedron(self, self.variables, self.index).to_linalg()
         return (((A * (A < 0)).sum(axis=1) >= b)) + ((A >= 0).all(axis=1) & (b<=0))
 
     def reduce_rows(self: numpy.ndarray, rows_vector: numpy.ndarray) -> numpy.ndarray:

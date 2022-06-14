@@ -4,7 +4,6 @@ import functools
 import itertools
 import operator
 import maz
-import puan.logic.cic as cc
 
 class application(dict):
 
@@ -589,7 +588,7 @@ class application(dict):
                     })
 
     @staticmethod
-    def to_conjunctional_implication_proposition(applications: typing.List["application"], from_items: typing.List[dict], id_key: str = "id") -> cc.conjunctional_implication_proposition:
+    def to_conjunctional_implication_proposition(applications: typing.List["application"], from_items: typing.List[dict], id_key: str = "id"):# -> cc.conjunctional_implication_proposition:
 
         """
             Compiles into a conjunction proposition from a list of applications and a list of items.
