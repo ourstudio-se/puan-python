@@ -6,4 +6,4 @@ Tutorials
    :caption: Contents:
 
    sta-model
-   cic-model
+   plog-model

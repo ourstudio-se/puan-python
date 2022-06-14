@@ -89,7 +89,7 @@ To tie these two expressions we need to plug them into an implication propositio
         id="vegestables"
     )
 
-Now we can put it all together in a single cic-model
+Now we can put it all together in a single plog-model
 
 .. code:: python
 

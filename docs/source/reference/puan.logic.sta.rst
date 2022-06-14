@@ -12,7 +12,7 @@ could say
 * a Car and a House belongs to exactly one Person 
 
 without explicitly saying which are the Person's, House's and Car's. The Application instance can later be exported
-into a list of :ref:`cicJE <cicJE>`.
+into a list of .
 
 Data types
 ----------

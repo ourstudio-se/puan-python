@@ -4,7 +4,7 @@ Logic modelling
 .. toctree::
    :maxdepth: 1
 
-   puan.logic.cic
+   puan.logic.plog
    puan.logic.sta
 
 Summary
