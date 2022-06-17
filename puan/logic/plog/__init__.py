@@ -508,7 +508,7 @@ class CompoundProposition(Proposition):
             **functools.reduce(lambda x,y: dict(x,**y), map(operator.methodcaller("to_dict"), self.propositions))
         }
 
-    def pack_b64(self, str_decoding: str = 'utf8') -> str:
+    def to_b64(self, str_decoding: str = 'utf8') -> str:
 
         """
             Packs data into a base64 string.
@@ -531,116 +531,6 @@ class CompoundProposition(Proposition):
             )
         ).decode(str_decoding)
 
-    @staticmethod
-    def from_b64(base64_str: str) -> typing.Any:
-
-        """
-            Unpacks base64 string `base64_str` into some data.
-
-            Parameters
-            ----------
-                base64_str: str
-
-            Returns
-            -------
-                out : dict
-        """
-        return pickle.loads(
-            gzip.decompress(
-                base64.b64decode(
-                    base64_str.encode()
-                )
-            )
-        )
-
-    @staticmethod
-    def from_short(short_type: typing.Union[str, tuple, list], _id: str = None) -> "CompoundProposition":
-
-        """
-            A short type compound proposition is a tuple, string or list where
-            the tuple has at most 4 parameters being id, propositions and optional
-            value and/or id. 
-
-            Notes
-            -----
-            Given a list as input allowes the optional parameter _id to be set. A list of propositions is assumed to be an All-relation.
-
-            Parameters
-            ----------
-            short_type : typing.Union[str, tuple, list]
-            _id : str = None
-
-            Examples
-            --------
-                >>> CompoundProposition.from_short("a")
-                Proposition(id='a', dtype=0, virtual=False)
-
-                >>> CompoundProposition.from_short(("Any", ["a","b","c"], "A"))
-                AtLeast(id='A', equation='+a+b+c>=1')
-
-                >>> CompoundProposition.from_short(["a","b","c"], "A")
-                AtLeast(id='A', equation='+a+b+c>=3')
-
-                >>> CompoundProposition.from_short(("AtMost", ["a","b","c"], 2, "A"))
-                AtMost(id='A', equation='-a-b-c>=-2')
-
-                >>> CompoundProposition.from_short([("All", ["a","b","c"], "A"), ("AtMost", ["x","y","z"], 2, "B")], "fi")
-                AtLeast(id='fi', equation='+A+B>=2')
-        """
-
-        if isinstance(short_type, str):
-            return Proposition(short_type, 0, False)
-        elif isinstance(short_type, list):
-            return All(
-                *map(
-                    CompoundProposition.from_short,
-                    short_type
-                ),
-                id=_id
-            )
-        elif isinstance(short_type, tuple) and len(short_type) >= 2:
-            map_props = functools.partial(map, CompoundProposition.from_short)
-            ctype_map = {
-                "All":      lambda args: All(*args[0],id=args[1]),
-                "Any":      lambda args: Any(*args[0],id=args[1]),
-                "Xor":      lambda args: Xor(*args[0],id=args[1]),
-                "Imply":    lambda args: Imply(*args[0],id=args[1]),
-                "AtLeast":  lambda args: AtLeast(*args[0],value=args[1],id=args[2]),
-                "AtMost":   lambda args: AtMost(*args[0],value=args[1],id=args[2]),
-            }
-            return ctype_map[short_type[0]](
-                (map_props(short_type[1]),)+short_type[2:]+(None,)*(4-len(short_type))
-            )
-        else:
-            raise ValueError(f"got invalid plog short data type: {short_type}")
-
-    @staticmethod
-    def from_short_text(short_text: str, _id: str = None) -> "CompoundProposition":
-
-        """
-            A short compound proposition text data type is a short compound proposition wrapped
-            in a text. 
-
-            Parameters
-            ----------
-                short_text : str
-
-            Examples
-            --------
-                >>> CompoundProposition.from_short_text("('a')")
-                Proposition(id='a', dtype=0, virtual=False)
-
-                >>> CompoundProposition.from_short_text("('All',['x','y','z'],'A')")
-                AtLeast(id='A', equation='+x+y+z>=3')
-
-                >>> CompoundProposition.from_short_text("['x','y','z']", 'A')
-                AtLeast(id='A', equation='+x+y+z>=3')
-
-                >>> CompoundProposition.from_short_text("('All', [('Any', ['a','b'], 'B'), ('Any', ['c','d'], 'C')], 'A')")
-                AtLeast(id='A', equation='+B+C>=2')
-        """
-
-        return CompoundProposition.from_short(ast.literal_eval(short_text), _id)
 
 class AtLeast(CompoundProposition):
 
@@ -819,3 +709,112 @@ class Not():
 
     def __new__(cls, *propositions, id: str = None):
         return AtMost(*propositions, value=0, id=id)
+
+
+def from_b64(base64_str: str) -> typing.Any:
+
+    """
+        Unpacks base64 string `base64_str` into some data.
+
+        Parameters
+        ----------
+            base64_str: str
+
+        Returns
+        -------
+            out : dict
+    """
+    return pickle.loads(
+        gzip.decompress(
+            base64.b64decode(
+                base64_str.encode()
+            )
+        )
+    )
+
+def from_short(short_type: typing.Union[str, tuple, list], _id: str = None) -> "CompoundProposition":
+
+    """
+        A short type compound proposition is a tuple, string or list where
+        the tuple has at most 4 parameters being id, propositions and optional
+        value and/or id. 
+
+        Notes
+        -----
+        Given a list as input allowes the optional parameter _id to be set. A list of propositions is assumed to be an All-relation.
+
+        Parameters
+        ----------
+        short_type : typing.Union[str, tuple, list]
+        _id : str = None
+
+        Examples
+        --------
+            >>> from_short("a")
+            Proposition(id='a', dtype=0, virtual=False)
+
+            >>> from_short(("Any", ["a","b","c"], "A"))
+            AtLeast(id='A', equation='+a+b+c>=1')
+
+            >>> from_short(["a","b","c"], "A")
+            AtLeast(id='A', equation='+a+b+c>=3')
+
+            >>> from_short(("AtMost", ["a","b","c"], 2, "A"))
+            AtMost(id='A', equation='-a-b-c>=-2')
+
+            >>> from_short([("All", ["a","b","c"], "A"), ("AtMost", ["x","y","z"], 2, "B")], "fi")
+            AtLeast(id='fi', equation='+A+B>=2')
+    """
+
+    if isinstance(short_type, str):
+        return Proposition(short_type, 0, False)
+    elif isinstance(short_type, list):
+        return All(
+            *map(
+                from_short,
+                short_type
+            ),
+            id=_id
+        )
+    elif isinstance(short_type, tuple) and len(short_type) >= 2:
+        map_props = functools.partial(map, from_short)
+        ctype_map = {
+            "All":      lambda args: All(*args[0],id=args[1]),
+            "Any":      lambda args: Any(*args[0],id=args[1]),
+            "Xor":      lambda args: Xor(*args[0],id=args[1]),
+            "Imply":    lambda args: Imply(*args[0],id=args[1]),
+            "AtLeast":  lambda args: AtLeast(*args[0],value=args[1],id=args[2]),
+            "AtMost":   lambda args: AtMost(*args[0],value=args[1],id=args[2]),
+        }
+        return ctype_map[short_type[0]](
+            (map_props(short_type[1]),)+short_type[2:]+(None,)*(4-len(short_type))
+        )
+    else:
+        raise ValueError(f"got invalid plog short data type: {short_type}")
+
+def from_short_text(short_text: str, _id: str = None) -> "CompoundProposition":
+
+    """
+        A short compound proposition text data type is a short compound proposition wrapped
+        in a text. 
+
+        Parameters
+        ----------
+            short_text : str
+
+        Examples
+        --------
+            >>> from_short_text("('a')")
+            Proposition(id='a', dtype=0, virtual=False)
+
+            >>> from_short_text("('All',['x','y','z'],'A')")
+            AtLeast(id='A', equation='+x+y+z>=3')
+
+            >>> from_short_text("['x','y','z']", 'A')
+            AtLeast(id='A', equation='+x+y+z>=3')
+
+            >>> from_short_text("('All', [('Any', ['a','b'], 'B'), ('Any', ['c','d'], 'C')], 'A')")
+            AtLeast(id='A', equation='+B+C>=2')
+    """
+
+    return from_short(ast.literal_eval(short_text), _id)

@@ -1514,11 +1514,11 @@ def test_parse_short_compound_proposition():
         ("Imply", [("AtLeast", ['p', 'a', 'e'], 2, None), ("AtMost", ['x', 'z'], 1, None)], None, None),
         ("Xor", [("All", ['a', 'q', 'e'], None, None), ("All", ['f', 'g', 'h'], None, None)], None, None),
     ]
-    actual_model = pg.CompoundProposition.from_short(line_rules)
+    actual_model = pg.from_short(line_rules)
     assert len(actual_model.propositions) == 9
 
 def test_parse_empty_short_compound_proposition():
-    actual_model = pg.CompoundProposition.from_short([])
+    actual_model = pg.from_short([])
     assert len(actual_model.propositions) == 0
 
 def test_parse_short_compounds_from_text():
@@ -1528,7 +1528,7 @@ def test_parse_short_compounds_from_text():
         # (x | d | (z & m)) -xor-> a
         "('Imply', [('Any', ['x','d', ('All', ['z','m'])]), ('Xor',['a'])])"
     ]
-    actual_model = pg.CompoundProposition.from_short(list(map(ast.literal_eval, text_lines))) 
+    actual_model = pg.from_short(list(map(ast.literal_eval, text_lines))) 
     assert len(actual_model.propositions) == 2
 
 def test_parse_short_compund_texts_with_different_combinations():
@@ -1542,7 +1542,7 @@ def test_parse_short_compund_texts_with_different_combinations():
         "('AtMost',[('AtLeast', ['Op9','99'], 1),('AtMost',['00','01','10001'],2)], 1)",
         "('Imply',[('AtLeast', ['xxx',('All',['yyy','zzz'])], 1),('All',['aaa','bbb'])])",
     ]
-    actual_model = list(map(pg.CompoundProposition.from_short_text, text_lines))
+    actual_model = list(map(pg.from_short_text, text_lines))
     assert actual_model[0].id == ''
     assert len(actual_model[1].propositions) == 2
     assert len(actual_model[2].propositions) == 2
@@ -1554,7 +1554,7 @@ def test_parse_short_compund_texts_with_different_combinations():
 
 def test_parse_short_compound_texts_with_special_chars():
 
-    actual = pg.CompoundProposition.from_short_text(
+    actual = pg.from_short_text(
         "('Imply', [('All',['$§@£_-/','YY-0','X_y5'],'B'),('Xor',['1','22','345'],'C')], 'A')",
     )
     expected = pg.Imply(
