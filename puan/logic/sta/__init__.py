@@ -249,7 +249,7 @@ class application(dict):
 
         return _application
 
-    def to_cicJEs(self: dict, from_items: typing.List[dict], id_key: str = "id", model_id: str = None) -> pg.AtLeast:
+    def to_plog(self: dict, from_items: typing.List[dict], id_key: str = "id", model_id: str = None) -> pg.AtLeast:
 
         """
         Converts an application and items to plog.AtLeast logic system.
@@ -322,7 +322,7 @@ class application(dict):
             ...         "ruleType": "REQUIRES_EXCLUSIVELY"
             ...     }
             ... })
-            >>> list(a.to_cicJEs([
+            >>> a.to_plog([
             ...     {
             ...         "id": "4c2f9300-cc0e-42c6-b5c8-75ec5bcf4532",
             ...         "name": "Loose jeans",
@@ -547,8 +547,8 @@ class application(dict):
             ...             "id": "shoes"
             ...         }
             ...     }
-            ... ]))
-            [{'condition': {'relation': 'ALL', 'subConditions': [{'relation': 'ALL', 'components': [{'id': 'bottoms', 'virtual': False}]}]}, 'consequence': {'ruleType': 'REQUIRES_EXCLUSIVELY', 'components': [{'id': 'jeans', 'virtual': False}, {'id': 'trousers', 'virtual': False}, {'id': 'shorts', 'virtual': False}]}}, {'condition': {'relation': 'ALL', 'subConditions': [{'relation': 'ALL', 'components': [{'id': 'shoes', 'virtual': False}]}]}, 'consequence': {'ruleType': 'REQUIRES_EXCLUSIVELY', 'components': [{'id': 'sneakers', 'virtual': False}, {'id': 'boots', 'virtual': False}]}}, {'condition': {'relation': 'ALL', 'subConditions': [{'relation': 'ALL', 'components': [{'id': 'jeans', 'virtual': False}]}]}, 'consequence': {'ruleType': 'REQUIRES_EXCLUSIVELY', 'components': [{'id': '4c2f9300-cc0e-42c6-b5c8-75ec5bcf4532', 'virtual': False}, {'id': '83893701-473c-44e9-9881-a9a403a8a0fc', 'virtual': False}]}}]
+            ... ])
+            AtLeast(id='VAR8419', equation='+VARa7db+VARa918+VARe416>=3')
     """
         n_ge_one = functools.partial(filter, maz.compose(maz.pospartial(operator.ge, [(1,1)]), len))
         return pg.All(
@@ -597,30 +597,30 @@ class application(dict):
             id=model_id,
         )
 
-    @staticmethod
-    def to_conjunctional_implication_proposition(applications: typing.List["application"], from_items: typing.List[dict], id_key: str = "id"):# -> cc.conjunctional_implication_proposition:
+    # @staticmethod
+    # def to_conjunctional_implication_proposition(applications: typing.List["application"], from_items: typing.List[dict], id_key: str = "id"):# -> cc.conjunctional_implication_proposition:
 
-        """
-            Compiles into a conjunction proposition from a list of applications and a list of items.
+    #     """
+    #         Compiles into a conjunction proposition from a list of applications and a list of items.
 
-            Returns
-            -------
-                out : conjunctional_implication_proposition
-        """
+    #         Returns
+    #         -------
+    #             out : conjunctional_implication_proposition
+    #     """
 
-        return cc.conjunctional_implication_proposition(
-            list(
-                map(
-                    cc.cicJE.to_implication_proposition,
-                    itertools.chain(
-                        *map(
-                            lambda x: x.to_cicJEs(from_items),
-                            map(
-                                application,
-                                applications
-                            )
-                        )
-                    )
-                )
-            )
-        )
+    #     return cc.conjunctional_implication_proposition(
+    #         list(
+    #             map(
+    #                 cc.cicJE.to_implication_proposition,
+    #                 itertools.chain(
+    #                     *map(
+    #                         lambda x: x.to_plog(from_items),
+    #                         map(
+    #                             application,
+    #                             applications
+    #                         )
+    #                     )
+    #                 )
+    #             )
+    #         )
+    #     )
