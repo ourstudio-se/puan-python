@@ -1191,10 +1191,6 @@ class integer_ndarray(variable_ndarray):
             print("Method not recognized")
             return
 
-
-
-
-
     def to_value_map(self: numpy.ndarray, mapping: dict = {}) -> dict:
 
         """
