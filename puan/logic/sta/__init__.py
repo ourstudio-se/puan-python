@@ -4,6 +4,7 @@ import functools
 import itertools
 import operator
 import maz
+import puan.logic.plog as pg
 
 class application(dict):
 
@@ -248,14 +249,14 @@ class application(dict):
 
         return _application
 
-    def to_cicJEs(self: dict, from_items: typing.List[dict], id_key: str = "id") -> iter:
+    def to_cicJEs(self: dict, from_items: typing.List[dict], id_key: str = "id", model_id: str = None) -> pg.AtLeast:
 
         """
-        Converts an application and items to one or many configuration rules.
+        Converts an application and items to plog.AtLeast logic system.
 
         Returns
         -------
-            out : iterator : typing.List[puan.logic.cic.cicJE]
+            out : puan.plog.AtLeast
 
         Examples
         --------
@@ -549,44 +550,52 @@ class application(dict):
             ... ]))
             [{'condition': {'relation': 'ALL', 'subConditions': [{'relation': 'ALL', 'components': [{'id': 'bottoms', 'virtual': False}]}]}, 'consequence': {'ruleType': 'REQUIRES_EXCLUSIVELY', 'components': [{'id': 'jeans', 'virtual': False}, {'id': 'trousers', 'virtual': False}, {'id': 'shorts', 'virtual': False}]}}, {'condition': {'relation': 'ALL', 'subConditions': [{'relation': 'ALL', 'components': [{'id': 'shoes', 'virtual': False}]}]}, 'consequence': {'ruleType': 'REQUIRES_EXCLUSIVELY', 'components': [{'id': 'sneakers', 'virtual': False}, {'id': 'boots', 'virtual': False}]}}, {'condition': {'relation': 'ALL', 'subConditions': [{'relation': 'ALL', 'components': [{'id': 'jeans', 'virtual': False}]}]}, 'consequence': {'ruleType': 'REQUIRES_EXCLUSIVELY', 'components': [{'id': '4c2f9300-cc0e-42c6-b5c8-75ec5bcf4532', 'virtual': False}, {'id': '83893701-473c-44e9-9881-a9a403a8a0fc', 'virtual': False}]}}]
     """
-        for _application in application._explode_from_variables(self):
-
-            source_items_group = application._apply_collector(_application["source"], from_items)
-            target_items_group = application._apply_collector(_application["target"], from_items)
-
-            for source_items in source_items_group:
-                for target_items in target_items_group:
-
-                    if not target_items:
-                        continue
-
-                    yield cc.cicJE({
-                        "condition": {
-                            "relation": "ALL",
-                            "subConditions": [
-                                {
-                                    "relation": _application["apply"].get("conditionRelation", "ALL"),
+        n_ge_one = functools.partial(filter, maz.compose(maz.pospartial(operator.ge, [(1,1)]), len))
+        return pg.All(
+            *itertools.chain(
+                *map(
+                    lambda _application: list(
+                        itertools.starmap(
+                            lambda source_items, target_items: pg.Imply.from_cicJE({
+                                "condition": {
+                                    "relation": "ALL",
+                                    "subConditions": [
+                                        {
+                                            "relation": _application["apply"].get("conditionRelation", "ALL"),
+                                            "components": [
+                                                {
+                                                    "id": str(application._extract_value(source_item, id_key)),
+                                                    "virtual": source_item['virtual'] if 'virtual' in source_item else False
+                                                }
+                                                for source_item in source_items
+                                            ]
+                                        }
+                                    ]
+                                } if len(source_items) > 0 else {},
+                                "consequence": {
+                                    "ruleType":_application["apply"]["ruleType"],
                                     "components": [
                                         {
-                                            "id": application._extract_value(source_item, id_key),
-                                            "virtual": source_item['virtual'] if 'virtual' in source_item else False
+                                            "id": str(application._extract_value(target_item, id_key)),
+                                            "virtual": target_item['virtual'] if 'virtual' in target_item else False
                                         }
-                                        for source_item in source_items
+                                        for target_item in target_items
                                     ]
                                 }
-                            ]
-                        } if len(source_items) > 0 else {},
-                        "consequence": {
-                            "ruleType":_application["apply"]["ruleType"],
-                            "components": [
-                                {
-                                    "id": application._extract_value(target_item, id_key),
-                                    "virtual": target_item['virtual'] if 'virtual' in target_item else False
-                                }
-                                for target_item in target_items
-                            ]
-                        }
-                    })
+                            }),
+                            itertools.product(
+                                application._apply_collector(_application["source"], from_items), 
+                                n_ge_one(
+                                    application._apply_collector(_application["target"], from_items)
+                                )
+                            )
+                        )
+                    ),
+                    application._explode_from_variables(self)
+                )
+            ),
+            id=model_id,
+        )
 
     @staticmethod
     def to_conjunctional_implication_proposition(applications: typing.List["application"], from_items: typing.List[dict], id_key: str = "id"):# -> cc.conjunctional_implication_proposition:
