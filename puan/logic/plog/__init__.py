@@ -1,3 +1,6 @@
+import ast
+import string
+import math
 import hashlib
 import base64
 import pickle
@@ -27,6 +30,9 @@ class _Constraint(tuple):
 
     def __new__(cls, dtypes, index, values, b, id) -> dict:
         return tuple.__new__(cls, (tuple(dtypes,), tuple(index), tuple(values), b, id))
+
+    def __lt__(self, other):
+        return self.id < other.id
 
     @property
     def b(self):
@@ -69,7 +75,7 @@ class _Constraint(tuple):
                     self.dtypes + (0,),
                     self.index + (self.id,), 
                     self.values + (-self.b if self.b > 0 else -len(self.values),), 
-                    0 if self.b > 0 else -len(self.values), 
+                    0 if self.b > 0 else -len(self.values)+self.b, 
                     self.id
                 )
 
@@ -140,8 +146,11 @@ class Proposition(puan.variable):
         will take on a value and is later at some point evaluated to either true or false.
     """
 
-    dtype: typing.Union[bool, int] = bool
+    dtype: typing.Union[int] = 0
     virtual: bool = False
+
+    def __hash__(self):
+        return super().__hash__()
 
     @property
     def variable(self) -> puan.variable:
@@ -201,7 +210,6 @@ class CompoundProposition(Proposition):
     next_id = maz.compose(functools.partial(operator.add, "VAR"), str, itertools.count(1).__next__)
 
     def __init__(self, *propositions: typing.List[typing.Union[Proposition, str]], value: int, sign: int, id: str = None):
-        super().__init__(CompoundProposition.next_id() if id is None else id, bool, True)
         
         # Allowing propositions to be either of type Proposition or type str
         # If str, then a new Proposition is instantiated with default dtype=bool and virtual=False
@@ -209,43 +217,69 @@ class CompoundProposition(Proposition):
             itertools.chain(
                 filter(lambda x: issubclass(x.__class__, Proposition), propositions),
                 map(
-                    lambda x: Proposition(x, bool, False),
+                    lambda x: Proposition(x, 0, False),
                     filter(lambda x: isinstance(x, str), propositions)
                 )
             )
         )
+        # If this consists of other compound propositions, make sure all pure
+        # propositions are put inside an All-proposition
+        if any(self.compound_propositions):
+            self.propositions = list(
+                itertools.chain(
+                    self.compound_propositions,
+                    map(
+                        lambda x: All(x, id=f"S_{x.id}"),
+                        self.atomic_propositions
+                    )
+                )
+            )
+
+        self.propositions = sorted(self.propositions)
         self.value = value
         self.sign = sign
+        super().__init__(CompoundProposition._id_generator(self.propositions, value, sign) if id is None else id, 0, True)
+
+    @property
+    def atomic_propositions(self) -> filter:
+        return filter(maz.compose(operator.not_, maz.pospartial(isinstance, [(1, CompoundProposition)])), self.propositions)
+
+    @property
+    def compound_propositions(self) -> filter:
+        return filter(maz.pospartial(isinstance, [(1, CompoundProposition)]), self.propositions)
 
     def __repr__(self) -> str:
         eq="".join(map("".join, zip(itertools.repeat(["-","+"][self.sign > 0], len(self.propositions)), map(operator.attrgetter("id"), self.propositions))))
         return f"{self.__class__.__name__}(id='{self.id}', equation='{eq}>={self.value}')"
 
-    def _invert_sub(self) -> itertools.chain:
+    def _id_generator(propositions, value, sign, n: int = 4, prefix: str = "VAR"):
+        return prefix + hashlib.sha256(str("".join(map(operator.attrgetter("id"), sorted(propositions))) + str(value) + str(sign)).encode()).hexdigest()[:n]
+
+    def _invert_sub(self) -> typing.Tuple[int, itertools.chain]:
 
         """
             Invert sub propositions. CompoundProposition's
             get's inverted while Proposition's stay as they are.
         """
 
-        return itertools.chain(
+        return len(list(self.compound_propositions)), itertools.chain(
             map(
                 operator.methodcaller("invert"),
-                filter(
-                    lambda x: issubclass(x.__class__, CompoundProposition),
-                    self.propositions,
-                )
+                self.compound_propositions
             ),
-            filter(
-                maz.pospartial(isinstance, [(1, Proposition)]), 
-                self.propositions
-            )
+            self.propositions
         )
 
     def _to_constraint(self, index_predicate) -> _Constraint:
 
         """
             Transforms this proposition into a _Constraint intstance.
+
+            Examples
+            --------
+                >>> model = All("a","b","c","d",id="A")
+                >>> model._to_constraint(model.variables_full().index)
+                _Constraint(dtypes=(0, 0, 0, 0), index=(1, 2, 3, 4), values=(1, 1, 1, 1), b=4, id=0)
         """
         return _Constraint(
             map(
@@ -295,16 +329,16 @@ class CompoundProposition(Proposition):
 
             Examples
             --------
-                >>> model = All("x","y","z")
+                >>> model = All("x","y","z",id="A")
                 >>> model.variables
-                {variable(id='VAR8', dtype=<class 'bool'>, virtual=True), variable(id='y', dtype=<class 'bool'>, virtual=False), variable(id='z', dtype=<class 'bool'>, virtual=False), variable(id='x', dtype=<class 'bool'>, virtual=False)}
+                [variable(id='A', dtype=0, virtual=True), variable(id='x', dtype=0, virtual=False), variable(id='y', dtype=0, virtual=False), variable(id='z', dtype=0, virtual=False)]
 
             Returns
             -------
                 out : typing.Set[puan.variable]
         """
 
-        return set(itertools.chain([self.variable], *map(operator.attrgetter("variables"), self.propositions)))
+        return sorted(itertools.chain([self.variable], *map(operator.attrgetter("variables"), self.propositions)))
 
     @property
     def sub_variables(self) -> typing.List[puan.variable]:
@@ -314,9 +348,9 @@ class CompoundProposition(Proposition):
 
             Examples
             --------
-                >>> model = All(Any("a","b"),"y","z")
+                >>> model = All(Any("a","b", id="B"), All("y","z", id="C"), id="A")
                 >>> model.sub_variables
-                {variable(id='a', dtype=<class 'bool'>, virtual=False), variable(id='b', dtype=<class 'bool'>, virtual=False)}
+                [variable(id='a', dtype=0, virtual=False), variable(id='b', dtype=0, virtual=False), variable(id='y', dtype=0, virtual=False), variable(id='z', dtype=0, virtual=False), variable(id='B', dtype=0, virtual=True), variable(id='C', dtype=0, virtual=True)]
 
             Returns
             -------
@@ -331,8 +365,8 @@ class CompoundProposition(Proposition):
 
             Examples
             --------
-                >>> All(All("a","b"), Any("c","d")).variables_full()
-                [variable(id='VAR1', dtype=<class 'bool'>, virtual=True), variable(id='VAR2', dtype=<class 'bool'>, virtual=True), variable(id='VAR3', dtype=<class 'bool'>, virtual=True), variable(id='a', dtype=<class 'bool'>, virtual=False), variable(id='b', dtype=<class 'bool'>, virtual=False), variable(id='c', dtype=<class 'bool'>, virtual=False), variable(id='d', dtype=<class 'bool'>, virtual=False)]
+                >>> All(All("a","b", id="B"), Any("c","d", id="C"), id="A").variables_full()
+                [variable(id='A', dtype=0, virtual=True), variable(id='B', dtype=0, virtual=True), variable(id='C', dtype=0, virtual=True), variable(id='a', dtype=0, virtual=False), variable(id='b', dtype=0, virtual=False), variable(id='c', dtype=0, virtual=False), variable(id='d', dtype=0, virtual=False)]
 
             Notes
             -----
@@ -352,20 +386,6 @@ class CompoundProposition(Proposition):
         ), key=lambda x: (1-x.virtual, x.id))
 
     def invert(self) -> "CompoundProposition":
-
-        """
-            Inverts (or negates) proposition.
-
-            Examples
-            --------
-                >>> AtLeast(*list("xyz"), value=2, id="A").invert()
-                AtMost(id='A', equation='-x-y-z>=-1')
-
-            Returns
-            -------
-                out : CompoundProposition
-        """
-
         raise NotImplementedError()
  
     def to_compound_constraint(self, index_predicate: typing.Callable[[puan.variable], int], extend_top: bool = True) -> _CompoundConstraint:
@@ -385,17 +405,8 @@ class CompoundProposition(Proposition):
             Examples
             --------
                 >>> model = All(All("a","b"), Any("c","d"))
-                >>> model.to_compound_constraint(model.variables_all().index)
-                _CompoundConstraint(
-                    b=3,
-                    sign=1,
-                    constraints=[
-                        _Constraint(dtypes=(0, 0), index=(0, 1), values=(1, 1), id=2),
-                        _Constraint(dtypes=(0, 0), index=(3, 4, 0), values=(1, 1, -2), id=0),
-                        _Constraint(dtypes=(0, 0), index=(5, 6, 1), values=(1, 1, -1), id=1)
-                    ],
-                    id=2
-                )
+                >>> sorted(model.to_compound_constraint(model.variables_full().index))
+                [_Constraint(dtypes=(0, 0, 0), index=(3, 4, 0), values=(1, 1, -2), b=0, id=0), _Constraint(dtypes=(0, 0, 0), index=(0, 2, 1), values=(1, 1, -2), b=0, id=1), _Constraint(dtypes=(0, 0, 0), index=(5, 6, 2), values=(1, 1, -1), b=0, id=2)]
 
             Returns
             -------
@@ -461,17 +472,17 @@ class CompoundProposition(Proposition):
 
             Examples
             --------
-                >>> ph = All(All("a","b"), Any("c","d")).to_polyhedron()
+                >>> ph = All(All("a","b",id="B"), Any("c","d",id="C"),id="A").to_polyhedron()
                 >>> ph
-                ge_polyhedron([[ 2,  1,  1,  0,  0,  0,  0,  0],
-                               [ 0,  0, -1,  0,  0,  0,  1,  1],
-                               [ 0, -2,  0,  0,  1,  1,  0,  0]], dtype=int32)
-                >>> ph.variables
-                [variable(id=0, dtype=<class 'int'>, virtual=True), variable(id='VAR1', dtype=<class 'bool'>, virtual=True), variable(id='VAR2', dtype=<class 'bool'>, virtual=True), variable(id='VAR3', dtype=<class 'bool'>, virtual=True), variable(id='a', dtype=<class 'bool'>, virtual=False), variable(id='b', dtype=<class 'bool'>, virtual=False), variable(id='c', dtype=<class 'bool'>, virtual=False), variable(id='d', dtype=<class 'bool'>, virtual=False)]
+                ge_polyhedron([[ 0, -2,  1,  1,  0,  0,  0,  0],
+                               [ 0,  0, -2,  0,  1,  1,  0,  0],
+                               [ 0,  0,  0, -1,  0,  0,  1,  1]], dtype=int32)
+                >>> ph.variables.tolist()
+                [variable(id='0', dtype=1, virtual=True), variable(id='A', dtype=0, virtual=True), variable(id='B', dtype=0, virtual=True), variable(id='C', dtype=0, virtual=True), variable(id='a', dtype=0, virtual=False), variable(id='b', dtype=0, virtual=False), variable(id='c', dtype=0, virtual=False), variable(id='d', dtype=0, virtual=False)]
         """
 
-        ph_vars = [puan.variable(str(support_variable_id),int,True)] + self.variables_full()
-        compound_constraints = set(self.to_compound_constraint(ph_vars.index, extend_top=not active))
+        ph_vars = [puan.variable(str(support_variable_id),1,True)] + self.variables_full()
+        compound_constraints = sorted(set(self.to_compound_constraint(ph_vars.index, extend_top=not active)))
         index = set(map(operator.attrgetter("id"),compound_constraints))
         M = numpy.zeros((len(compound_constraints), len(ph_vars)), dtype=dtype)
         for i,const in enumerate(compound_constraints):
@@ -486,8 +497,8 @@ class CompoundProposition(Proposition):
 
             Examples
             --------
-                >>> All(All("a","b"), Any("c","d")).to_dict()
-                {'VAR7': 'VAR6+VAR5>=2', 'VAR6': 'c+d>=1', 'VAR5': 'a+b>=2'}
+                >>> All(All("a","b", id="B"), Any("c","d", id="C"), id="A").to_dict()
+                {'A': 'B+C>=2', 'B': 'a+b>=2', 'C': 'c+d>=1'}
         """
 
         return {
@@ -542,6 +553,94 @@ class CompoundProposition(Proposition):
             )
         )
 
+    @staticmethod
+    def from_short(short_type: typing.Union[str, tuple, list], _id: str = None) -> "CompoundProposition":
+
+        """
+            A short type compound proposition is a tuple, string or list where
+            the tuple has at most 4 parameters being id, propositions and optional
+            value and/or id. 
+
+            Notes
+            -----
+            Given a list as input allowes the optional parameter _id to be set. A list of propositions is assumed to be an All-relation.
+
+            Parameters
+            ----------
+            short_type : typing.Union[str, tuple, list]
+            _id : str = None
+
+            Examples
+            --------
+                >>> CompoundProposition.from_short("a")
+                Proposition(id='a', dtype=0, virtual=False)
+
+                >>> CompoundProposition.from_short(("Any", ["a","b","c"], "A"))
+                AtLeast(id='A', equation='+a+b+c>=1')
+
+                >>> CompoundProposition.from_short(["a","b","c"], "A")
+                AtLeast(id='A', equation='+a+b+c>=3')
+
+                >>> CompoundProposition.from_short(("AtMost", ["a","b","c"], 2, "A"))
+                AtMost(id='A', equation='-a-b-c>=-2')
+
+                >>> CompoundProposition.from_short([("All", ["a","b","c"], "A"), ("AtMost", ["x","y","z"], 2, "B")], "fi")
+                AtLeast(id='fi', equation='+A+B>=2')
+        """
+
+        if isinstance(short_type, str):
+            return Proposition(short_type, 0, False)
+        elif isinstance(short_type, list):
+            return All(
+                *map(
+                    CompoundProposition.from_short,
+                    short_type
+                ),
+                id=_id
+            )
+        elif isinstance(short_type, tuple) and len(short_type) >= 2:
+            map_props = functools.partial(map, CompoundProposition.from_short)
+            ctype_map = {
+                "All":      lambda args: All(*args[0],id=args[1]),
+                "Any":      lambda args: Any(*args[0],id=args[1]),
+                "Xor":      lambda args: Xor(*args[0],id=args[1]),
+                "Imply":    lambda args: Imply(*args[0],id=args[1]),
+                "AtLeast":  lambda args: AtLeast(*args[0],value=args[1],id=args[2]),
+                "AtMost":   lambda args: AtMost(*args[0],value=args[1],id=args[2]),
+            }
+            return ctype_map[short_type[0]](
+                (map_props(short_type[1]),)+short_type[2:]+(None,)*(4-len(short_type))
+            )
+        else:
+            raise ValueError(f"got invalid plog short data type: {short_type}")
+
+    @staticmethod
+    def from_short_text(short_text: str, _id: str = None) -> "CompoundProposition":
+
+        """
+            A short compound proposition text data type is a short compound proposition wrapped
+            in a text. 
+
+            Parameters
+            ----------
+                short_text : str
+
+            Examples
+            --------
+                >>> CompoundProposition.from_short_text("('a')")
+                Proposition(id='a', dtype=0, virtual=False)
+
+                >>> CompoundProposition.from_short_text("('All',['x','y','z'],'A')")
+                AtLeast(id='A', equation='+x+y+z>=3')
+
+                >>> CompoundProposition.from_short_text("['x','y','z']", 'A')
+                AtLeast(id='A', equation='+x+y+z>=3')
+
+                >>> CompoundProposition.from_short_text("('All', [('Any', ['a','b'], 'B'), ('Any', ['c','d'], 'C')], 'A')")
+                AtLeast(id='A', equation='+B+C>=2')
+        """
+
+        return CompoundProposition.from_short(ast.literal_eval(short_text), _id)
 
 class AtLeast(CompoundProposition):
 
@@ -555,7 +654,24 @@ class AtLeast(CompoundProposition):
         super().__init__(*propositions, value=value, sign=1, id=id)
     
     def invert(self) -> "AtMost":
-        return AtMost(*self._invert_sub(), value=(self.value-1), id=self.id)
+        
+        """
+            Inverts (or negates) proposition.
+
+            Examples
+            --------
+                >>> AtLeast(*list("xyz"), value=2, id="A").invert()
+                AtMost(id='A', equation='-x-y-z>=-1')
+
+            Returns
+            -------
+                out : CompoundProposition
+        """
+
+        if any(self.compound_propositions):
+            return AtLeast(*map(operator.methodcaller("invert"), self.propositions), value=-(self.value-1)+len(self.propositions), id=self.id)
+        else:    
+            return AtMost(*self.propositions, value=(self.value-1), id=self.id)
 
 class AtMost(CompoundProposition):
 
@@ -569,7 +685,7 @@ class AtMost(CompoundProposition):
         super().__init__(*propositions, value=-value, sign=-1, id=id)
 
     def invert(self) -> AtLeast:
-        return AtLeast(*self._invert_sub(), value=abs(self.value)+1, id=self.id)
+        return AtLeast(*itertools.chain(map(operator.methodcaller("invert"), self.compound_propositions), self.propositions), value=abs(self.value)+1, id=self.id)
 
 class All():
 
@@ -608,6 +724,77 @@ class Imply():
             id=id
         )
 
+    @staticmethod
+    def from_cicJE(data: dict, id_ident: str = "id") -> "Imply":
+
+        """
+            cicJE is a dict data type as such:
+
+                {
+                    "id": str,
+                    "condition": {
+                        "relation": str,
+                        "subConditions": [
+                            {
+                                "relation": str,
+                                "components": [
+                                    {"id": str}
+                                ]
+                            }
+                        ]
+                    },
+                    "consequence": {
+                        "ruleType": str,
+                        "components": [
+                            {"id": str}
+                        ]
+                    }
+                }
+
+            This function converts a cicJE into a Imply-data format.
+
+            Parameters
+            ----------
+            data : dict
+
+            id_ident : str = "id"
+                The id identifier inside a component
+
+            Returns
+            -------
+                out : Imply
+            
+        """
+        rule_type_map = {
+            "REQUIRES_ALL": lambda x,id: All(*x,id=id),
+            "REQUIRES_ANY": lambda x,id: Any(*x,id=id),
+            "ONE_OR_NONE": lambda x,id: AtMost(*x,value=1,id=id),
+            "FORBIDS_ALL":  lambda x,id: Any(*x,id=id).invert(),
+            "REQUIRES_EXCLUSIVELY": lambda x,id: Xor(*x,id=id)
+        }
+        cmp2prop = lambda x: Proposition(x[id_ident], [0,1]["dtype" in x and x['type'] == "int"], [False,True]["virtual" in x and x['virtual']])
+        relation_fn = lambda x: [Any, All][x.get("relation", "ALL") == "ALL"]
+        consequence = rule_type_map[data.get('consequence', {}).get("ruleType")](
+            map(cmp2prop, data.get('consequence',{}).get('components')),
+            data.get("consequence", {}).get("id", None)
+        )
+        if "condition" in data:
+            condition_outer_cls = relation_fn(data['condition'])
+            condition_inner_cls = list(map(
+                lambda x: relation_fn(x)(*map(cmp2prop, x.get('components', [])), id=x.get("id", None)),
+                data['condition'].get("subConditions", [])
+            ))
+            if len(condition_inner_cls) > 0:
+                return Imply(
+                    condition=condition_outer_cls(*condition_inner_cls, id=data.get('condition', {}).get("id", None)) if len(condition_inner_cls) > 1 else condition_inner_cls[0],
+                    consequence=consequence,
+                    id=data.get("id", None)
+                )
+            else:
+                return consequence
+        else:
+            return consequence
+
 class Xor():
 
     """
@@ -617,8 +804,8 @@ class Xor():
 
     def __new__(cls, *propositions, id: str = None):
         return All(
-            AtLeast(*propositions, value=1), 
-            AtMost(*propositions, value=1),
+            AtLeast(*propositions, value=1, id=f"{id}_LB" if id is not None else None), 
+            AtMost(*propositions, value=1, id=f"{id}_UB" if id is not None else None),
             id=id
         )
 

@@ -1,8 +1,10 @@
+import ast
+import functools
 import puan
 import puan.ndarray
 import puan.vmap
 import puan.logic
-import puan.logic.cic as cc
+import puan.logic.plog as pg
 import numpy
 import operator
 import maz
@@ -71,12 +73,12 @@ def test_application_to_rules():
 
 def test_rules2variables():
 
-    rules = cc.cicJEs([
+    rules = [
         {
             "id": "",
             "condition": {},
             "consequence": {
-                "ruleType": "RT",
+                "ruleType": "REQUIRES_ALL",
                 "components": [
                     {"code": "x"},
                     {"code": "y"}
@@ -104,7 +106,7 @@ def test_rules2variables():
                 ]
             },
             "consequence": {
-                "ruleType": "RT",
+                "ruleType": "REQUIRES_ALL",
                 "components": [
                     {"code": "x"},
                     {"code": "y"}
@@ -114,16 +116,17 @@ def test_rules2variables():
         {
             "id": "",
             "consequence": {
-                "ruleType": "RT",
+                "ruleType": "REQUIRES_ALL",
                 "components": [
                     {"code": "z"}
                 ]
             }
         },
-    ])
+    ]
 
-    variables = rules.variables(id_ident="code")
-    assert set(variables) == set(["a", "b", "c", "x", "y", "z"])
+    model = pg.All(*map(functools.partial(pg.Imply.from_cicJE, id_ident="code"), rules))
+    variables = list(map(operator.attrgetter("id"), model.variables_full()))
+    assert set(["a", "b", "c", "x", "y", "z"]).issubset(set(variables))
 
 def test_value_map2matrix():
 
@@ -260,25 +263,7 @@ def test_rules2matrix_with_mixed_condition_rules():
     """
     rules = [
         {
-            "condition": {
-                "relation": "ALL",
-                "subConditions": [{
-                    "relation": "ANY",
-                    "components": [
-                        {"id": "x"},
-                        {"id": "y"}
-                    ]
-                }]
-            },
-            "consequence": {
-                "ruleType": "REQUIRES_ALL",
-                "components": [
-                    {"id": "a"},
-                    {"id": "b"}
-                ]
-            }
-        },
-        {
+            "id": "B",
             "condition": {
                 "relation": "ANY",
                 "subConditions": [
@@ -286,409 +271,357 @@ def test_rules2matrix_with_mixed_condition_rules():
                         "relation": "ALL",
                         "components": [
                             {"id": "a"},
-                            {"id": "x"}
-                        ]
+                            {"id": "b"}
+                        ],
+                        "id":"E"
                     },
                     {
                         "relation": "ALL",
                         "components": [
-                            {"id":"b"}
-                        ]
+                            {"id":"c"},
+                            {"id":"d"}
+                        ],
+                        "id":"F"
                     }
-                ]
+                ],
+                "id": "D"
             },
             "consequence": {
-                "ruleType": "REQUIRES_EXCLUSIVELY",
+                "ruleType": "REQUIRES_ALL",
                 "components": [
-                    {"id": "c"},
-                    {"id": "d"},
-                ]
+                    {"id": "x"},
+                    {"id": "y"},
+                ],
+                "id": "C"
             }
         }
     ]
-    conj_props = cc.cicJEs(rules).to_conjunctional_implication_proposition()
-    matrix = conj_props.to_polyhedron()
-    expected_feasible_configurations = numpy.array([
+    conj_props = pg.All(*map(pg.Imply.from_cicJE, rules), id="A")
+    matrix = conj_props.to_polyhedron(active=True)
+
+    expected_feasible_configurations = matrix.construct(
+        [("B",1),("D",1),("E",1),("F",1)],
+        [("B",1),("C",1),("x",1),("y",1)],
+        [("B",1),("C",1),("a",1),("b",1),("x",1),("y",1)],
+        [("B",1),("D",1),("E",1),("F",1),("a",1),("c",1)]
+    )
+    expected_infeasible_configurations = matrix.construct(
        #"a  b  c  d  x  y"
-        [0, 0, 0, 0, 0, 0],
-        [1, 1, 1, 0, 1, 0],
-        [1, 1, 0, 1, 1, 0],
-        [0, 0, 1, 1, 0, 0],
-        [1, 1, 0, 1, 0, 1],
-    ])
-    expected_infeasible_configurations = numpy.array([
-       #"a  b  c  d  x  y"
-        [1, 0, 1, 1, 1, 0],
-        [0, 1, 1, 1, 0, 0],
-        [1, 0, 1, 0, 0, 1],
-    ])
+       [],
+       [("B",1),("C",1),("E",1),("F",1),("a",1),("b",1)],
+       [("B",1),("C",1),("E",1),("F",1),("c",1),("d",1)]
+    )
 
-    A, b = matrix.to_linalg()
-    assert (numpy.matmul(expected_feasible_configurations, A.T) >= b.T).all(axis=1).all()
-    assert (numpy.matmul(expected_infeasible_configurations, A.T) < b.T).any(axis=1).all()
+    eval_fn = maz.compose(all, functools.partial(operator.le, matrix.b), matrix.A.dot)
+    assert all(map(eval_fn, expected_feasible_configurations))
+    assert not any(map(eval_fn, expected_infeasible_configurations))
 
-def test_compress_rules():
-    rules = [
-        {'condition': {
-            'relation': "ALL",
-            'subConditions': [{
-                'relation': "ALL",
-                'components': [
-                    {'id': 'a'},
-                    {'id': 'b'}
-                    ]
-                }
-            ]
-        },
-        'consequence': {
-            'ruleType': 'REQUIRES_ALL',
-            'components': [
-                {'id': 'x'}
-                ]
-            }
-        },
-        {'condition': {
-            'relation': "ALL",
-            'subConditions': [{
-                'relation': "ALL",
-                'components': [
-                    {'id': 'b'},
-                    {'id': 'a'}
-                    ]
-                }]
-            },
-        'consequence': {
-            'ruleType': 'REQUIRES_ALL',
-            'components': [
-                {'id': 'x'},
-                {'id': 'y'}
-                ]
-            }
-        },
-        {'condition': {
-            'relation': "ALL",
-            'subConditions': [{
-                'relation': "ALL",
-                'components': [
-                    {'id': 'a'},
-                    {'id': 'b'}
-                    ]
-                }]
-            },
-        'consequence': {
-            'ruleType': 'FORBIDS_ALL',
-            'components': [
-                {'id': 'x'},
-                {'id': 'y'}
-                ]
-            }
-        },
-        {'condition': {
-            'relation': "ALL",
-            'subConditions': [{
-                'relation': "ALL",
-                'components': [
-                    {'id': 'a'},
-                    {'id': 'b'}
-                    ]
-                }]
-            },
-        'consequence': {
-            'ruleType': 'FORBIDS_ALL',
-            'components': [
-                {'id': 'y'},
-                {'id': 'z'}
-                ]
-            }
-        },
-        {'condition': {
-            'relation': "ALL",
-            'subConditions': [{
-                'relation': "ALL",
-                'components': [
-                    {'id': 'a'},
-                    {'id': 'b'}
-                    ]
-                }]
-            },
-        'consequence': {
-            'ruleType': 'PREFERRED',
-            'components': [
-                {'id': 'x'},
-                {'id': 'y'}
-                ]
-            }
-        },
-        {'condition': {
-            'relation': "ALL",
-            'subConditions': [{
-                'relation': "ALL",
-                'components': [
-                    {'id': 'a'},
-                    {'id': 'b'}
-                    ]
-                }
-            ]
-        },
-        'consequence': {
-            'ruleType': 'PREFERRED',
-            'components': [
-                {'id': 'y'},
-                {'id': 'z'}
-                ]
-            }
-        },
-        {'condition': {
-            'relation': "ALL",
-            'subConditions': [{
-                'relation': "ALL",
-                'components': [
-                    {'id': 'a'},
-                    {'id': 'b'}
-                    ]
-                }
-            ]
-        },
-        'consequence': {
-            'ruleType': 'ONE_OR_NONE',
-            'components': [
-                {'id': 'x'},
-                {'id': 'y'}
-                ]
-            }
-        },
-        {'condition': {
-            'relation': "ALL",
-            'subConditions': [{
-                'relation': "ALL",
-                'components': [
-                    {'id': 'a'},
-                    {'id': 'b'}
-                    ]
-                }
-            ]
-        },
-        'consequence': {
-            'ruleType': 'ONE_OR_NONE',
-            'components': [
-                {'id': 'y'},
-                {'id': 'z'}
-                ]
-            }
-        },
-        {'condition': {
-            'relation': "ALL",
-            'subConditions': [{
-                'relation': "ALL",
-                'components': [
-                    {'id': 'a'},
-                    {'id': 'b'}
-                    ]
-                }
-            ]
-        },
-        'consequence': {
-            'ruleType': 'REQUIRES_EXCLUSIVELY',
-            'components': [
-                {'id': 'x'},
-                {'id': 'y'}
-                ]
-            }
-        },
-        {'condition': {
-            'relation': "ALL",
-            'subConditions': [{
-                'relation': "ALL",
-                'components': [
-                    {'id': 'a'},
-                    {'id': 'b'}
-                    ]
-                }
-            ]
-        },
-        'consequence': {
-            'ruleType': 'REQUIRES_EXCLUSIVELY',
-            'components': [
-                {'id': 'z'}
-                ]
-            }
-        },
-        {'condition': {
-            'relation': "ALL",
-            'subConditions': [{
-                'relation': "ALL",
-                'components': [
-                    {'id': 'a'},
-                    {'id': 'b'}
-                    ]
-                }
-            ]
-        },
-        'consequence': {
-            'ruleType': 'REQUIRES_ANY',
-            'components': [
-                {'id': 'i'}
-                ]
-            }
-        },
-        {'condition': {
-            'relation': "ALL",
-            'subConditions': [{
-                'relation': "ALL",
-                'components': [
-                    {'id': 'a'},
-                    {'id': 'b'}
-                    ]
-                }
-            ]
-        },
-        'consequence': {
-            'ruleType': 'REQUIRES_ANY',
-            'components': [
-                {'id': 'j'},
-                {'id': 'k'}
-                ]
-            }
-        }
-    ]
+# def test_compress_rules():
+#     rules = [
+#         {'condition': {
+#             'relation': "ALL",
+#             'subConditions': [{
+#                 'relation': "ALL",
+#                 'components': [
+#                     {'id': 'a'},
+#                     {'id': 'b'}
+#                     ]
+#                 }
+#             ]
+#         },
+#         'consequence': {
+#             'ruleType': 'REQUIRES_ALL',
+#             'components': [
+#                 {'id': 'x'}
+#                 ]
+#             }
+#         },
+#         {'condition': {
+#             'relation': "ALL",
+#             'subConditions': [{
+#                 'relation': "ALL",
+#                 'components': [
+#                     {'id': 'b'},
+#                     {'id': 'a'}
+#                     ]
+#                 }]
+#             },
+#         'consequence': {
+#             'ruleType': 'REQUIRES_ALL',
+#             'components': [
+#                 {'id': 'x'},
+#                 {'id': 'y'}
+#                 ]
+#             }
+#         },
+#         {'condition': {
+#             'relation': "ALL",
+#             'subConditions': [{
+#                 'relation': "ALL",
+#                 'components': [
+#                     {'id': 'a'},
+#                     {'id': 'b'}
+#                     ]
+#                 }]
+#             },
+#         'consequence': {
+#             'ruleType': 'FORBIDS_ALL',
+#             'components': [
+#                 {'id': 'x'},
+#                 {'id': 'y'}
+#                 ]
+#             }
+#         },
+#         {'condition': {
+#             'relation': "ALL",
+#             'subConditions': [{
+#                 'relation': "ALL",
+#                 'components': [
+#                     {'id': 'a'},
+#                     {'id': 'b'}
+#                     ]
+#                 }]
+#             },
+#         'consequence': {
+#             'ruleType': 'FORBIDS_ALL',
+#             'components': [
+#                 {'id': 'y'},
+#                 {'id': 'z'}
+#                 ]
+#             }
+#         },
+#         {'condition': {
+#             'relation': "ALL",
+#             'subConditions': [{
+#                 'relation': "ALL",
+#                 'components': [
+#                     {'id': 'a'},
+#                     {'id': 'b'}
+#                     ]
+#                 }
+#             ]
+#         },
+#         'consequence': {
+#             'ruleType': 'ONE_OR_NONE',
+#             'components': [
+#                 {'id': 'x'},
+#                 {'id': 'y'}
+#                 ]
+#             }
+#         },
+#         {'condition': {
+#             'relation': "ALL",
+#             'subConditions': [{
+#                 'relation': "ALL",
+#                 'components': [
+#                     {'id': 'a'},
+#                     {'id': 'b'}
+#                     ]
+#                 }
+#             ]
+#         },
+#         'consequence': {
+#             'ruleType': 'ONE_OR_NONE',
+#             'components': [
+#                 {'id': 'y'},
+#                 {'id': 'z'}
+#                 ]
+#             }
+#         },
+#         {'condition': {
+#             'relation': "ALL",
+#             'subConditions': [{
+#                 'relation': "ALL",
+#                 'components': [
+#                     {'id': 'a'},
+#                     {'id': 'b'}
+#                     ]
+#                 }
+#             ]
+#         },
+#         'consequence': {
+#             'ruleType': 'REQUIRES_EXCLUSIVELY',
+#             'components': [
+#                 {'id': 'x'},
+#                 {'id': 'y'}
+#                 ]
+#             }
+#         },
+#         {'condition': {
+#             'relation': "ALL",
+#             'subConditions': [{
+#                 'relation': "ALL",
+#                 'components': [
+#                     {'id': 'a'},
+#                     {'id': 'b'}
+#                     ]
+#                 }
+#             ]
+#         },
+#         'consequence': {
+#             'ruleType': 'REQUIRES_EXCLUSIVELY',
+#             'components': [
+#                 {'id': 'z'}
+#                 ]
+#             }
+#         },
+#         {'condition': {
+#             'relation': "ALL",
+#             'subConditions': [{
+#                 'relation': "ALL",
+#                 'components': [
+#                     {'id': 'a'},
+#                     {'id': 'b'}
+#                     ]
+#                 }
+#             ]
+#         },
+#         'consequence': {
+#             'ruleType': 'REQUIRES_ANY',
+#             'components': [
+#                 {'id': 'i'}
+#                 ]
+#             }
+#         },
+#         {'condition': {
+#             'relation': "ALL",
+#             'subConditions': [{
+#                 'relation': "ALL",
+#                 'components': [
+#                     {'id': 'a'},
+#                     {'id': 'b'}
+#                     ]
+#                 }
+#             ]
+#         },
+#         'consequence': {
+#             'ruleType': 'REQUIRES_ANY',
+#             'components': [
+#                 {'id': 'j'},
+#                 {'id': 'k'}
+#                 ]
+#             }
+#         }
+#     ]
 
-    expected_result = [{
-        'condition': {
-        'relation': "ALL",
-        'subConditions': [{
-            'relation': "ALL",
-            'components': [
-                {'id': 'a'},
-                {'id': 'b'}
-                ]
-            }]
-        },
-        'consequence': {
-            'ruleType': 'REQUIRES_ALL',
-            'components': [
-                {'id': 'i'},  # From require any
-                {'id': 'x'},
-                {'id': 'y'},
-                {'id': 'z'}  # From require exclusively
-                ]
-            }
-        },
-        {'condition': {
-            'relation': "ALL",
-            'subConditions': [{
-                'relation': "ALL",
-                'components': [
-                    {'id': 'a'},
-                    {'id': 'b'}
-                    ]
-                }]
-            },
-        'consequence': {
-            'ruleType': 'FORBIDS_ALL',
-            'components': [
-                {'id': 'x'},
-                {'id': 'y'},
-                {'id': 'z'},
-                ]
-            }
-        },
-        {'condition': {
-            'relation': "ALL",
-            'subConditions': [{
-                'relation': "ALL",
-                'components': [
-                    {'id': 'a'},
-                    {'id': 'b'}
-                    ]
-                }]
-            },
-        'consequence': {
-            'ruleType': 'PREFERRED',
-            'components': [
-                {'id': 'x'},
-                {'id': 'y'},
-                {'id': 'z'}
-                ]
-            }
-        },
-        {'condition': {
-            'relation': "ALL",
-            'subConditions': [{
-                'relation': "ALL",
-                'components': [
-                    {'id': 'a'},
-                    {'id': 'b'}
-                    ]
-                }]
-            },
-        'consequence': {
-            'ruleType': 'ONE_OR_NONE',
-            'components': [
-                {'id': 'x'},
-                {'id': 'y'}
-                ]
-            }
-        },
-        {'condition': {
-            'relation': "ALL",
-            'subConditions': [{
-                'relation': "ALL",
-                'components': [
-                    {'id': 'a'},
-                    {'id': 'b'}
-                    ]
-                }]
-            },
-        'consequence': {
-            'ruleType': 'ONE_OR_NONE',
-            'components': [
-                {'id': 'y'},
-                {'id': 'z'}
-                ]
-            }
-        },
-        {'condition': {
-            'relation': "ALL",
-            'subConditions': [{
-                'relation': "ALL",
-                'components': [
-                    {'id': 'a'},
-                    {'id': 'b'}
-                    ]
-                }]
-            },
-        'consequence': {
-            'ruleType': 'REQUIRES_EXCLUSIVELY',
-            'components': [
-                {'id': 'x'},
-                {'id': 'y'}
-                ]
-            }
-        },
-        {'condition': {
-            'relation': "ALL",
-            'subConditions': [{
-                'relation': "ALL",
-                'components': [
-                    {'id': 'a'},
-                    {'id': 'b'}
-                    ]
-                }]
-            },
-        'consequence': {
-            'ruleType': 'REQUIRES_ANY',
-            'components': [
-                {'id': 'j'},
-                {'id': 'k'}
-                ]
-            }
-        }
-    ]
-    actual = cc.cicJEs.compress(rules, id_ident="id")
-    for rule in actual:
-        rule['consequence']['components'] = sorted(rule['consequence']['components'], key=lambda d: d['id'])
-    assert [i for i in actual if i not in expected_result] == []
-    assert [i for i in expected_result if i not in actual] == []
+#     expected_result = [{
+#         'condition': {
+#         'relation': "ALL",
+#         'subConditions': [{
+#             'relation': "ALL",
+#             'components': [
+#                 {'id': 'a'},
+#                 {'id': 'b'}
+#                 ]
+#             }]
+#         },
+#         'consequence': {
+#             'ruleType': 'REQUIRES_ALL',
+#             'components': [
+#                 {'id': 'i'},  # From require any
+#                 {'id': 'x'},
+#                 {'id': 'y'},
+#                 {'id': 'z'}  # From require exclusively
+#                 ]
+#             }
+#         },
+#         {'condition': {
+#             'relation': "ALL",
+#             'subConditions': [{
+#                 'relation': "ALL",
+#                 'components': [
+#                     {'id': 'a'},
+#                     {'id': 'b'}
+#                     ]
+#                 }]
+#             },
+#         'consequence': {
+#             'ruleType': 'FORBIDS_ALL',
+#             'components': [
+#                 {'id': 'x'},
+#                 {'id': 'y'},
+#                 {'id': 'z'},
+#                 ]
+#             }
+#         },
+#         {'condition': {
+#             'relation': "ALL",
+#             'subConditions': [{
+#                 'relation': "ALL",
+#                 'components': [
+#                     {'id': 'a'},
+#                     {'id': 'b'}
+#                     ]
+#                 }]
+#             },
+#         'consequence': {
+#             'ruleType': 'ONE_OR_NONE',
+#             'components': [
+#                 {'id': 'x'},
+#                 {'id': 'y'}
+#                 ]
+#             }
+#         },
+#         {'condition': {
+#             'relation': "ALL",
+#             'subConditions': [{
+#                 'relation': "ALL",
+#                 'components': [
+#                     {'id': 'a'},
+#                     {'id': 'b'}
+#                     ]
+#                 }]
+#             },
+#         'consequence': {
+#             'ruleType': 'ONE_OR_NONE',
+#             'components': [
+#                 {'id': 'y'},
+#                 {'id': 'z'}
+#                 ]
+#             }
+#         },
+#         {'condition': {
+#             'relation': "ALL",
+#             'subConditions': [{
+#                 'relation': "ALL",
+#                 'components': [
+#                     {'id': 'a'},
+#                     {'id': 'b'}
+#                     ]
+#                 }]
+#             },
+#         'consequence': {
+#             'ruleType': 'REQUIRES_EXCLUSIVELY',
+#             'components': [
+#                 {'id': 'x'},
+#                 {'id': 'y'}
+#                 ]
+#             }
+#         },
+#         {'condition': {
+#             'relation': "ALL",
+#             'subConditions': [{
+#                 'relation': "ALL",
+#                 'components': [
+#                     {'id': 'a'},
+#                     {'id': 'b'}
+#                     ]
+#                 }]
+#             },
+#         'consequence': {
+#             'ruleType': 'REQUIRES_ANY',
+#             'components': [
+#                 {'id': 'j'},
+#                 {'id': 'k'}
+#                 ]
+#             }
+#         }
+#     ]
+#     actual = cc.cicJEs.compress(rules, id_ident="id")
+#     for rule in actual:
+#         rule['consequence']['components'] = sorted(rule['consequence']['components'], key=lambda d: d['id'])
+#     assert [i for i in actual if i not in expected_result] == []
+#     assert [i for i in expected_result if i not in actual] == []
 
 def test_extract_value_from_list_when_index_out_of_range():
     try:
@@ -1100,17 +1033,17 @@ def test_apply_collector():
 
 def test_application_to_rules():
     items = [
-        {"id": 0, "type": "M"},
-        {"id": 1, "type": "M"},
-        {"id": 2, "type": "M"},
-        {"id": 3, "type": "M"},
-        {"id": 4, "type": "N"},
-        {"id": 5, "type": "N"},
-        {"id": 6, "type": "N"},
-        {"id": 7, "type": "O"},
-        {"id": 8, "type": "O"},
+        {"id": "a", "type": 1},
+        {"id": "b", "type": 2},
+        {"id": "c", "type": 3},
+        {"id": "d", "type": 4},
+        {"id": "e", "type": 5},
+        {"id": "f", "type": 6},
+        {"id": "g", "type": 6},
+        {"id": "h", "type": 6},
+        {"id": "i", "type": 7},
     ]
-    rules_gen = puan.logic.sta.application.to_cicJEs(
+    model = puan.logic.sta.application.to_cicJEs(
         {
             "source": {
                 "selector": {
@@ -1120,7 +1053,7 @@ def test_application_to_rules():
                             {
                                 "literals":[
                                     {
-                                        "key":"id",
+                                        "key":"type",
                                         "operator":">",
                                         "value":3,
                                     }
@@ -1138,7 +1071,7 @@ def test_application_to_rules():
                             {
                                 "literals":[
                                     {
-                                        "key":"id",
+                                        "key":"type",
                                         "operator":"<=",
                                         "value":3
                                     }
@@ -1154,11 +1087,14 @@ def test_application_to_rules():
             },
         },
         from_items=items,
+        model_id="test"
     )
-    rules_list = list(rules_gen)
-    assert len(rules_list) == 1
-    assert len(rules_list[0]["condition"]["subConditions"][0]["components"]) == 5
-    assert len(rules_list[0]["consequence"]["components"]) == 4
+    assert len(model.propositions) == 1
+    first_prop = model.propositions[0]
+    assert isinstance(first_prop.propositions[0], pg.AtMost)
+    assert len(first_prop.propositions[0].propositions) == 6
+    assert isinstance(first_prop.propositions[1], pg.AtLeast)
+    assert len(first_prop.propositions[1].propositions) == 3
 
 def test_application_to_rules_with_condition_relation():
     items = [
@@ -1172,7 +1108,7 @@ def test_application_to_rules_with_condition_relation():
         {"id": 7, "type": "O"},
         {"id": 8, "type": "O"},
     ]
-    rules_gen = puan.logic.sta.application.to_cicJEs(
+    model = puan.logic.sta.application.to_cicJEs(
         {
             "source": {
                 "groupBy": {
@@ -1220,17 +1156,9 @@ def test_application_to_rules_with_condition_relation():
         },
         from_items=items,
     )
-    rules_list = list(rules_gen)
-    assert len(rules_list) == 2
-    assert len(rules_list[0]["condition"]["subConditions"]) == 1
-    assert rules_list[0]["condition"]["subConditions"][0]["relation"] == "ANY"
-    assert len(rules_list[0]["condition"]["subConditions"][0]["components"]) == 3
-    assert len(rules_list[0]["consequence"]["components"]) == 4
-
-    assert len(rules_list[1]["condition"]["subConditions"]) == 1
-    assert rules_list[1]["condition"]["subConditions"][0]["relation"] == "ANY"
-    assert len(rules_list[1]["condition"]["subConditions"][0]["components"]) == 2
-    assert len(rules_list[1]["consequence"]["components"]) == 4
+    assert len(model.propositions) == 2
+    assert len(model.propositions[0].propositions) == 2
+    assert len(model.propositions[1].propositions) == 2
 
 def test_extract_value_with_key_missing():
     items = [
@@ -1438,102 +1366,102 @@ def test_reducable_columns_approx():
     assert numpy.array_equal(actual, expected)
 
 
-def test_split_ruleset():
-    rules = [
-        {'condition': {
-            'relation': "ALL",
-            'subConditions': [{
-                'relation': "ALL",
-                'components': [
-                    {'id': 'a'},
-                    {'id': 'b'}
-                    ]
-                }]
-            },
-        'consequence': {
-            'ruleType': 'REQUIRES_ANY',
-            'components': [
-                {'id': 'j'},
-                {'id': 'k'}
-                ]
-            }
-        },
-        {'condition': {
-            'relation': "ALL",
-            'subConditions': [{
-                'relation': "ANY",
-                'components': [
-                    {'id': 'b'},
-                    {'id': 'c'}
-                    ]
-                }]
-            },
-        'consequence': {
-            'ruleType': 'REQUIRES_ALL',
-            'components': [
-                {'id': 'l'},
-                {'id': 'm'}
-                ]
-            }
-        },
-        {'condition': {
-            'relation': "ALL",
-            'subConditions': []
-            },
-        'consequence': {
-            'ruleType': 'REQUIRES_ALL',
-            'components': [
-                {'id': 'a'},
-                {'id': 'n'}
-                ]
-            }
-        },
-        {'condition': {
-            'relation': "ALL",
-            'subConditions': []
-            },
-        'consequence': {
-            'ruleType': 'REQUIRES_ALL',
-            'components': [
-                {'id': 'o'},
-                {'id': 'p'}
-                ]
-            }
-        },
-        {'condition': {
-            'relation': "ALL",
-            'subConditions': [{
-                'relation': "ALL",
-                'components': [
-                    {'id': 'p'},
-                    ]
-                }]
-            },
-        'consequence': {
-            'ruleType': 'REQUIRES_ALL',
-            'components': [
-                {'id': 'q'},
-                ]
-            }
-        }
-    ]
-    expected_result = [
-        [
-            {'condition': {'relation': 'ALL', 'subConditions': [{'relation': 'ALL', 'components': [{'id': 'a'}, {'id': 'b'}]}]}, 'consequence': {'ruleType': 'REQUIRES_ANY', 'components': [{'id': 'j'}, {'id': 'k'}]}},
-            {'condition': {'relation': 'ALL', 'subConditions': []}, 'consequence': {'ruleType': 'REQUIRES_ALL', 'components': [{'id': 'a'}, {'id': 'n'}]}},
-            {'condition': {'relation': 'ALL', 'subConditions': [{'relation': 'ANY', 'components': [{'id': 'b'}, {'id': 'c'}]}]}, 'consequence': {'ruleType': 'REQUIRES_ALL', 'components': [{'id': 'l'}, {'id': 'm'}]}}
-        ],
-        [
-            {'condition': {'relation': 'ALL', 'subConditions': []}, 'consequence': {'ruleType': 'REQUIRES_ALL', 'components': [{'id': 'o'}, {'id': 'p'}]}},
-            {'condition': {'relation': 'ALL', 'subConditions': [{'relation': 'ALL', 'components': [{'id': 'p'}]}]}, 'consequence': {'ruleType': 'REQUIRES_ALL', 'components': [{'id': 'q'}]}}
-        ]
-    ]
-    split_ruleset = puan.logic.cic.cicJEs.split(rules)
-    #assert split_ruleset == expected_result
+# def test_split_ruleset():
+#     rules = [
+#         {'condition': {
+#             'relation': "ALL",
+#             'subConditions': [{
+#                 'relation': "ALL",
+#                 'components': [
+#                     {'id': 'a'},
+#                     {'id': 'b'}
+#                     ]
+#                 }]
+#             },
+#         'consequence': {
+#             'ruleType': 'REQUIRES_ANY',
+#             'components': [
+#                 {'id': 'j'},
+#                 {'id': 'k'}
+#                 ]
+#             }
+#         },
+#         {'condition': {
+#             'relation': "ALL",
+#             'subConditions': [{
+#                 'relation': "ANY",
+#                 'components': [
+#                     {'id': 'b'},
+#                     {'id': 'c'}
+#                     ]
+#                 }]
+#             },
+#         'consequence': {
+#             'ruleType': 'REQUIRES_ALL',
+#             'components': [
+#                 {'id': 'l'},
+#                 {'id': 'm'}
+#                 ]
+#             }
+#         },
+#         {'condition': {
+#             'relation': "ALL",
+#             'subConditions': []
+#             },
+#         'consequence': {
+#             'ruleType': 'REQUIRES_ALL',
+#             'components': [
+#                 {'id': 'a'},
+#                 {'id': 'n'}
+#                 ]
+#             }
+#         },
+#         {'condition': {
+#             'relation': "ALL",
+#             'subConditions': []
+#             },
+#         'consequence': {
+#             'ruleType': 'REQUIRES_ALL',
+#             'components': [
+#                 {'id': 'o'},
+#                 {'id': 'p'}
+#                 ]
+#             }
+#         },
+#         {'condition': {
+#             'relation': "ALL",
+#             'subConditions': [{
+#                 'relation': "ALL",
+#                 'components': [
+#                     {'id': 'p'},
+#                     ]
+#                 }]
+#             },
+#         'consequence': {
+#             'ruleType': 'REQUIRES_ALL',
+#             'components': [
+#                 {'id': 'q'},
+#                 ]
+#             }
+#         }
+#     ]
+#     expected_result = [
+#         [
+#             {'condition': {'relation': 'ALL', 'subConditions': [{'relation': 'ALL', 'components': [{'id': 'a'}, {'id': 'b'}]}]}, 'consequence': {'ruleType': 'REQUIRES_ANY', 'components': [{'id': 'j'}, {'id': 'k'}]}},
+#             {'condition': {'relation': 'ALL', 'subConditions': []}, 'consequence': {'ruleType': 'REQUIRES_ALL', 'components': [{'id': 'a'}, {'id': 'n'}]}},
+#             {'condition': {'relation': 'ALL', 'subConditions': [{'relation': 'ANY', 'components': [{'id': 'b'}, {'id': 'c'}]}]}, 'consequence': {'ruleType': 'REQUIRES_ALL', 'components': [{'id': 'l'}, {'id': 'm'}]}}
+#         ],
+#         [
+#             {'condition': {'relation': 'ALL', 'subConditions': []}, 'consequence': {'ruleType': 'REQUIRES_ALL', 'components': [{'id': 'o'}, {'id': 'p'}]}},
+#             {'condition': {'relation': 'ALL', 'subConditions': [{'relation': 'ALL', 'components': [{'id': 'p'}]}]}, 'consequence': {'ruleType': 'REQUIRES_ALL', 'components': [{'id': 'q'}]}}
+#         ]
+#     ]
+#     split_ruleset = puan.logic.cic.cicJEs.split(rules)
+#     #assert split_ruleset == expected_result
 
 def test_cicJE_to_implication_proposition():
 
-    json_rule = cc.cicJE({
+    actual_output = pg.Imply.from_cicJE({
         "condition": {
             "relation": "ALL",
             "subConditions": [
@@ -1563,88 +1491,48 @@ def test_cicJE_to_implication_proposition():
         }
     })
 
-    expected_output = cc.implication_proposition(
-        cc.Operator.ALL,
-        cc.conditional_proposition("ALL", [
-            cc.boolean_variable_proposition("m"),
-            cc.boolean_variable_proposition("n"),
-            cc.boolean_variable_proposition("o"),
-        ]),
-        cc.conditional_proposition("ALL", [
-            cc.conditional_proposition("ANY", [
-                cc.boolean_variable_proposition("x"),
-                cc.boolean_variable_proposition("y"),
-            ]),
-            cc.conditional_proposition("ANY", [
-                cc.boolean_variable_proposition("a"),
-                cc.boolean_variable_proposition("b"),
-            ])
-        ]),
+    expected_output = pg.Imply(
+        pg.All(
+            pg.Any(*list("xy")),
+            pg.Any(*list("ab")),
+        ),
+        pg.All(*list("mno"))
     )
-    actual_output = json_rule.to_implication_proposition()
     assert actual_output == expected_output
 
-def test_parsed_linerules2value_map():
+def test_parse_short_compound_proposition():
 
     line_rules = [
-        (set(), 'REQUIRES_ANY', ('a', 'b', 'c')),
-        (set(), 'ONE_OR_NONE', ('a', 'b', 'c')),
-        (set(), 'REQUIRES_ANY', ('d', 'e')),
-        (set(), 'ONE_OR_NONE', ('d', 'e')),
-        ({'p', 'a', 'e'}, 'REQUIRES_ANY', ('x', 'y')),
-        ({'p', 'a', 'e'}, 'ONE_OR_NONE', ('x', 'y')),
-        ({'p', 'a', 'e'}, 'REQUIRES_ANY', ('x', 'z')),
-        ({'p', 'a', 'e'}, 'ONE_OR_NONE', ('x', 'z')),
-        ({'b', 'p', 'd'}, 'REQUIRES_ANY', ('x', 'y')),
-        ({'b', 'p', 'd'}, 'ONE_OR_NONE', ('x', 'y')),
-        ({'b', 'p', 'd'}, 'REQUIRES_ANY', ('x', 'z')),
-        ({'b', 'p', 'd'}, 'ONE_OR_NONE', ('x', 'z')),
-        ({'p', 'd', 'a'}, 'REQUIRES_ANY', ('x', 'z')),
-        ({'p', 'd', 'a'}, 'ONE_OR_NONE', ('x', 'z')),
-        ({'p', 'd', 'a'}, 'REQUIRES_ANY', ('x', 'y')),
-        ({'p', 'd', 'a'}, 'ONE_OR_NONE', ('x', 'y')),
-        ({'c', 'p', 'a'}, 'REQUIRES_ANY', ('x', 'z')),
-        ({'c', 'p', 'a'}, 'ONE_OR_NONE', ('x', 'z')),
-        ({'c', 'p', 'a'}, 'REQUIRES_ANY', ('x', 'y')),
-        ({'c', 'p', 'a'}, 'ONE_OR_NONE', ('x', 'y')),
-        ({'a', 'q', 'e'}, 'REQUIRES_ALL', ('f', 'g', 'h'))
+        ("Any", ['a', 'b', 'c'], None, None),
+        ("AtMost", ['a', 'b', 'c'], 1, None),
+        ("Any", ['d', 'e'], None, None),
+        ("AtMost", ['d', 'e'], 1, None),
+        ("Imply", [("All", ['p', 'a', 'e'], None, None), ("Any", ['x', 'y'], None, None)], None, None),
+        ("All", [("All", ['p', 'a', 'e'], None, None), ("AtMost", ['x', 'y'], 1, None)], None, None),
+        ("Xor", [("Any", ['p', 'a', 'e'], None, None), ("All", ['x', 'z'], None, None)], None, None),
+        ("Imply", [("AtLeast", ['p', 'a', 'e'], 2, None), ("AtMost", ['x', 'z'], 1, None)], None, None),
+        ("Xor", [("All", ['a', 'q', 'e'], None, None), ("All", ['f', 'g', 'h'], None, None)], None, None),
     ]
-    actual = cc.conjunctional_implication_proposition(list(map(cc.cicR.to_implication_proposition, line_rules))).to_polyhedron()
-    for v in numpy.nditer(actual):
-        try:
-            int(v)
-        except:
-            raise Exception("found value not being int in value map")
+    actual_model = pg.CompoundProposition.from_short(line_rules)
+    assert len(actual_model.propositions) == 9
 
-def test_parse_empty_line_rule_should_yield_no_variables():
-    m = ["(()),'PREFERRED',(),()"]
-    actual = list(map(cc.cicR.from_string, m))
-    for parsed in actual:
-        cond, _, cons, _ = parsed
-        assert len(cond) == 0
-        assert len(cons) == 0
+def test_parse_empty_short_compound_proposition():
+    actual_model = pg.CompoundProposition.from_short([])
+    assert len(actual_model.propositions) == 0
 
-def test_parte_line_rules_from_text():
+def test_parse_short_compounds_from_text():
     text_lines = [
-        "(('a'),('b'),['c','d'],['c','e']), 'REQUIRES_ALL',         ('a','b','c'),()",
-        "[['x','d'], ('z','m')],            'REQUIRES_EXCLUSIVELY', ('a',),()",
-        "[['x','d'], ('z','m')],            'FORBIDS_ALL',          ('a',),()"
+        # (a & b & (c | d) & (c | e)) -> (a & b & c)
+        "('Imply', [('All', ['a','b',('Any',['c','d']),('Any',['c','e'])]),('All', ['a','b','c'])])",
+        # (x | d | (z & m)) -xor-> a
+        "('Imply', [('Any', ['x','d', ('All', ['z','m'])]), ('Xor',['a'])])"
     ]
-    actual = cc.conjunctional_implication_proposition(
-        list(
-            map(
-                maz.compose(
-                    cc.cicR.to_implication_proposition,
-                    cc.cicR.from_string
-                ),
-                text_lines
-            )
-        )
-    ).to_polyhedron()
-    assert actual.shape == (10,9)
+    actual_model = pg.CompoundProposition.from_short(list(map(ast.literal_eval, text_lines))) 
+    assert len(actual_model.propositions) == 2
 
-def test_parse_line_rule_strings_with_different_combinations():
+def test_parse_short_compund_strings_with_different_combinations():
     line_rule_strs = [
+        "('')"
         "(('a','b','c'),('d',)),'REQUIRES_EXCLUSIVELY',('x','y','z'),('x',)",
         "(('a',),),'REQUIRES_ALL',('x',)",
         "(('aa','aa'),),'REQUIRES_ALL',('xx','xx')",

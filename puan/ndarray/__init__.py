@@ -1,6 +1,7 @@
 import numpy
 import typing
 import functools
+import itertools
 import operator
 import maz
 import math
@@ -64,7 +65,7 @@ class variable_ndarray(numpy.ndarray):
             )
         )
 
-    def construct(self, variable_values: typing.List[typing.Tuple[str, int]], default_value: int = 0) -> "variable_ndarray":
+    def construct(self, *variable_values: typing.List[typing.Tuple[str, int]], default_value: int = 0) -> "variable_ndarray":
 
         """
             Constructs a variable_ndarray from a list of tuples of variable ID's and integers.
@@ -75,13 +76,13 @@ class variable_ndarray(numpy.ndarray):
             Constructing a new 1D variable ndarray shadow from this array and setting x = 5
                 >>> vnd = variable_ndarray([[1,2,3], [2,3,4]],
                 ...     [puan.variable("x", int), puan.variable("y", int), puan.variable("z", int)])
-                >>> vnd.construct([("x", 5)])
+                >>> vnd.construct(("x", 5))
                 variable_ndarray([5, 0, 0])
 
             Constructing a new 2D variable ndarray shadow from this array and setting x0 = 5, y0 = 4 and y1 = 3
                 >>> vnd = variable_ndarray([[1,2,3], [2,3,4]],
                 ...     [puan.variable("x", int), puan.variable("y", int), puan.variable("z", int)])
-                >>> vnd.construct([[("x", 5), ("y", 4)], [("y", 3)]])
+                >>> vnd.construct([("x", 5), ("y", 4)], [("y", 3)])
                 variable_ndarray([[5, 4, 0],
                                   [0, 3, 0]])
 
@@ -89,15 +90,18 @@ class variable_ndarray(numpy.ndarray):
             -------
                 out : variable_ndarray
         """
-        variable_values = list(variable_values)
-        if isinstance(variable_values[0], tuple):
+        if len(variable_values) == 0:
+                return numpy.zeros((self.shape[1]))
+        elif isinstance(variable_values[0], tuple):
             variable_indices = list(
                 map(
-                    maz.compose(
-                        self.variables.tolist().index, 
-                        operator.itemgetter(0)
-                    ),
-                    variable_values
+                    self.variables.tolist().index,
+                    puan.variable.from_mixed(
+                        *map(
+                            operator.itemgetter(0),
+                            variable_values
+                        )
+                    )
                 )
             )
             v = numpy.ones(len(self.variables)) * default_value
@@ -106,7 +110,7 @@ class variable_ndarray(numpy.ndarray):
         else:
             return self.__class__(
                 list(
-                    map(
+                    itertools.starmap(
                         functools.partial(
                             self.construct,
                             default_value=default_value
@@ -270,43 +274,42 @@ class ge_polyhedron(variable_ndarray):
             )
         )
 
-    def construct(self, variable_values: typing.List[str]) -> "boolean_ndarray":
-        return self.A.construct(variable_values)
+    def construct(self, *variable_values: typing.List[str]) -> "boolean_ndarray":
+        return self.A.construct(*variable_values)
 
-    def evaluate(self: numpy.ndarray, interpretation: "integer_ndarray") -> typing.Tuple[bool, "integer_ndarray"]:
+    # def evaluate(self: numpy.ndarray, interpretation: "integer_ndarray") -> typing.Tuple[bool, "integer_ndarray"]:
 
-        """
-            Evaluates interpretation by updating corresponding true row values
-            per iteration until either interpretation satisfies polyhedron OR
-            no change was made in the iteration.
+    #     """
+    #         Evaluates interpretation by updating corresponding true row values
+    #         per iteration until either interpretation satisfies polyhedron OR
+    #         no change was made in the iteration.
 
-            Notes
-            -----
-            Super ge-polytope is assumed which assumes that each row index represents a column index (except row 0) 
+    #         Notes
+    #         -----
+    #         Super ge-polytope is assumed which assumes that each row index represents a column index (except row 0) 
 
-            Examples
-            --------
-                >>> ph = ge_polyhedron([[1,1,1,1,0,0,0,0],[0,-2,0,0,1,0,1,0],[0,0,-2,0,1,1,0,0],[0,0,0,-1,0,0,1,0]],variables=puan.variable.construct(*list("0ABCdefX")),index=puan.variable.construct(*list("XABC")))
-                >>> interpretation = ph.A.construct(list(zip(puan.variable.construct(*list("de")), [1,1])))
-                >>> ph.evaluate(interpretation)
+    #         Examples
+    #         --------
+    #             >>> ph = ge_polyhedron([[1,1,1,1,0,0,0,0],[0,-2,0,0,1,0,1,0],[0,0,-2,0,1,1,0,0],[0,0,0,-1,0,0,1,0]],variables=puan.variable.construct(*list("0ABCdefX")),index=puan.variable.construct(*list("XABC")))
+    #             >>> interpretation = ph.A.construct(list(zip(puan.variable.construct(*list("de")), [1,1])))
+    #             >>> ph.evaluate(interpretation)
 
-        """
+    #     """
 
-        res = self.A.dot(interpretation) >= self.b
-        if res.all():
-            return True, interpretation
+    #     res = self.A.dot(interpretation) >= self.b
+    #     if res.all():
+    #         return True, interpretation
 
-        _interpretation = self.A.construct(zip(self.index,res*1))
-        _interpretation += (_interpretation == 0)*interpretation
-        _res = self.A.dot(_interpretation) >= self.b
-        __res = (~res*_res)+(res*_res) >= 1
-        __interpretation = self.A.construct(zip(self.index,__res*1))
-        __interpretation += (__interpretation == 0)*interpretation
+    #     _interpretation = self.A.construct(*zip(self.index,res*1))
+    #     _interpretation += (_interpretation == 0)*interpretation
+    #     _res = self.A.dot(_interpretation) >= self.b
+    #     __interpretation = self.A.construct(*zip(self.index,((~res*_res)+(res*_res) >= 1)*1))
+    #     __interpretation += (__interpretation == 0)*interpretation
         
-        if (__interpretation == interpretation).all():
-            return False, _interpretation
+    #     if (__interpretation == interpretation).all():
+    #         return False, _interpretation
             
-        return self.evaluate(__interpretation)
+    #     return self.evaluate(__interpretation)
 
     def to_linalg(self: numpy.ndarray) -> tuple:
         """
@@ -465,7 +468,7 @@ class ge_polyhedron(variable_ndarray):
                 integer_ndarray([ True])
 
         """
-        A, b = ge_polyhedron(self, self.variables, self.index).to_linalg()
+        A, b = ge_polyhedron(self, getattr(self, "variables", []), getattr(self, "index", [])).to_linalg()
         return (((A * (A < 0)).sum(axis=1) >= b)) + ((A >= 0).all(axis=1) & (b<=0))
 
     def reduce_rows(self: numpy.ndarray, rows_vector: numpy.ndarray) -> numpy.ndarray:
@@ -1407,7 +1410,7 @@ class boolean_ndarray(variable_ndarray):
 
         return boolean_ndarray(result)
 
-    def construct(self, variable_values: typing.List[str]) -> "boolean_ndarray":
+    def construct(self, *variable_values: typing.List[str]) -> "boolean_ndarray":
 
         if isinstance(variable_values[0], str):
             return boolean_ndarray(variable_ndarray.construct(self, list(map(lambda x: (x, 1), variable_values))), self.variables)
