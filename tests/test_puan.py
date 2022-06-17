@@ -1,6 +1,7 @@
 import ast
 import functools
 import puan
+import puan.misc
 import puan.ndarray
 import puan.vmap
 import puan.logic
@@ -21,7 +22,7 @@ def test_application_to_rules():
         {"id": 7, "type": "O"},
         {"id": 8, "type": "O"},
     ]
-    rules_gen = puan.logic.sta.application.to_cicJEs(
+    rules_gen = puan.logic.sta.application.to_plog(
         {
             "source": {
                 "selector": {
@@ -1043,7 +1044,7 @@ def test_application_to_rules():
         {"id": "h", "type": 6},
         {"id": "i", "type": 7},
     ]
-    model = puan.logic.sta.application.to_cicJEs(
+    model = puan.logic.sta.application.to_plog(
         {
             "source": {
                 "selector": {
@@ -1108,7 +1109,7 @@ def test_application_to_rules_with_condition_relation():
         {"id": 7, "type": "O"},
         {"id": 8, "type": "O"},
     ]
-    model = puan.logic.sta.application.to_cicJEs(
+    model = puan.logic.sta.application.to_plog(
         {
             "source": {
                 "groupBy": {
@@ -1303,8 +1304,8 @@ def test_application_with_no_item_hits_should_yield_no_rules():
         {"category": {"id": "Y"}, "id": "a"},
         {"category": {"id": "Y"}, "id": "b"},
     ]
-    result = list(puan.logic.sta.application.to_cicJEs(application, items))
-    assert len(result) == 0
+    model = puan.logic.sta.application.to_plog(application, items)
+    assert len(model.propositions) == 0
 
 
 def test_reduce_matrix():
@@ -1530,237 +1531,38 @@ def test_parse_short_compounds_from_text():
     actual_model = pg.CompoundProposition.from_short(list(map(ast.literal_eval, text_lines))) 
     assert len(actual_model.propositions) == 2
 
-def test_parse_short_compund_strings_with_different_combinations():
-    line_rule_strs = [
-        "('')"
-        "(('a','b','c'),('d',)),'REQUIRES_EXCLUSIVELY',('x','y','z'),('x',)",
-        "(('a',),),'REQUIRES_ALL',('x',)",
-        "(('aa','aa'),),'REQUIRES_ALL',('xx','xx')",
-        "(('a')),'REQUIRES_ALL',('b',)",
-        "(('a','ab')),'REQUIRES_ALL',('b','ba')",
-        "(['xc40','T80']),'REQUIRES_ALL',['o0']",
-        "['xxx', ('yyy','zzz')],'REQUIRES_ALL',['aaa','bbb']",
-        "['xxx', ['yyy','zzz']],'REQUIRES_ALL',['aaa','bbb']",
-        "(['aa', 'bb'], ['cc']),'REQUIRES_ALL',('vv',)",
-        "[('aa', 'bb'), ('dd')],'REQUIRES_ALL',('vv',)",
-        "[],'REQUIRES_ALL',('x',)",
-        "(),'REQUIRES_ALL',('x',)",
+def test_parse_short_compund_texts_with_different_combinations():
+    text_lines = [
+        "('')",
+        "('Imply', [('All',['a','b','c','d'],'B'),('Xor',['x','y','z'],'C')], 'A')",
+        "('Imply', ['a','x'], 'A')",
+        "('Imply', ['aa','xx'], 'A')",
+        "['a','b','c']",
+        "('AtMost',[('AtLeast', ['a','b'], 1),('AtMost',['x','y','z'],2)], 1)",
+        "('AtMost',[('AtLeast', ['Op9','99'], 1),('AtMost',['00','01','10001'],2)], 1)",
+        "('Imply',[('AtLeast', ['xxx',('All',['yyy','zzz'])], 1),('All',['aaa','bbb'])])",
     ]
-    actual = cc.conjunctional_implication_proposition(
-        list(
-            map(
-                maz.compose(
-                    cc.cicR.to_implication_proposition,
-                    cc.cicR.from_string
-                ),
-                line_rule_strs
-            )
-        )
+    actual_model = list(map(pg.CompoundProposition.from_short_text, text_lines))
+    assert actual_model[0].id == ''
+    assert len(actual_model[1].propositions) == 2
+    assert len(actual_model[2].propositions) == 2
+    assert len(actual_model[3].propositions) == 2
+    assert len(actual_model[4].propositions) == 3
+    assert len(actual_model[5].propositions) == 2
+    assert len(actual_model[6].propositions) == 2
+    assert len(actual_model[7].propositions) == 2
+
+def test_parse_short_compound_texts_with_special_chars():
+
+    actual = pg.CompoundProposition.from_short_text(
+        "('Imply', [('All',['$§@£_-/','YY-0','X_y5'],'B'),('Xor',['1','22','345'],'C')], 'A')",
     )
-    assert actual.to_polyhedron().shape == (17,25)
-
-def test_parse_line_rule_when_an_empty_any_condition():
-
-    line_rule_strs = [
-        "[],'REQUIRES_ALL',('x'),()",
-        "(),'REQUIRES_ALL',('y'),()",
-    ]
-    actual = list(
-        map(
-            maz.compose(
-                cc.cicR.to_implication_proposition,
-                cc.cicR.from_string
-            ),
-            line_rule_strs
-        )
+    expected = pg.Imply(
+        pg.All('$§@£_-/','YY-0','X_y5', id='B'),
+        pg.Xor('$§@£_-/','YY-0','X_y5', id='C'),
+        id="A"
     )
-    expected = [
-        cc.implication_proposition(
-            cc.Operator.ALL,
-            cc.conditional_proposition("ALL", [
-                cc.boolean_variable_proposition("x")
-            ]),
-            cc.conditional_proposition("ANY", [])
-        ),
-        cc.implication_proposition(
-            cc.Operator.ALL,
-            cc.conditional_proposition("ALL", [
-                cc.boolean_variable_proposition("y")
-            ])
-        ),
-    ]
-    assert len(actual) == len(expected)
-    for a, e in zip(actual, expected):
-        assert a == e
-
-def test_parse_line_rules_when_having_numbers_inside():
-
-    line_rule_strs = [
-        "(('$§@£_-/', 'YY-0', 'X_y5')),'REQUIRES_ALL',('1','22','345')"
-    ]
-    actual = list(
-        map(
-            maz.compose(
-                cc.cicR.to_implication_proposition,
-                cc.cicR.from_string
-            ),
-            line_rule_strs
-        )
-    )
-    expected = [
-        cc.implication_proposition(
-            cc.Operator.ALL,
-            cc.conditional_proposition("ALL", [
-                cc.boolean_variable_proposition("1"),
-                cc.boolean_variable_proposition("22"),
-                cc.boolean_variable_proposition("345"),
-            ]),
-            cc.conditional_proposition("ALL", [
-                cc.boolean_variable_proposition("$§@£_-/"),
-                cc.boolean_variable_proposition("YY-0"),
-                cc.boolean_variable_proposition("X_y5"),
-            ])
-        )
-    ]
-    assert actual[0] == expected[0]
-
-# def test_matrix2cic_lines() -> list:
-
-#     expected_line_rules = [
-#         "((),'REQUIRES_ALL',())",
-#         "((),'REQUIRES_ALL',('x'))",
-#         "((),'REQUIRES_ALL',('x','y'))",
-#         "((),'REQUIRES_ALL',('x','y','z'))",
-#         "(('a'),'REQUIRES_ALL',())",
-#         "(('a'),'REQUIRES_ALL',('x'))",
-#         "(('a'),'REQUIRES_ALL',('x','y'))",
-#         "(('a'),'REQUIRES_ALL',('x','y','z'))",
-#         "(('a','b'),'REQUIRES_ALL',())",
-#         "(('a','b'),'REQUIRES_ALL',('x'))",
-#         "(('a','b'),'REQUIRES_ALL',('x','y'))",
-#         "(('a','b'),'REQUIRES_ALL',('x','y','z'))",
-#         "(('a','b','c'),'REQUIRES_ALL',())",
-#         "(('a','b','c'),'REQUIRES_ALL',('x'))",
-#         "(('a','b','c'),'REQUIRES_ALL',('x','y'))",
-#         "(('a','b','c'),'REQUIRES_ALL',('x','y','z'))",
-#         "((),'REQUIRES_ANY',())",
-#         "((),'REQUIRES_ANY',('x'))",
-#         "((),'REQUIRES_ANY',('x','y'))",
-#         "((),'REQUIRES_ANY',('x','y','z'))",
-#         "(('a'),'REQUIRES_ANY',())",
-#         "(('a'),'REQUIRES_ANY',('x'))",
-#         "(('a'),'REQUIRES_ANY',('x','y'))",
-#         "(('a'),'REQUIRES_ANY',('x','y','z'))",
-#         "(('a','b'),'REQUIRES_ANY',())",
-#         "(('a','b'),'REQUIRES_ANY',('x'))",
-#         "(('a','b'),'REQUIRES_ANY',('x','y'))",
-#         "(('a','b'),'REQUIRES_ANY',('x','y','z'))",
-#         "(('a','b','c'),'REQUIRES_ANY',())",
-#         "(('a','b','c'),'REQUIRES_ANY',('x'))",
-#         "(('a','b','c'),'REQUIRES_ANY',('x','y'))",
-#         "(('a','b','c'),'REQUIRES_ANY',('x','y','z'))",
-#         "((),'FORBIDS_ALL',())",
-#         "((),'FORBIDS_ALL',('x'))",
-#         "((),'FORBIDS_ALL',('x','y'))",
-#         "((),'FORBIDS_ALL',('x','y','z'))",
-#         "(('a'),'FORBIDS_ALL',())",
-#         "(('a'),'FORBIDS_ALL',('x'))",
-#         "(('a'),'FORBIDS_ALL',('x','y'))",
-#         "(('a'),'FORBIDS_ALL',('x','y','z'))",
-#         "(('a','b'),'FORBIDS_ALL',())",
-#         "(('a','b'),'FORBIDS_ALL',('x'))",
-#         "(('a','b'),'FORBIDS_ALL',('x','y'))",
-#         "(('a','b'),'FORBIDS_ALL',('x','y','z'))",
-#         "(('a','b','c'),'FORBIDS_ALL',())",
-#         "(('a','b','c'),'FORBIDS_ALL',('x'))",
-#         "(('a','b','c'),'FORBIDS_ALL',('x','y'))",
-#         "(('a','b','c'),'FORBIDS_ALL',('x','y','z'))",
-#         "((),'ONE_OR_NONE',())",
-#         "((),'ONE_OR_NONE',('x'))",
-#         "((),'ONE_OR_NONE',('x','y'))",
-#         "((),'ONE_OR_NONE',('x','y','z'))",
-#         "(('a'),'ONE_OR_NONE',())",
-#         "(('a'),'ONE_OR_NONE',('x'))",
-#         "(('a'),'ONE_OR_NONE',('x','y'))",
-#         "(('a'),'ONE_OR_NONE',('x','y','z'))",
-#         "(('a','b'),'ONE_OR_NONE',())",
-#         "(('a','b'),'ONE_OR_NONE',('x'))",
-#         "(('a','b'),'ONE_OR_NONE',('x','y'))",
-#         "(('a','b'),'ONE_OR_NONE',('x','y','z'))",
-#         "(('a','b','c'),'ONE_OR_NONE',())",
-#         "(('a','b','c'),'ONE_OR_NONE',('x'))",
-#         "(('a','b','c'),'ONE_OR_NONE',('x','y'))",
-#         "(('a','b','c'),'ONE_OR_NONE',('x','y','z'))",
-#     ]
-#     exp_line_rules = puan.logic.cic.cicEs.from_strings(expected_line_rules).to_cicRs()
-#     variables = sorted(exp_line_rules.variables())
-#     actual_line_rules = puancore.linalg.matrix.matrix2crc_lines(
-#         puan.vmap.value_map2matrix(
-#             puancore.logic.crc.line.parsed_linerules2value_map(
-#                 puancore.logic.crc.line.index_parsed_line_rules(exp_line_rules, variables, 1)
-#             ),
-#             len(variables),
-#         ),
-#         functools.partial(
-#             puancore.comp.indexing,
-#             variables
-#         )
-#     )
-#     result = list(actual_line_rules)
-
-def test_convert_one_or_none_to_matrix():
-
-    expected_line_rules = [
-        "((),'ONE_OR_NONE',())",
-        "((),'ONE_OR_NONE',('x'))",
-        "((),'ONE_OR_NONE',('x','y'))",
-        "((),'ONE_OR_NONE',('x','y','z'))",
-        "(('a'),'ONE_OR_NONE',())",
-        "(('a'),'ONE_OR_NONE',('x'))",
-        "(('a'),'ONE_OR_NONE',('x','y'))",
-        "(('a'),'ONE_OR_NONE',('x','y','z'))",
-        "(('a','b'),'ONE_OR_NONE',())",
-        "(('a','b'),'ONE_OR_NONE',('x'))",
-        "(('a','b'),'ONE_OR_NONE',('x','y'))",
-        "(('a','b'),'ONE_OR_NONE',('x','y','z'))",
-        "(('a','b','c'),'ONE_OR_NONE',())",
-        "(('a','b','c'),'ONE_OR_NONE',('x'))",
-        "(('a','b','c'),'ONE_OR_NONE',('x','y'))",
-        "(('a','b','c'),'ONE_OR_NONE',('x','y','z'))",
-    ]
-
-    actual_matrix = cc.conjunctional_implication_proposition(list(
-        map(
-            maz.compose(
-                cc.cicR.to_implication_proposition,
-                cc.cicR.from_string
-            ),
-            expected_line_rules
-        )
-    )).to_polyhedron()
-
-    expected_matrix_a = numpy.array([
-        [-3, -3, -3, -1, -1, -1],
-        [-3, -3, -1, -1, -1,  0],
-        [-2, -2, -2, -1, -1,  0],
-        [-2, -2, -1, -1,  0,  0],
-        [-3, -1, -1, -1,  0,  0],
-        [-1, -1, -1, -1,  0,  0],
-        [-2, -1, -1,  0,  0,  0],
-        [-1, -1, -1,  0,  0,  0],
-        [-1, -1,  0,  0,  0,  0],
-        [-1, -1, -1,  0,  0,  0],
-        [-1, -1,  0,  0,  0,  0],
-        [-1,  0,  0,  0,  0,  0],
-        [ 0,  0,  0,  0,  0,  0]],
-        dtype=numpy.int16
-    )
-    expected_vector_b = numpy.array([-10, -7, -7, -5, -4, -4, -3, -3, -2, -1, -1, -1, -1], dtype=numpy.int16)
-
-    sorted_polyhedron = numpy.sort(actual_matrix)
-    assert (sorted_polyhedron.A == expected_matrix_a).all()
-    assert (sorted_polyhedron.b == expected_vector_b).all()
-
+    assert actual == expected
 
 def test_neglect_columns():
     inputs = (
@@ -1896,7 +1698,7 @@ def test_ndint_compress():
         ),
     ]
     for inpt, expected_output in test_cases:
-        actual_output = inpt.truncate()
+        actual_output = inpt.ndint_compress(method="shadow")
         assert (actual_output == expected_output).all()
 
 def test_truncate_documentation_examples():
@@ -1946,7 +1748,7 @@ def test_truncate_documentation_examples():
                 [ 2, -2,  2,  1,  8]])
         )]
     for inpt, expected_output in test_cases:
-        actual_output = inpt.truncate()
+        actual_output = inpt.ndint_compress(method="shadow")
         assert (actual_output == expected_output).all()
 
 def test_separable():
@@ -2017,54 +1819,3 @@ def test_or_replace():
     actual = puan.misc.or_replace(input, keys, value)
     expected = {'a': 1, 'b': '1'}
     assert actual == expected
-
-def test_implication_proposition_to_constraints_with_default_value():
-
-    icvp = cc.implication_conjunctional_variable_proposition(
-        cc.Operator.ANY, 
-        cc.conjunctional_variable_proposition(
-            [
-                cc.boolean_variable_proposition("x"),
-                cc.boolean_variable_proposition("y"),
-                cc.boolean_variable_proposition("z"),
-            ],
-        ),
-        cc.conjunctional_variable_proposition(
-            [
-                cc.boolean_variable_proposition("a"),
-                cc.boolean_variable_proposition("b"),
-                cc.boolean_variable_proposition("c"),
-            ]
-        ),
-        default=[
-            cc.boolean_variable_proposition("z")
-        ]
-    )
-
-    assert icvp.supporting_variable.id == "abcxy"
-    assert sorted(map(operator.itemgetter(1), icvp.to_constraints())) == [
-        [-3,-3,-3, 1, 1, 1,-8],
-        [-2,-2,-2,-1,-1, 1,-6],
-        [ 2, 2, 2, 1, 1,-7, 0],
-    ]
-
-def test_conjunction_proposition_to_constraints_with_default_value():
-
-    conj_prop = cc.conjunctional_implication_proposition([
-        cc.implication_proposition(
-            cc.Operator.XOR, 
-            cc.conditional_proposition("ALL", [
-                cc.boolean_variable_proposition("x"),
-                cc.boolean_variable_proposition("y"),
-                cc.boolean_variable_proposition("z"),
-            ]),
-            cc.conditional_proposition("ALL", [
-                cc.boolean_variable_proposition("a"),
-                cc.boolean_variable_proposition("b"),
-            ]),
-            default=[
-                cc.boolean_variable_proposition("z")
-            ]
-        )  
-    ])
-    assert conj_prop.to_polyhedron().shape == (4,7)

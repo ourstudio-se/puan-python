@@ -25,50 +25,54 @@ class variable(object):
         return self.id == o.id
 
     @staticmethod
-    def from_strings(*variables: typing.List[str], dtype_default: typing.Union[bool, int] = bool, virtual_default: bool = False) -> typing.List["variable"]:
+    def from_strings(*variables: typing.List[str], dtype_default: typing.Union[bool, int] = 0, virtual_default: bool = False) -> typing.List["variable"]:
 
         """
             Returns a list of puan.variable from a list of strings (id's)
 
+            Notes
+            -----
+            List of variables are returned sorted
+
             Examples
             --------
                 >>> variable.from_strings("a","b")
-                [variable(id="a",dtype=bool,virtual=False),variable(id="b",dtype=bool,virtual=False)]
+                [variable(id='a', dtype=0, virtual=False), variable(id='b', dtype=0, virtual=False)]
 
-                >>> variable.from_strings("a","b", dtype_default=int, virtual_default=True)
-                [variable(id="a",dtype=bool,virtual=False),variable(id="b",dtype=bool,virtual=False)]
+                >>> variable.from_strings("a","b", dtype_default=1, virtual_default=True)
+                [variable(id='a', dtype=1, virtual=True), variable(id='b', dtype=1, virtual=True)]
 
             Returns
             -------
                 out : typing.List[variable]
         """
 
-        return list(map(lambda v: variable(v, dtype, virtual), variables))
+        return sorted(map(lambda v: variable(v, dtype_default, virtual_default), variables))
 
     @staticmethod
-    def from_mixed(*variables: typing.List[typing.Union[str, int, tuple, list, "variable"]], dtype_default : typing.Union[bool, int] = bool, virtual_default: bool = False) -> typing.List["variable"]:
+    def from_mixed(*variables: typing.List[typing.Union[str, int, tuple, list, "variable"]], dtype_default : typing.Union[bool, int] = 0, virtual_default: bool = False) -> typing.List["variable"]:
         
         """
             Returns a list of puan.variable from a list of mixed data type.
 
             Notes
             -----
-            Every item in *variables that is not an instance of `variable` will be converted to a string and used as an id.
-
+            - Every item in *variables that is not an instance of `variable` will be converted to a string and used as an id.
+            - List of variables are returned sorted
 
             Examples
             --------
-                >>> variable.from_mixed("a",4,("b","c"),variable("x",int,True))
-                [variable(id="a",dtype=bool,virtual=False),variable(id="4",dtype=bool,virtual=False),variable(id="('b','c')",dtype=bool,virtual=False),variable("x",int,True)]
+                >>> variable.from_mixed("a",4,("b","c"),variable("x",1,True))
+                [variable(id="('b', 'c')", dtype=0, virtual=False), variable(id='4', dtype=0, virtual=False), variable(id='a', dtype=0, virtual=False), variable(id='x', dtype=1, virtual=True)]
 
-                >>> variable.from_mixed("a",4,variable("x",int,True), dtype_default=int, virtual=True)
-                [variable(id="a",dtype=int,virtual=True),variable(id="4",dtype=int,virtual=True),variable("x",int,True)]
+                >>> variable.from_mixed("a",4,variable("x",1,True), dtype_default=1, virtual_default=True)
+                [variable(id='4', dtype=1, virtual=True), variable(id='a', dtype=1, virtual=True), variable(id='x', dtype=1, virtual=True)]
 
             Returns
             -------
                 out : typing.List["variable"]
         """
-        return list(
+        return sorted(
             itertools.chain(
                 filter(
                     lambda v: isinstance(v, variable),

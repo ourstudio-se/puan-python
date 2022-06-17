@@ -12,7 +12,7 @@ import sys
 class variable_ndarray(numpy.ndarray):
     
     def __new__(cls, input_array, variables: typing.List[puan.variable] = [], index: typing.List[typing.Union[int, puan.variable]] = []):
-        arr = numpy.asarray(input_array).view(cls)
+        arr = numpy.asarray(input_array, dtype=numpy.int64).view(cls)
         arr.variables = numpy.array(variables)
         arr.index = numpy.array(index)
         return arr
@@ -43,20 +43,20 @@ class variable_ndarray(numpy.ndarray):
             Examples
             --------
                 >>> ge_polyhedron = ge_polyhedron(numpy.array([
-                >>>     [0,-1, 1, 0, 0],
-                >>>     [0, 0,-1, 1, 0],
-                >>>     [0, 0, 0,-1, 1],
-                >>> ]), [variable("a", int), variable("b"), variable("c", int), variable("d")])
+                ...     [0,-1, 1, 0, 0],
+                ...     [0, 0,-1, 1, 0],
+                ...     [0, 0, 0,-1, 1],
+                ... ]), [puan.variable("a", 1, False), puan.variable("b", 0, False), puan.variable("c", 1, False), puan.variable("d", 0, False)])
                 >>> ge_polyhedron.integer_variable_indices()
-                [0,2]
+                [0, 2]
         """
 
-        return set(
+        return sorted(
             map(
                 operator.itemgetter(0),
                 filter(
                     maz.compose(
-                        functools.partial(operator.eq, int),
+                        functools.partial(operator.eq, 1),
                         operator.attrgetter("dtype"),
                         operator.itemgetter(1)
                     ),
@@ -65,7 +65,7 @@ class variable_ndarray(numpy.ndarray):
             )
         )
 
-    def construct(self, *variable_values: typing.List[typing.Tuple[str, int]], default_value: int = 0) -> "variable_ndarray":
+    def construct(self, *variable_values: typing.List[typing.Tuple[str, int]], default_value: int = 0, dtype=numpy.int64) -> "variable_ndarray":
 
         """
             Constructs a variable_ndarray from a list of tuples of variable ID's and integers.
@@ -74,24 +74,22 @@ class variable_ndarray(numpy.ndarray):
             --------
 
             Constructing a new 1D variable ndarray shadow from this array and setting x = 5
-                >>> vnd = variable_ndarray([[1,2,3], [2,3,4]],
-                ...     [puan.variable("x", int), puan.variable("y", int), puan.variable("z", int)])
+                >>> vnd = variable_ndarray([[1,2,3], [2,3,4]], [puan.variable("x", 1, False), puan.variable("y", 1, False), puan.variable("z", 1, False)])
                 >>> vnd.construct(("x", 5))
-                variable_ndarray([5, 0, 0])
+                variable_ndarray([5, 0, 0], dtype=int64)
 
             Constructing a new 2D variable ndarray shadow from this array and setting x0 = 5, y0 = 4 and y1 = 3
-                >>> vnd = variable_ndarray([[1,2,3], [2,3,4]],
-                ...     [puan.variable("x", int), puan.variable("y", int), puan.variable("z", int)])
+                >>> vnd = variable_ndarray([[1,2,3], [2,3,4]], [puan.variable("x", 1, False), puan.variable("y", 1, False), puan.variable("z", 1, False)])
                 >>> vnd.construct([("x", 5), ("y", 4)], [("y", 3)])
                 variable_ndarray([[5, 4, 0],
-                                  [0, 3, 0]])
+                                  [0, 3, 0]], dtype=int64)
 
             Returns
             -------
                 out : variable_ndarray
         """
         if len(variable_values) == 0:
-                return numpy.zeros((self.shape[1]))
+                return numpy.zeros((self.shape[1]), dtype=dtype)
         elif isinstance(variable_values[0], tuple):
             variable_indices = list(
                 map(
@@ -104,7 +102,7 @@ class variable_ndarray(numpy.ndarray):
                     )
                 )
             )
-            v = numpy.ones(len(self.variables)) * default_value
+            v = numpy.ones(len(self.variables), dtype=dtype) * default_value
             v[variable_indices] = list(map(operator.itemgetter(1), variable_values))
             return self.__class__(v, self.variables)
         else:
@@ -253,19 +251,19 @@ class ge_polyhedron(variable_ndarray):
                 ...     [0,-1, 1, 0, 0],
                 ...     [0, 0,-1, 1, 0],
                 ...     [0, 0, 0,-1, 1]]),
-                ...     [puan.variable("a", int),
-                ...      puan.variable("b"),
-                ...      puan.variable("c", int),
-                ...      puan.variable("d")]).integer_variable_indices()
-                {0, 1, 3}
+                ...     [puan.variable("a", 1, False),
+                ...      puan.variable("b", 0, False),
+                ...      puan.variable("c", 1, False),
+                ...      puan.variable("d", 0, False)]).boolean_variable_indices()
+                [1, 3]
         """
 
-        return set(
+        return sorted(
             map(
                 operator.itemgetter(0),
                 filter(
                     maz.compose(
-                        functools.partial(operator.eq, bool),
+                        functools.partial(operator.eq, 0),
                         operator.attrgetter("dtype"),
                         operator.itemgetter(1)
                     ),
@@ -389,7 +387,7 @@ class ge_polyhedron(variable_ndarray):
                 integer_ndarray([0])
 
         """
-        A, b = ge_polyhedron(self, self.variables, self.index).to_linalg()
+        A, b = ge_polyhedron(self, getattr(self,'variables',[]), getattr(self,'index',[])).to_linalg()
         r = (A*((A*(A <= 0) + (A*(A > 0)).sum(axis=1).reshape(-1,1)) < b.reshape(-1,1))) + A*((A * (A > 0)).sum(axis=1) == b).reshape(-1,1)
         return r.sum(axis=0)
 
@@ -431,10 +429,10 @@ class ge_polyhedron(variable_ndarray):
 
         """
 
-        A, b = ge_polyhedron(self, self.variables, self.index).to_linalg()
+        A, b = ge_polyhedron(self, getattr(self,'variables',[]), getattr(self,'index',[])).to_linalg()
         _b = b - (A.T*(columns_vector > 0).reshape(-1,1)).sum(axis=0)
         _A = numpy.delete(A, numpy.argwhere(columns_vector != 0).T[0], 1)
-        return ge_polyhedron(numpy.append(_b.reshape(-1,1), _A, axis=1), self.variables, self.index)
+        return ge_polyhedron(numpy.append(_b.reshape(-1,1), _A, axis=1), getattr(self,'variables',[]), getattr(self,'index',[]))
 
     def reducable_rows(self: numpy.ndarray) -> numpy.ndarray:
         """
@@ -848,6 +846,10 @@ class ge_polyhedron(variable_ndarray):
         """
             Constructs a boolean ndarray sharing self.A's variables (i.e. without support vector).
 
+            Parameters
+            ----------
+            variables : list : str
+
             Returns
             -------
                 out : boolean_ndarray
@@ -905,7 +907,7 @@ class ge_polyhedron(variable_ndarray):
                                [ 1,  0,  0,  0,  0,  0, -1,  0],
                                [ 1,  0,  0,  0,  0,  0,  0, -1]])
         """
-        polyhedron = numpy.zeros([len(priorities), len(variables)+1])
+        polyhedron = numpy.zeros([len(priorities), len(variables)+1], dtype=dtype)
         polyhedron[:,0] = 1
         lez_constraint = numpy.concatenate((numpy.ones((len(variables),1)), -numpy.eye(len(variables))), axis=1)
         priority_indices = list(map(lambda x: [variables.index(x[0]) + 1, variables.index(x[1]) + 1], priorities))
@@ -933,8 +935,9 @@ class integer_ndarray(variable_ndarray):
             reduces the matrix into a value map.
         from_list
             Turns a list (or list of list) of strings into an integer vector. (static)
-
     """
+
+
     def reduce2d(self: numpy.ndarray, method: typing.Literal["first", "last"]="first", axis: int=0) -> numpy.ndarray:
         """
             Reduces integer ndarray to only keeping one value of the given axis (default is 0) according to the provided method.
@@ -974,7 +977,7 @@ class integer_ndarray(variable_ndarray):
         else:
             raise ValueError("Dimension out of bounds")
 
-    def ndint_compress(self: numpy.ndarray, method: typing.Literal["first", "last", "min", "max", "prio", "shadow"]="min", axis: int=None) -> numpy.ndarray:
+    def ndint_compress(self: numpy.ndarray, method: typing.Literal["first", "last", "min", "max", "prio", "shadow"]="min", axis: int=None, dtype=numpy.int64) -> numpy.ndarray:
 
         """
             Takes an integer ndarray and compresses it into a vector under different conditions given by `method`.
@@ -1097,7 +1100,7 @@ class integer_ndarray(variable_ndarray):
                 return numpy.swapaxes(integer_ndarray(
                             list(
                                 map(
-                                    lambda x: integer_ndarray.ndint_compress(x, method=method, axis=0),
+                                    lambda x: integer_ndarray.ndint_compress(x, method=method, axis=0, dtype=dtype),
                                     self
                                 )
                             )
@@ -1123,7 +1126,7 @@ class integer_ndarray(variable_ndarray):
                 return numpy.swapaxes(integer_ndarray(
                             list(
                                 map(
-                                    lambda x: integer_ndarray.ndint_compress(x, method=method, axis=0),
+                                    lambda x: integer_ndarray.ndint_compress(x, method=method, axis=0, dtype=dtype),
                                     self
                                 )
                             )
@@ -1132,7 +1135,7 @@ class integer_ndarray(variable_ndarray):
                 self_reduced = integer_ndarray(self).reduce2d(method="last", axis=0)
                 self_reduced = integer_ndarray(self_reduced.ranking())
                 self_reduced = self_reduced + ((self_reduced.T>0) * numpy.concatenate(([0], (numpy.cumsum(self_reduced.max(axis=1)))))[:-1]).T
-                return self_reduced.ndint_compress(method="first", axis=0)
+                return self_reduced.ndint_compress(method="first", axis=0, dtype=dtype)
             elif self.ndim == 1:
                 return self.ranking()
             else:
@@ -1145,26 +1148,26 @@ class integer_ndarray(variable_ndarray):
                 return numpy.swapaxes(integer_ndarray(
                             list(
                                 map(
-                                    lambda x: integer_ndarray.ndint_compress(x, method=method, axis=0),
+                                    lambda x: integer_ndarray.ndint_compress(x, method=method, axis=0, dtype=dtype),
                                     self
                                 )
                             )
                         ), 0, axis)
             elif self.ndim == 2:
                 # Reduce self to only include last values of columns
-                self_reduced = integer_ndarray(self).reduce2d(method="last", axis=0)
+                self_reduced = integer_ndarray(self).reduce2d(method="last", axis=0).astype(self.dtype)
                 # Convert negatives to positives
                 self_reduced_abs = numpy.abs(self_reduced)
                 #Remove zero rows
                 self_reduced_abs = self_reduced_abs[~numpy.all(self_reduced_abs == 0, axis=1)]
                 if self_reduced_abs.shape[0] == 0:
-                    return numpy.zeros(self.shape[1], dtype=numpy.int64)
+                    return numpy.zeros(self.shape[1], dtype=self.dtype)
                 # Prepare input to optimized bit allocation
                 # Values of each row must be sorted and later converted back
                 ufunc_inp_sorted_args = numpy.argsort(self_reduced_abs)
                 self_reduced_abs_sorted = self_reduced_abs[numpy.arange(self_reduced_abs.shape[0]).reshape(-1,1), ufunc_inp_sorted_args]
                 # Multiply every second row with -1, this will distinguish the rows
-                ufunc_inp = self_reduced_abs * numpy.array(list(map(lambda x: math.pow(-1, x), range(self_reduced_abs.shape[0])))).reshape(-1,1)
+                ufunc_inp = self_reduced_abs * numpy.array(list(map(lambda x: math.pow(-1, x), range(self_reduced_abs.shape[0]))), dtype=self.dtype).reshape(-1,1)
                 # Sort values of each row and omit zero values
                 ufunc_inp = ufunc_inp[numpy.arange(self_reduced_abs.shape[0]).reshape(-1,1), ufunc_inp_sorted_args]
                 ufunc_inp = ufunc_inp[ufunc_inp != 0].flatten()
@@ -1179,9 +1182,9 @@ class integer_ndarray(variable_ndarray):
                 compressed = self_reduced_abs.max(axis=0)
                 compressed_neg = self_reduced.min(axis=0)
                 compressed[compressed_neg < 0] = compressed[compressed_neg < 0] * -1
-                return numpy.swapaxes(compressed.astype(numpy.int64), 0, axis-1)
+                return numpy.swapaxes(compressed, 0, axis-1)
             elif self.ndim == 1:
-                return integer_ndarray.ndint_compress(numpy.array([self]), method=method, axis=0)
+                return integer_ndarray.ndint_compress(numpy.array([self], dtype=dtype), method=method, axis=0, dtype=dtype)
             else:
                 raise ValueError("Dimension out of bounds, is {self.ndim}")
         else:
