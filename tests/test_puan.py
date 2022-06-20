@@ -1819,3 +1819,11 @@ def test_or_replace():
     actual = puan.misc.or_replace(input, keys, value)
     expected = {'a': 1, 'b': '1'}
     assert actual == expected
+
+def test_implication_propositions_should_not_share_id():
+    
+    a_req_b = pg.Imply("a","b", id="a_req_b").to_dict()
+    b_req_c = pg.Imply("b","c", id="b_req_c").to_dict()
+
+    for k,v in a_req_b.items():
+        assert (not k in b_req_c) or b_req_c[k] == v, f"{k} is ambivalent: means both {v} and {b_req_c[k]}"

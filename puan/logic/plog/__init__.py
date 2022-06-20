@@ -206,7 +206,7 @@ class CompoundProposition(Proposition):
         such that it's underlying representation is e.g. A = a+b+c >= 3 (where all a,b and c are propositions,
         sign is +, value is 3 and id is "A").
     """
-
+    _id : str = None
     next_id = maz.compose(functools.partial(operator.add, "VAR"), str, itertools.count(1).__next__)
 
     def __init__(self, *propositions: typing.List[typing.Union[Proposition, str]], value: int, sign: int, id: str = None):
@@ -238,7 +238,21 @@ class CompoundProposition(Proposition):
         self.propositions = sorted(self.propositions)
         self.value = value
         self.sign = sign
-        super().__init__(CompoundProposition._id_generator(self.propositions, value, sign) if id is None else id, 0, True)
+        super().__init__(id, 0, True)
+
+    @property
+    def id(self) -> str:
+        if self._id is None:
+            return CompoundProposition._id_generator(
+                self.propositions, 
+                self.value, 
+                self.sign,
+            )
+        return self._id
+
+    @id.setter
+    def id(self, value):
+        object.__setattr__(self, '_id', value)
 
     @property
     def atomic_propositions(self) -> filter:
@@ -632,9 +646,9 @@ class AtLeast(CompoundProposition):
         """
 
         if any(self.compound_propositions):
-            return AtLeast(*map(operator.methodcaller("invert"), self.propositions), value=-(self.value-1)+len(self.propositions), id=self.id)
+            return AtLeast(*map(operator.methodcaller("invert"), self.propositions), value=-(self.value-1)+len(self.propositions))
         else:    
-            return AtMost(*self.propositions, value=(self.value-1), id=self.id)
+            return AtMost(*self.propositions, value=(self.value-1))
 
 class AtMost(CompoundProposition):
 
@@ -648,7 +662,7 @@ class AtMost(CompoundProposition):
         super().__init__(*propositions, value=-value, sign=-1, id=id)
 
     def invert(self) -> AtLeast:
-        return AtLeast(*itertools.chain(map(operator.methodcaller("invert"), self.compound_propositions), self.propositions), value=abs(self.value)+1, id=self.id)
+        return AtLeast(*itertools.chain(map(operator.methodcaller("invert"), self.compound_propositions), self.propositions), value=abs(self.value)+1)
 
 class All():
 
