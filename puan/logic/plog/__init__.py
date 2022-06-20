@@ -693,26 +693,26 @@ class Imply():
         """
             cicJE is a dict data type as such:
 
-                {
-                    "id": str,
-                    "condition": {
-                        "relation": str,
-                        "subConditions": [
-                            {
-                                "relation": str,
-                                "components": [
-                                    {"id": str}
-                                ]
-                            }
-                        ]
-                    },
-                    "consequence": {
-                        "ruleType": str,
-                        "components": [
-                            {"id": str}
-                        ]
-                    }
+            {
+                "id": str,
+                "condition": {
+                    "relation": str,
+                    "subConditions": [
+                        {
+                            "relation": str,
+                            "components": [
+                                {"id": str}
+                            ]
+                        }
+                    ]
+                },
+                "consequence": {
+                    "ruleType": str,
+                    "components": [
+                        {"id": str}
+                    ]
                 }
+            }
 
             This function converts a cicJE into a Imply-data format.
 

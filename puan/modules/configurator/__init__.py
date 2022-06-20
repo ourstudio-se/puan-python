@@ -143,3 +143,17 @@ class Configurator(pg.CompoundProposition):
                 self._vectors_from_prios(prios)
             )
         )
+
+    def add(self, proposition: pg.Proposition) -> "Configurator":
+
+        """
+            Add a new proposition to the model.
+
+            Returns
+            -------
+                out : Configurator
+        """
+        return Configurator(
+            *(self.propositions + [proposition]), 
+            id=self.id,
+        )

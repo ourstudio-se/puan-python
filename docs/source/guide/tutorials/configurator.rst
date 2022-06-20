@@ -153,3 +153,110 @@ Running the new model, we are guaranteed to get our cool black outfit when none 
     #    (variable(id='t-thirt-black', dtype=0, virtual=False), 1)
     # ]
 
+More on select
+--------------
+The `select` function takes a list of "prioritization" dictionaries. They use the key as the id for the selection and a integer value as its prioritization. Let say you'd like the black jeans and
+the black sweater
+
+.. code:: python
+
+    # Pick the black pair of jeans
+    solution = list(
+        model.select(
+            [
+                {
+                    "jeans-black": 1,
+                    "sweater-black": 1,
+                }
+            ], 
+            solve_stuff
+        ),
+    )
+    print(solution)
+    # [
+    #    (variable(id='jeans-black', dtype=0, virtual=False), 1), 
+    #    (variable(id='shoes-black', dtype=0, virtual=False), 1), 
+    #    (variable(id='sweater-black', dtype=0, virtual=False), 1), 
+    #    (variable(id='t-thirt-black', dtype=0, virtual=False), 1)
+    # ]
+
+But here both are set to have the same priority. Let's add another logic relationship saying that they cannot be selected together:
+
+.. code:: python
+
+    new_model = model.add(
+        pg.AtMost("sweater-black", "jeans-black", value=1)
+    )
+
+
+And again solve with same prio
+
+.. code:: python
+
+    # Pick the black pair of jeans
+    solution = list(
+        model.select(
+            [
+                {
+                    "jeans-black": 1,
+                    "sweater-black": 1,
+                }
+            ], 
+            solve_stuff
+        ),
+    )
+    print(solution)
+    # [
+    #    (variable(id='jeans-black', dtype=0, virtual=False), 1), 
+    #    (variable(id='shoes-black', dtype=0, virtual=False), 1), 
+    #    (variable(id='t-thirt-black', dtype=0, virtual=False), 1)
+    # ]
+
+And we know did get the black jeans and got rid of our sweater. If we change sweater prio to be higher than the jeans, we'll instead get the black sweater with another pair of jeans:
+
+.. code:: python
+
+    # Pick the black pair of jeans
+    solution = list(
+        model.select(
+            [
+                {
+                    "jeans-black": 1,
+                    "sweater-black": 2,
+                }
+            ], 
+            solve_stuff
+        ),
+    )
+    print(solution)
+    # [
+    #    (variable(id='jeans-blue', dtype=0, virtual=False), 1), 
+    #    (variable(id='shoes-black', dtype=0, virtual=False), 1), 
+    #    (variable(id='sweater-black', dtype=0, virtual=False), 1), 
+    #    (variable(id='t-thirt-black', dtype=0, virtual=False), 1)
+    # ]
+
+You can also select with **negative prio**. For instance, you could go with any shoes but the black ones:
+
+.. code:: python
+
+    # Pick the black pair of jeans
+    solution = list(
+        model.select(
+            [
+                {
+                    "shoes-black": -1,
+                    "jeans-black": 1,
+                    "sweater-black": 2,
+                }
+            ], 
+            solve_stuff
+        ),
+    )
+    print(solution)
+    # [
+    #    (variable(id='jeans-blue', dtype=0, virtual=False), 1), 
+    #    (variable(id='shoes-white', dtype=0, virtual=False), 1), 
+    #    (variable(id='sweater-black', dtype=0, virtual=False), 1), 
+    #    (variable(id='t-thirt-black', dtype=0, virtual=False), 1)
+    # ]
