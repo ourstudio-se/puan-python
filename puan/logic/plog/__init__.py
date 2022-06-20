@@ -285,7 +285,7 @@ class CompoundProposition(Proposition):
             map(
                 maz.compose(
                     functools.partial(operator.mul, 1), 
-                    functools.partial(operator.eq, int),
+                    functools.partial(operator.eq, 1),
                     operator.attrgetter("dtype"),
                 ),
                 self.propositions
@@ -531,6 +531,79 @@ class CompoundProposition(Proposition):
             )
         ).decode(str_decoding)
 
+    def assume(self, fixed: typing.Dict[str, int]) -> "CompoundProposition":
+
+        """
+            Assumes certian propositions inside model to be fixed at some value.
+
+            Parameters
+            ----------
+                fixed : typing.Dict[str, int]
+                    key represents the proposition ID and value is what it should be fixed to
+
+            Examples
+            --------
+                >>> model = AtLeast("x","y","z", value=2, id="A")
+                >>> model.assume({"x": 1})
+                AtLeast(id='A', equation='y+z>=1') 
+
+            Returns
+            -------
+                out : CompoundProposition
+        """
+        remaining_propositions = list(
+            itertools.chain(
+                filter(
+                    lambda x: not x.is_tautologi,
+                    map(
+                        lambda prop: prop.assume(fixed),
+                        filter(
+                            lambda x: not x.id in fixed,
+                            self.compound_propositions
+                        )
+                    ),
+                ),
+                filter(
+                    lambda x: not x.id in fixed,
+                    self.atomic_propositions
+                )
+            )
+        )
+        return self.__class__(
+            *remaining_propositions,
+            value=self.value+(len(remaining_propositions)-len(self.propositions))*self.sign, 
+            id=self.id
+        )
+
+    @property
+    def is_tautologi(self) -> bool:
+
+        """
+            Returns wheather or not this proposition is true, no matter the interpretation of sub propositions.
+
+            Notes
+            -----
+            Currently are not sub propositions taken into consideration.
+
+            Examples
+            --------
+                >>> model = AtLeast("x","y",value=1)
+                >>> model.is_tautologi
+                False
+
+                >>> model = AtLeast("x",value=0)
+                >>> model.is_tautologi
+                True
+
+                >>> model = AtMost("x","y",value=2)
+                >>> model.is_tautologi
+                True
+
+            Returns
+            -------
+                out : bool
+        """
+        return numpy.logical_xor(self.value != 0, self.sign > 0)
 
 class AtLeast(CompoundProposition):
 
