@@ -9,3 +9,4 @@ API reference
    puan.ndarray
    puan.logic
    puan.misc
+   puan.modules

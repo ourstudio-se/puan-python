@@ -4,7 +4,7 @@ Source-target Application
 .. _puan.logic.sta:
 
 Summary
---------
+-------
 The "source-target-application" data format (`sta` for short) defines logical relations between items bound
 on their properties. Let say you're modelling logical relationships between the entities Person, House and Car, you
 could say 
@@ -20,7 +20,7 @@ Data types
 .. currentmodule:: puan.logic.sta
 
 Application
-+++++++++++++
++++++++++++
 
 .. autoclass:: application
    :members:

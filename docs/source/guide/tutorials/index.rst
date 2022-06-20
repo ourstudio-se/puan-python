@@ -7,3 +7,4 @@ Tutorials
 
    sta-model
    plog-model
+   configurator
