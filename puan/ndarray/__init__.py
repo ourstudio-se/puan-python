@@ -1185,8 +1185,103 @@ class integer_ndarray(variable_ndarray):
             print("Method not recognized")
             return
 
+    def get_neighbourhood(self: numpy.ndarray, method: typing.Literal["all", "addition", "subtraction"]="all", delta: typing.Union[int, numpy.ndarray]=1) -> "integer_ndarray":
+        """
+            Computes all neighbourhoods to an integer ndarray. A neighbourhood to the integer ndarray :math:`x` is defined as the
+            integer ndarray :math:`y` which for one variable differs by *delta*, the values for the other variables are identical.
 
+            Parameters
+            ----------
+                method : {'all', 'addition', 'subtraction'}, optional
+                    The method used to compute the neighbourhoods to the integer ndarray. The following methods are available (default is 'all')
 
+                    - 'all' computes all neighbourhoods, *addition* and *subtraction*.
+                    - 'addition' computes all neighbourhoods with *delta* added
+                    - 'subtraction' computes all neighbourhoods with *delta* subtracted
+
+                delta : int or numpy.ndarray, optional
+                    The value added or subtracted for each variable to reach the neighbourhood, default is 1.
+                    If delta is given as an array it is interpreted as different deltas for each variable.
+
+            Returns
+            -------
+                out : integer_ndarray
+                    If input dimension is M-D the returned integer ndarray is M+1-D
+
+            Examples
+            --------
+                >>> x = integer_ndarray([0,0,0])
+                >>> x.get_neighbourhood()
+                array([[ 1,  0,  0],
+                       [ 0,  1,  0],
+                       [ 0,  0,  1],
+                       [-1,  0,  0],
+                       [ 0, -1,  0],
+                       [ 0,  0, -1]])
+
+                >>> x = integer_ndarray([[0,0,0], [0,0,0]])
+                >>> x.get_neighbourhood()
+                array([[[ 1,  0,  0],
+                        [ 0,  1,  0],
+                        [ 0,  0,  1],
+                        [-1,  0,  0],
+                        [ 0, -1,  0],
+                        [ 0,  0, -1]],
+                <BLANKLINE>
+                       [[ 1,  0,  0],
+                        [ 0,  1,  0],
+                        [ 0,  0,  1],
+                        [-1,  0,  0],
+                        [ 0, -1,  0],
+                        [ 0,  0, -1]]])
+
+                >>> x = integer_ndarray([0, 1, 2])
+                >>> x.get_neighbourhood(delta=3)
+                array([[ 3,  1,  2],
+                       [ 0,  4,  2],
+                       [ 0,  1,  5],
+                       [-3,  1,  2],
+                       [ 0, -2,  2],
+                       [ 0,  1, -1]])
+                >>> x.get_neighbourhood(delta=numpy.array([1, 2, 3]))
+                array([[ 1,  1,  2],
+                       [ 0,  3,  2],
+                       [ 0,  1,  5],
+                       [-1,  1,  2],
+                       [ 0, -1,  2],
+                       [ 0,  1, -1]])
+
+                >>> x = integer_ndarray([[0,0,0], [0,0,0]])
+                >>> x.get_neighbourhood(method="addition")
+                integer_ndarray([[[1, 0, 0],
+                                  [0, 1, 0],
+                                  [0, 0, 1]],
+                <BLANKLINE>
+                                 [[1, 0, 0],
+                                  [0, 1, 0],
+                                  [0, 0, 1]]])
+
+                >>> x = integer_ndarray([[0,0,0], [0,0,0]])
+                >>> x.get_neighbourhood(method="subtraction")
+                integer_ndarray([[[-1,  0,  0],
+                                  [ 0, -1,  0],
+                                  [ 0,  0, -1]],
+                <BLANKLINE>
+                                 [[-1,  0,  0],
+                                  [ 0, -1,  0],
+                                  [ 0,  0, -1]]])
+
+        """
+        nvars = len(self.variables)
+        if not method == "subtraction":
+            inc_neighbourhood = numpy.tile(self, nvars).reshape(list(self.shape)+[nvars]) +  numpy.tile(delta * numpy.eye(nvars, dtype=numpy.int64), (list(self.shape)[:-1] + [1])).reshape(list(self.shape)+[nvars])
+            if method == "addition":
+                return inc_neighbourhood
+        if not method == "addition":
+            dec_neighbourhood = numpy.tile(self, nvars).reshape(list(self.shape)+[nvars]) -  numpy.tile(delta * numpy.eye(nvars, dtype=numpy.int64), (list(self.shape)[:-1] + [1])).reshape(list(self.shape)+[nvars])
+            if method == "subtraction":
+                return dec_neighbourhood
+        return numpy.concatenate((inc_neighbourhood, dec_neighbourhood), axis=self.ndim-1)
 
 
     def to_value_map(self: numpy.ndarray, mapping: dict = {}) -> dict:
@@ -1355,6 +1450,63 @@ class boolean_ndarray(variable_ndarray):
                 )
             )
 
+    def get_neighbourhood(self: numpy.ndarray, method: typing.Literal["on_off", "on", "off"]="on_off") -> "boolean_ndarray":
+        """
+            Computes all neighbourhoods to a boolean ndarray. A neighbourhood to the boolean ndarray :math:`x` is defined as the
+            boolean ndarray :math:`y` which for one and only one variable in :math:`x` is the complement.
+
+            Parameters
+            ----------
+                method : {'on_off', 'on', 'off'}, optional
+                    The method used to compute the neighbourhoods to the boolean ndarray. The following methods are available (default is 'on_off')
+
+                    - 'on_off' the most natural way to define neighbourhoods, if a variable is True in the input it is False in its neighbourhood and vice versa.
+                    - 'on' do not include neighbourhoods with 'off switches', i.e. if a variable is True there is no neighbourhood to this variable.
+                    - 'off' do not include neighbourhoods with 'on switches', i.e. if a variable is False there is no neighbourhood to this variable.
+
+            Returns
+            -------
+                out : integer_ndarray
+                    If input dimension is M-D the returned integer ndarray is M+1-D
+
+            Examples
+            --------
+                >>> x = boolean_ndarray([1, 0, 0, 1])
+                >>> x.get_neighbourhood(method="on_off")
+                boolean_ndarray([[False, False, False,  True],
+                                 [ True,  True, False,  True],
+                                 [ True, False,  True,  True],
+                                 [ True, False, False, False]])
+
+                >>> x = boolean_ndarray([1, 0, 0, 1])
+                >>> x.get_neighbourhood(method="on")
+                boolean_ndarray([[ True,  True, False,  True],
+                                 [ True, False,  True,  True]])
+
+                >>> x = boolean_ndarray([1, 1, 1, 1])
+                >>> x.get_neighbourhood(method="on")
+                boolean_ndarray([], shape=(0, 4), dtype=bool)
+
+                >>> x = boolean_ndarray([1, 0, 0, 1])
+                >>> x.get_neighbourhood(method="off")
+                boolean_ndarray([[False, False, False,  True],
+                                 [ True, False, False, False]])
+
+                >>> x = boolean_ndarray([0, 0, 0, 0])
+                >>> x.get_neighbourhood(method="off")
+                boolean_ndarray([], shape=(0, 4), dtype=bool)
+        """
+        nvars = len(self.variables)
+        if method == "on_off":
+            _res = numpy.logical_xor(numpy.tile(self, nvars).reshape(list(self.shape)+[nvars]), numpy.tile(numpy.eye(nvars, dtype=numpy.int64), (list(self.shape)[:-1] + [1])).reshape(list(self.shape)+[nvars]))
+        elif method == "on":
+            _res = numpy.logical_or(numpy.tile(self, nvars).reshape(list(self.shape)+[nvars]), numpy.tile(numpy.eye(nvars, dtype=numpy.int64), (list(self.shape)[:-1] + [1])).reshape(list(self.shape)+[nvars]))
+        elif method == "off":
+            _res = numpy.logical_and(numpy.tile(self, nvars).reshape(list(self.shape)+[nvars]), numpy.tile(numpy.ones(nvars, dtype=numpy.int64) - numpy.eye(nvars, dtype=numpy.int64), (list(self.shape)[:-1] + [1])).reshape(list(self.shape)+[nvars]))
+        else:
+            print("Method not recognized")
+            return
+        return _res[~(_res==self).all(axis=self.ndim-1)]
 """
     Function binding to function variables
     that should directly be accessible through
