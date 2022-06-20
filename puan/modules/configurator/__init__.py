@@ -38,9 +38,8 @@ class Xor():
     """
         Overriding plog.Xor proposition with default -attribute indicating which solution
         is default. If proposition is A: a+b+c >= 1 and default is "c", then new proposition is
-            A  : A'+c >=1
-            A' : a+b  >=1
-
+        A  : A'+c >=1
+        A' : a+b  >=1
         and prio is set to c > A'.
     """
 
@@ -72,7 +71,7 @@ class Configurator(pg.CompoundProposition):
     def polyhedron(self) -> pnd.ge_polyhedron:
 
         """
-            This configurator model's polyhedron
+            This configurator model's polyhedron (see logic.plog.CompoundProposition.to_polyhedron).
         """
         
         return self.to_polyhedron(True)
@@ -96,10 +95,12 @@ class Configurator(pg.CompoundProposition):
 
     def _vectors_from_prios(self, prios: typing.List[typing.Dict[str, int]]) -> np.ndarray:
 
-        """"""
+        """
+            Constructs weight vectors from prioritization list.
+        """
 
         return pnd.integer_ndarray(
-            numpy.array(
+            np.array(
                 list(
                     map(
                         lambda y: [
