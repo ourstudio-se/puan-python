@@ -630,7 +630,7 @@ class AtLeast(CompoundProposition):
     def __init__(self, *propositions: typing.List[typing.Union["Proposition", puan.variable]], value: int, id: str = None):
         super().__init__(*propositions, value=value, sign=1, id=id)
     
-    def invert(self) -> "AtMost":
+    def invert(self, id: str = None) -> "AtMost":
         
         """
             Inverts (or negates) proposition.
@@ -646,9 +646,9 @@ class AtLeast(CompoundProposition):
         """
 
         if any(self.compound_propositions):
-            return AtLeast(*map(operator.methodcaller("invert"), self.propositions), value=-(self.value-1)+len(self.propositions))
+            return AtLeast(*map(operator.methodcaller("invert"), self.propositions), value=-(self.value-1)+len(self.propositions), id=id)
         else:    
-            return AtMost(*self.propositions, value=(self.value-1))
+            return AtMost(*self.propositions, value=(self.value-1), id=id)
 
 class AtMost(CompoundProposition):
 
@@ -661,8 +661,12 @@ class AtMost(CompoundProposition):
     def __init__(self, *propositions: typing.List[typing.Union["Proposition", puan.variable]], value: int, id: str = None):
         super().__init__(*propositions, value=-value, sign=-1, id=id)
 
-    def invert(self) -> AtLeast:
-        return AtLeast(*itertools.chain(map(operator.methodcaller("invert"), self.compound_propositions), self.propositions), value=abs(self.value)+1)
+    def invert(self, id: str = None) -> AtLeast:
+        return AtLeast(
+            *itertools.chain(map(operator.methodcaller("invert"), self.compound_propositions), self.propositions), 
+            value=abs(self.value)+1,
+            id=id,
+        )
 
 class All():
 
@@ -785,6 +789,23 @@ class Xor():
             AtMost(*propositions, value=1, id=f"{id}_UB" if id is not None else None),
             id=id
         )
+
+class XNor():
+
+    """
+        XNor is a negated Xor. It is also the same as a biconditional logical connective (<->), or if and only if.
+        For example, XNor("x","y") means that if x is true then y should also be true and vice versa.
+        The truth-table for two propositions x and y are as following:
+
+        x y | xnor(x,y)
+        0 0 |   1
+        0 1 |   0
+        1 0 |   0
+        1 1 |   1
+    """
+
+    def __new__(cls, *propositions, id: str = None):
+        return Xor(*propositions).invert(id=id)
 
 class Not():
 
