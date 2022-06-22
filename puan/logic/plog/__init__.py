@@ -477,10 +477,7 @@ class CompoundProposition(Proposition, list):
             -------
                 out : CompoundProposition
         """
-
-        # if all(map(lambda x: not hasattr(x, "propositions"), self.propositions)):
-        #     return self._to_constraint(index_predicate)
-
+        
         _constriant = self._to_constraint(index_predicate)
         return itertools.chain(
             [_constriant.extend() if extend_top else _constriant],
@@ -505,20 +502,6 @@ class CompoundProposition(Proposition, list):
         #     )
         # )
         
-        # Python-func
-        # transformed_constraint = _CompoundConstraint(self.value, self.sign, map(lambda x: x.constraints[0], sub_constraints), index_predicate(self)).transform()
-        
-        
-        # return _CompoundConstraint(
-        #     transformed_constraint.b, 
-        #     transformed_constraint.sign, 
-        #     itertools.chain(
-        #         transformed_constraint.constraints,
-        #         itertools.chain(*map(lambda x: x.constraints[1:], sub_constraints)), 
-        #     ),
-        #     transformed_constraint.id
-        # )
-
     def to_polyhedron(self, active: bool = False, dtype = numpy.int32, support_variable_id: typing.Union[int, str] = 0) -> puan.ndarray.ge_polyhedron:
 
         """
@@ -541,7 +524,7 @@ class CompoundProposition(Proposition, list):
                 >>> ph
                 ge_polyhedron([[ 0, -2,  1,  1,  0,  0,  0,  0],
                                [ 0,  0, -2,  0,  1,  1,  0,  0],
-                               [ 0,  0,  0, -1,  0,  0,  1,  1]], dtype=int32)
+                               [ 0,  0,  0, -1,  0,  0,  1,  1]])
                 >>> ph.variables.tolist()
                 [variable(id='0', dtype=1, virtual=True), variable(id='A', dtype=0, virtual=True), variable(id='B', dtype=0, virtual=True), variable(id='C', dtype=0, virtual=True), variable(id='a', dtype=0, virtual=False), variable(id='b', dtype=0, virtual=False), variable(id='c', dtype=0, virtual=False), variable(id='d', dtype=0, virtual=False)]
         """
@@ -555,15 +538,24 @@ class CompoundProposition(Proposition, list):
 
         return puan.ndarray.ge_polyhedron(M, ph_vars, list(map(lambda x: ph_vars[x.id], compound_constraints)))
 
-    def to_dict(self):
+    def to_dict(self) -> typing.Dict[str, list]:
 
         """
             Transforms model into a dictionary representation.
+            The key is the id of a proposition.
+            The value is a list of three elements:
+            1. sign of coeffs (e.g. sign=1 means a+b+c, sign=-1 means -a-b-c)
+            2. sub propositions / variables (e.g. a,b,c)
+            3. value of support vector (e.g. 3 as in a+b+c>=3)
 
             Examples
             --------
                 >>> All(All("a","b", id="B"), Any("c","d", id="C"), id="A").to_dict()
-                {'A': 'B+C>=2', 'B': 'a+b>=2', 'C': 'c+d>=1'}
+                {'A': [1, ['B', 'C'], 2], 'B': [1, ['a', 'b'], 2], 'C': [1, ['c', 'd'], 1]}
+
+            Returns
+            -------
+                out : typing.Dict[str, list]
         """
 
         return {
@@ -727,7 +719,7 @@ class AtLeast(CompoundProposition):
     def __init__(self, *propositions: typing.List[typing.Union["Proposition", puan.variable]], value: int, id: str = None):
         super().__init__(*propositions, value=value, sign=1, id=id)
     
-    def invert(self, id: str = None) -> "AtMost":
+    def invert(self) -> "AtMost":
         
         """
             Inverts (or negates) proposition.
@@ -743,9 +735,9 @@ class AtLeast(CompoundProposition):
         """
 
         if any(self.compound_propositions):
-            return AtLeast(*map(operator.methodcaller("invert"), self.propositions), value=-(self.value-1)+len(self.propositions), id=id)
+            return AtLeast(*map(operator.methodcaller("invert"), self.propositions), value=-(self.value-1)+len(self.propositions), id=self._id)
         else:    
-            return AtMost(*self.propositions, value=(self.value-1), id=id)
+            return AtMost(*self.propositions, value=(self.value-1), id=self._id)
 
 class AtMost(CompoundProposition):
 
@@ -758,11 +750,11 @@ class AtMost(CompoundProposition):
     def __init__(self, *propositions: typing.List[typing.Union["Proposition", puan.variable]], value: int, id: str = None):
         super().__init__(*propositions, value=-value, sign=-1, id=id)
 
-    def invert(self, id: str = None) -> AtLeast:
+    def invert(self) -> AtLeast:
         return AtLeast(
             *itertools.chain(map(operator.methodcaller("invert"), self.compound_propositions), self.propositions), 
             value=abs(self.value)+1,
-            id=id,
+            id=self._id,
         )
 
 class All():
