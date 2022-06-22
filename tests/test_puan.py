@@ -6,6 +6,7 @@ import puan.ndarray
 import puan.vmap
 import puan.logic
 import puan.logic.plog as pg
+import puan.modules.configurator as cc
 import numpy
 import operator
 import maz
@@ -1827,3 +1828,21 @@ def test_implication_propositions_should_not_share_id():
 
     for k,v in a_req_b.items():
         assert (not k in b_req_c) or b_req_c[k] == v, f"{k} is ambivalent: means both {v} and {b_req_c[k]}"
+
+def test_bind_relations_to_compound_id():
+
+    model = pg.All(
+        pg.Any("a","b",id="B"),
+        pg.Any("c","d",id="C"),
+        pg.Any("C","B",id="A"),
+        id="model"
+    )
+    assert len(model.propositions) == 3
+
+def test_dont_override_propositions():
+
+    model = pg.All(
+        pg.Imply(pg.Proposition("xor_xy", 0, True), pg.All(*list("abc"))),
+        pg.Xor("x","y", id="xor_xy"),
+    )
+    assert model.xor_xy.virtual == model.to_polyhedron().variables[4].virtual, f"models 'xor_xy' is virtual while models polyhedrons 'xor_xy' is not"

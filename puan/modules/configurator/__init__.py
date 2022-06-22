@@ -113,14 +113,14 @@ class Configurator(pg.CompoundProposition):
             )
         ).ndint_compress(method="shadow", axis=0)
 
-    def select(self, prios: typing.List[typing.Dict[str, int]], solver, include_virtual_vars: bool = False) -> typing.Iterable[typing.List[puan.variable]]:
+    def select(self, *prios: typing.List[typing.Dict[str, int]], solver, include_virtual_vars: bool = False) -> typing.Iterable[typing.List[puan.variable]]:
 
         """
             Select items to prioritize and receive a solution.
 
             Parameters
             ----------
-                prios : typing.List[typing.Dict[str, int]]
+                *prios : typing.List[typing.Dict[str, int]]
                     a list of dicts where each entry's value is a prio
 
                 solver : a mixed integer linear programming solver

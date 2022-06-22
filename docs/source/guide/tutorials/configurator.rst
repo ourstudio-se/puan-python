@@ -212,7 +212,8 @@ And again solve with same prio
     #    (variable(id='t-thirt-black', dtype=0, virtual=False), 1)
     # ]
 
-And we know did get the black jeans and got rid of our sweater. If we change sweater prio to be higher than the jeans, we'll instead get the black sweater with another pair of jeans:
+And we know did get the black jeans and got rid of our sweater. The reason for this is that the solution with jeans has 3 items whereas the solution with a sweater has 4 and a low number of items
+are more prioritized than a high number of items. If we change sweater prio to be higher than the jeans, we'll instead get the black sweater with another pair of jeans:
 
 .. code:: python
 

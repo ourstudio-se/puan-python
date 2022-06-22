@@ -22,6 +22,8 @@ Data types
    
    :class:`puan.logic.plog.Xor` : Xor is restricting all propositions within to be selected exactly once. For example, Xor("x","y","z") means that x, y and z must be selected exactly once.
    
+   :class:`puan.logic.plog.XNor` : XNor is a negated Xor. In the special case of two propositions, this is equivalent as a biconditional logical connective (<->).
+   
    :class:`puan.logic.plog.Not` : Not is restricting propositions to never be selected. For example, Not("x","y","z") means that x, y or z can never be selected. Note that Not(x) is not necessarily equivilent to x.invert() (but could be).
 
 
@@ -69,6 +71,12 @@ Imply
 Xor
 +++
 .. autoclass:: Xor
+   :members:
+   :show-inheritance:
+
+XNor
+++++
+.. autoclass:: XNor
    :members:
    :show-inheritance:
 

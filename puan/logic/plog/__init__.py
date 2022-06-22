@@ -152,6 +152,27 @@ class Proposition(puan.variable):
     def __hash__(self):
         return super().__hash__()
 
+    def __add__(self, o):
+        """
+            Adding two propositions is equal to OR-ing them:
+            a+b means a | b
+        """
+        return AtLeast(self, o, value=1)
+
+    def __mul__(self, o):
+        """
+            Multiplying two propositions is equal to AND-ing them:
+            a*b means a & b
+        """
+        return AtLeast(self, o, value=2)
+
+    def __sub__(self, o):
+        """
+            Subtracting two propositions is equal to Implying the right one on to the other:
+            a-b means b->a
+        """
+        return Imply(o, self)
+
     @property
     def variable(self) -> puan.variable:
 
@@ -178,28 +199,24 @@ class Proposition(puan.variable):
         """
         return [self.variable]
 
-    # def to_compound_constraint(self, index_predicate: typing.Callable[[puan.variable], int]) -> _CompoundConstraint:
-
-    #     """
-    #         Transforms into a compound linear inequality or constraint data format
-    #         of _CompoundConstraint.
-    #     """
-
-    #     return _CompoundConstraint(1,1, [
-    #         _Constraint(
-    #             ([0,1][self.dtype == int],),
-    #             (index_predicate(self.variable),),
-    #             (1,), 
-    #             1 if self.dtype == bool else default_min_int, 
-    #             index_predicate(self.variable)
-    #         )
-    #     ], index_predicate(self.variable))
+    @staticmethod
+    def from_strings(*variables, dtype_default: int=0, virtual_default: bool=False):
+        return list(
+            map(
+                lambda x: Proposition(x.id, x.dtype, x.virtual),
+                puan.variable.from_strings(
+                    *variables, 
+                    dtype_default=dtype_default, 
+                    virtual_default=virtual_default,
+                )
+            )
+        )
 
     def to_dict(self):
         return {}
 
 @dataclass(frozen=True, repr=False)
-class CompoundProposition(Proposition):
+class CompoundProposition(Proposition, list):
 
     """
         A Compound Proposition is a collection of propositions joined by a sign (+/-) and a bias value
@@ -236,9 +253,43 @@ class CompoundProposition(Proposition):
             )
 
         self.propositions = sorted(self.propositions)
+        
+        # propositions as attributes on self
+        list(map(lambda x: object.__setattr__(self, x.id, x), self.propositions))
         self.value = value
         self.sign = sign
         super().__init__(id, 0, True)
+
+    def __check__(self, v):
+        if not isinstance(v, Proposition):
+            raise TypeError(v)
+
+    def __len__(self): return len(self.propositions)
+
+    def __getitem__(self, i): 
+        return self.propositions[i]
+
+    def __delitem__(self, i): 
+        del self.propositions[i]
+        self.value -= 1 if self.sign > 0 else -1
+
+    def __setitem__(self, i, v):
+        self.__check__(v)
+        self.propositions[i] = v
+
+    def append(self, i, v):
+        self.__check__(v)
+        self.value += 1 if self.sign > 0 else -1
+        self.propositions.append(v)
+
+    def insert(self, i, v):
+        self.__check__(v)
+        self.value += 1 if self.sign > 0 else -1
+        self.propositions.insert(i, v)
+
+    def pop(self, i):
+        self.value -= 1 if self.sign > 0 else -1
+        self.propositions.pop(i)
 
     @property
     def id(self) -> str:
@@ -517,7 +568,7 @@ class CompoundProposition(Proposition):
 
         return {
             **{
-                self.variable.id: f"{['-',''][self.value > 0]}{(['-','+'][self.value > 0]).join(map(lambda x: x.variable.id, self.propositions))}>={self.value}"
+                self.variable.id: [self.sign, list(map(operator.attrgetter("id"), self.propositions)), self.value],
             },
             **functools.reduce(lambda x,y: dict(x,**y), map(operator.methodcaller("to_dict"), self.propositions))
         }
@@ -545,21 +596,25 @@ class CompoundProposition(Proposition):
             )
         ).decode(str_decoding)
 
-    def assume(self, fixed: typing.Dict[str, int]) -> "CompoundProposition":
+    def assume(self, *fixed: typing.List[str]) -> "CompoundProposition":
 
         """
             Assumes certian propositions inside model to be fixed at some value.
 
             Parameters
             ----------
-                fixed : typing.Dict[str, int]
-                    key represents the proposition ID and value is what it should be fixed to
+                fixed : typing.List[str]
+                    fixed is a list of id's representing the id of propositions that are fixed to True
 
             Examples
             --------
                 >>> model = AtLeast("x","y","z", value=2, id="A")
-                >>> model.assume({"x": 1})
-                AtLeast(id='A', equation='y+z>=1') 
+                >>> model.assume("x")
+                AtLeast(id='A', equation='+y+z>=1')
+
+                >>> model = All(Any("a","b",id="B"), Any("x","y",id="C"), id="A")
+                >>> model.assume("a")
+                AtLeast(id='A', equation='+C>=1')
 
             Returns
             -------
@@ -570,7 +625,7 @@ class CompoundProposition(Proposition):
                 filter(
                     lambda x: not x.is_tautologi,
                     map(
-                        lambda prop: prop.assume(fixed),
+                        lambda prop: prop.assume(*fixed),
                         filter(
                             lambda x: not x.id in fixed,
                             self.compound_propositions
@@ -593,17 +648,25 @@ class CompoundProposition(Proposition):
     def is_tautologi(self) -> bool:
 
         """
-            Returns wheather or not this proposition is true, no matter the interpretation of sub propositions.
+            Returns wheather or not this proposition is true, no matter the interpretation of its propositions.
 
             Notes
             -----
-            Currently are not sub propositions taken into consideration.
+            Sub propositions are not taken into consideration.
 
             Examples
             --------
                 >>> model = AtLeast("x","y",value=1)
                 >>> model.is_tautologi
                 False
+
+                >>> model = AtMost("x","y",value=1)
+                >>> model.is_tautologi
+                False
+
+                >>> model = AtMost("x","y","z",value=3)
+                >>> model.is_tautologi
+                True
 
                 >>> model = AtLeast("x",value=0)
                 >>> model.is_tautologi
@@ -617,7 +680,41 @@ class CompoundProposition(Proposition):
             -------
                 out : bool
         """
-        return numpy.logical_xor(self.value != 0, self.sign > 0)
+        return ((self.sign > 0) & (self.value <= 0)) | ((self.sign < 0) & (-self.value >= len(self.propositions)))
+
+    @property
+    def is_contradiction(self) -> bool:
+
+        """
+            Returns wheather or not this proposition is false, no matter the interpretation of its propositions.
+
+            Notes
+            -----
+            Sub propositions are not taken into consideration.
+
+            Examples
+            --------
+                >>> model = AtLeast("x","y",value=1)
+                >>> model.is_contradiction
+                False
+
+                >>> model = AtMost("x","y",value=1)
+                >>> model.is_contradiction
+                False
+
+                >>> model = AtLeast("x","y",value=3)
+                >>> model.is_contradiction
+                True
+
+                >>> model = AtMost("x","y",value=-1)
+                >>> model.is_contradiction
+                True
+
+            Returns
+            -------
+                out : bool
+        """
+        return ((self.sign > 0) & (self.value > len(self.propositions))) | ((self.sign < 0) & (self.value > 0))
 
 class AtLeast(CompoundProposition):
 
@@ -709,29 +806,6 @@ class Imply():
     def from_cicJE(data: dict, id_ident: str = "id") -> "Imply":
 
         """
-            cicJE is a dict data type as such:
-
-            {
-                "id": str,
-                "condition": {
-                    "relation": str,
-                    "subConditions": [
-                        {
-                            "relation": str,
-                            "components": [
-                                {"id": str}
-                            ]
-                        }
-                    ]
-                },
-                "consequence": {
-                    "ruleType": str,
-                    "components": [
-                        {"id": str}
-                    ]
-                }
-            }
-
             This function converts a cicJE into a Imply-data format.
 
             Parameters
@@ -740,6 +814,33 @@ class Imply():
 
             id_ident : str = "id"
                 The id identifier inside a component
+
+            Examples
+            --------
+                >>> Imply.from_cicJE({
+                ...     "id": "someId",
+                ...     "condition": {
+                ...         "relation": "ALL",
+                ...         "subConditions": [
+                ...             {
+                ...                 "relation": "ALL",
+                ...                 "components": [
+                ...                     {"id": "a"},
+                ...                     {"id": "b"},
+                ...                 ]
+                ...             }
+                ...         ]
+                ...     },
+                ...     "consequence": {
+                ...         "ruleType": "REQUIRES_ALL",
+                ...         "components": [
+                ...             {"id": "x"},
+                ...             {"id": "y"},
+                ...             {"id": "z"},
+                ...         ]
+                ...     }
+                ... })
+                AtLeast(id='someId', equation='+VAR1805+VARb6a0>=1')
 
             Returns
             -------
@@ -780,7 +881,7 @@ class Xor():
 
     """
         Xor is restricting all propositions within to be selected exactly once.
-        For example, Xor("x","y","z") means that x, y and z must be selected exactly once.
+        For example, Xor(x,y,z) means that x, y and z must be selected exactly once.
     """
 
     def __new__(cls, *propositions, id: str = None):
@@ -793,15 +894,8 @@ class Xor():
 class XNor():
 
     """
-        XNor is a negated Xor. It is also the same as a biconditional logical connective (<->), or if and only if.
-        For example, XNor("x","y") means that if x is true then y should also be true and vice versa.
-        The truth-table for two propositions x and y are as following:
-
-        x y | xnor(x,y)
-        0 0 |   1
-        0 1 |   0
-        1 0 |   0
-        1 1 |   1
+        XNor is a negated Xor. In the special case of two propositions, this is equivalent as a biconditional logical connective (<->).
+        For example, XNor(x,y) means that only none or both are true.
     """
 
     def __new__(cls, *propositions, id: str = None):
