@@ -1894,3 +1894,40 @@ def test_reduce_rows_with_variable_index():
     assert ph_red.shape[0] == 2
     assert ph_red.shape[1] == 5
     assert ph_red.shape[0] == ph_red.index.size
+
+def test_assume_when_xor_on_top_propositions():
+
+    model = pg.All(
+        pg.Xor("p","q",id="B"),
+        pg.Imply(
+            pg.All("p","g",id="E"),
+            pg.All("x","y","z",id="F"),
+            id="C"
+        ),
+        pg.Imply(
+            pg.All("q","g",id="G"),
+            pg.All("a","b","c",id="H"),
+            id="D"
+        ),
+        id="A"
+    )
+
+    expected_assumed_model = pg.All(
+        pg.Imply(
+            pg.All("g", id="E"),
+            pg.All("x","y","z",id="F"),
+            id="C"
+        ),
+        pg.Any(
+            "G", 
+            pg.All("a","b","c",id="H"),
+            id="D"
+        ),
+        id="A"
+    )
+
+    # when assuming p here we see that q cannot ever be selected (since first rule will be broken). Therefore, third proposition
+    # will always be true (q=0 implies All("q","h") = False and therefore pg.Imply(pg.All("q","h"), pg.All("a","y","c"))) = True)
+    # I.e pg.Imply("g", pg.All("x","y","z")) should be left in model and h,a,b,c will be unbound
+    actual_assumed_model = model.assume("p")
+    assert actual_assumed_model == expected_assumed_model

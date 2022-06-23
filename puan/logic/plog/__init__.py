@@ -264,7 +264,11 @@ class CompoundProposition(Proposition, list):
         if not isinstance(v, Proposition):
             raise TypeError(v)
 
-    def __len__(self): return len(self.propositions)
+    def __len__(self): 
+        return len(self.propositions)
+
+    def __eq__(self, v): 
+        return self.id == getattr(v, "id", v)
 
     def __getitem__(self, i): 
         return self.propositions[i]
@@ -276,6 +280,9 @@ class CompoundProposition(Proposition, list):
     def __setitem__(self, i, v):
         self.__check__(v)
         self.propositions[i] = v
+
+    def __contains__(self,v):
+        return v in self.propositions
 
     def append(self, i, v):
         self.__check__(v)
@@ -612,27 +619,6 @@ class CompoundProposition(Proposition, list):
             -------
                 out : CompoundProposition
         """
-        # remaining_propositions = list(
-        #     itertools.chain(
-        #         filter(
-        #             lambda x: not x.is_tautologi,
-        #             map(
-        #                 lambda prop: prop.assume(*fixed),
-        #                 filter(
-        #                     lambda x: not x.id in fixed,
-        #                     self.compound_propositions
-        #                 )
-        #             ),
-        #         ),
-        #         filter(
-        #             lambda x: not x.id in fixed,
-        #             self.atomic_propositions
-        #         )
-        #     )
-        # )
-        # self.value = self.value+(len(remaining_propositions)-len(self.propositions))*self.sign
-        # self.propositions = remaining_propositions
-        # return self
         polyhedron = self.to_polyhedron(True)
         assumed_polyhedron = polyhedron.reduce_columns(
             polyhedron.A.construct(
@@ -650,51 +636,93 @@ class CompoundProposition(Proposition, list):
     def from_polyhedron(polyhedron: puan.ndarray.ge_polyhedron, id: str = None) -> "CompoundProposition":
 
         """
-            Transforms a polyhedron to a compound propositions
+            Transforms a polyhedron to a compound propositions.
 
             Notes
             -----
-                Requires no row compressions in polyhedron
+                Requires no row compressions in polyhedron.
 
             Returns
             -------
                 out : CompoundProposition
         """
-        def row_to_prop(variables, row, row_var):
+
+        def delinearize(variables: list, row: numpy.ndarray, index: puan.variable) -> CompoundProposition:
+            """
+                When linearizing expression A: x+y+z>=3 one'll get -3A+x+y+z>=0. In other words,
+                we'll rewrite the mixed linear logic expression A -> (x+y+z>=3) to a linear expression.
+                When delinearizing we do it backwards with the assumptions:
+                    - linearized expression came from either an AtMost or an AtLeast
+                    - linearized expression constants are either -1 or 1
+
+                Notes
+                -----
+                Support vector index assumed to be 0
+                
+                Examples
+                --------
+                When delinearizing -3a+x+y+z>=0
+                    >>> delinearize(puan.variable.from_strings(*list("0axyz")), [0,-3,1,1,1], puan.variable("a",0,True)) 
+                    (puan.variable("a",0,True), AtLeast(id="a", equation='+x+y+z>=3'))
+                
+                When delinearizing +x+y+z>=1. *Notice no change*.
+                    >>> delinearize(puan.variable.from_strings(*list("0axyz")), [1,0,1,1,1], puan.variable("a",0,True))
+                    (puan.variable("a",0,True), AtLeast(id="a", equation='+x+y+z>=1'))
+
+                Returns
+                -------
+                    out : CompoundProposition
+            """
+            if index in variables:
+                row[0] -= row[variables.index(index)]
+                row[variables.index(index)] = 0
+
             b,a = row[0], row[1:]
-            if row_var in variables:
-                b -= a[variables.index(row_var)]
-                a[variables.index(row_var)] = 0
             sign = [-1,1][b > 0]
-            value = abs(b)
             _cls = [AtMost,AtLeast][sign > 0]
-            return _cls(
-                *map(
-                    lambda i: Proposition(
-                        variables[i].id,
-                        variables[i].dtype,
-                        variables[i].virtual,
-                    ), 
-                    numpy.argwhere(a == sign).T[0]
-                ),
-                value=int((a == sign).sum()),
-                id=row_var.id,
+            return (
+                index,
+                _cls(
+                    *map(
+                        lambda i: Proposition(
+                            variables[1:][i].id,
+                            variables[1:][i].dtype,
+                            variables[1:][i].virtual,
+                        ), 
+                        numpy.argwhere(a == sign).T[0]
+                    ),
+                    value=abs(b),
+                    id=index.id,
+                )
             )
+
+        variable_proposition_map = dict(
+            itertools.starmap(
+                functools.partial(
+                    delinearize,
+                    polyhedron.variables.tolist(),
+                ), 
+                zip(polyhedron, polyhedron.index)
+            )
+        )
 
         return All(
             *filter(
-                lambda x: not x.is_tautologi,
-                itertools.starmap(
-                    functools.partial(
-                        row_to_prop,
-                        polyhedron.A.variables.tolist(),
+                lambda v: not any(map(lambda x: v.id in x, variable_proposition_map.values())),
+                map(
+                    lambda v: v.__class__(
+                        *map(
+                            lambda x: variable_proposition_map.get(x, x),
+                            v.propositions
+                        ),
+                        value=v.value,
+                        id=v.id,
                     ),
-                    zip(polyhedron, polyhedron.index)
-                ),
+                    variable_proposition_map.values()
+                )
             ),
             id=id
         )
-
 
     @property
     def is_tautologi(self) -> bool:
