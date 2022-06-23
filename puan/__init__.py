@@ -18,11 +18,15 @@ class variable(object):
     def __hash__(self):
         return hash(self.id)
 
-    def __lt__(self, other):
-        return self.id < other.id
+    @staticmethod
+    def _resolve_other_id(other) -> str:
+        return other if isinstance(other, str) else other.id
 
-    def __eq__(self, o):
-        return self.id == o.id
+    def __lt__(self, other):
+        return self.id < variable._resolve_other_id(other)
+
+    def __eq__(self, other):
+        return self.id == variable._resolve_other_id(other)
 
     @staticmethod
     def from_strings(*variables: typing.List[str], dtype_default: typing.Union[bool, int] = 0, virtual_default: bool = False) -> typing.List["variable"]:

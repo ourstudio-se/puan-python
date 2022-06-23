@@ -13,7 +13,15 @@ if __name__ == "__main__":
             "more-itertools",
             "maz>=0.0.1"
         ],
-        packages=['puan', 'puan.logic', 'puan.logic.sta', 'puan.logic.plog', 'puan.misc', 'puan.ndarray'],
+        packages=[
+            'puan', 
+            'puan.logic', 
+            'puan.logic.sta', 
+            'puan.logic.plog', 
+            'puan.misc', 
+            'puan.ndarray',
+            'puan.modules',
+        ],
         url = "https://puan.io",
         long_description = "",
         ext_modules=[

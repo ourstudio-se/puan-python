@@ -1863,3 +1863,34 @@ def test_assume_simple_proposition():
     assert model.assume("D","E").is_tautologi
     assert model.assume("C").is_tautologi
     assert model.assume("D","C").is_tautologi
+
+def test_reduce_columns_with_column_variables():
+
+    ph = puan.ndarray.ge_polyhedron([
+            [ 1, 1, 1, 0, 0],
+            [ 0, 0, 1,-2, 1],
+            [-1, 0,-1,-1,-1],
+        ], 
+        puan.variable.from_strings(*list("0abcd"))
+    )
+    ph_red = ph.reduce_columns(ph.A.construct(*{"a": 1}.items()))
+    assert not any((v.id == "a" for v in ph_red.index))
+    assert ph_red.shape[0] == 3
+    assert ph_red.shape[1] == 4
+    assert ph_red.A.shape[1] == ph_red.A.variables.size
+
+def test_reduce_rows_with_variable_index():
+
+    ph = puan.ndarray.ge_polyhedron([
+            [ 1, 1, 1, 0, 0],
+            [ 0, 0, 1,-2, 1],
+            [-1, 0,-1,-1,-1],
+        ], 
+        puan.variable.from_strings(*list("0abcd")),
+        puan.variable.from_strings(*list("ABC")),
+    )
+    ph_red = ph.reduce_rows([1,0,0])
+    assert not any((v.id == "A" for v in ph_red.index))
+    assert ph_red.shape[0] == 2
+    assert ph_red.shape[1] == 5
+    assert ph_red.shape[0] == ph_red.index.size

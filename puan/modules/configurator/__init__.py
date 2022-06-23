@@ -54,7 +54,7 @@ class Xor():
             return pg.Xor(*propositions, id=id)
 
 
-class Configurator(pg.CompoundProposition):
+class Configurator(pg.AtLeast):
 
     """
         A class for supporting a sequential configurator experience.
@@ -64,7 +64,7 @@ class Configurator(pg.CompoundProposition):
     """
 
     def __init__(self, *propositions: typing.List[typing.Union[pg.Proposition, str]], id: str = None):
-        super().__init__(*propositions, value=len(propositions), sign=1, id=id)
+        super().__init__(*propositions, value=len(propositions), id=id)
 
     @property
     @functools.lru_cache
@@ -155,5 +155,11 @@ class Configurator(pg.CompoundProposition):
         """
         return Configurator(
             *(self.propositions + [proposition]), 
+            id=self.id,
+        )
+    
+    def assume(self, *fixed: typing.List[str]) -> pg.CompoundProposition:
+        return Configurator(
+            *super(Configurator, self).assume(*fixed).propositions,
             id=self.id,
         )

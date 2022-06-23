@@ -214,7 +214,7 @@ class ge_polyhedron(variable_ndarray):
                                  [ 0, -1,  1,  0],
                                  [ 0,  0, -1,  1]])
         """
-        return integer_ndarray(self[tuple([slice(None, None)]*(self.ndim-1)+[slice(1, None)])], self.variables[1:])
+        return integer_ndarray(self[tuple([slice(None, None)]*(self.ndim-1)+[slice(1, None)])], self.variables[1:], self.index)
 
     @property
     def b(self) -> numpy.ndarray:
@@ -234,7 +234,7 @@ class ge_polyhedron(variable_ndarray):
                 ...     [0, 0, 0,-1, 1]])).b
                 array([0, 0, 0])
         """
-        return numpy.array(self.T[0])
+        return integer_ndarray(self.T[0], index=self.index)
 
     def boolean_variable_indices(self) -> typing.Set[int]:
 
@@ -387,7 +387,7 @@ class ge_polyhedron(variable_ndarray):
                 integer_ndarray([0])
 
         """
-        A, b = ge_polyhedron(self, getattr(self,'variables',[]), getattr(self,'index',[])).to_linalg()
+        A, b = self.to_linalg()
         r = (A*((A*(A <= 0) + (A*(A > 0)).sum(axis=1).reshape(-1,1)) < b.reshape(-1,1))) + A*((A * (A > 0)).sum(axis=1) == b).reshape(-1,1)
         return r.sum(axis=0)
 
@@ -429,10 +429,10 @@ class ge_polyhedron(variable_ndarray):
 
         """
 
-        A, b = ge_polyhedron(self, getattr(self,'variables',[]), getattr(self,'index',[])).to_linalg()
+        A, b = self.to_linalg()
         _b = b - (A.T*(columns_vector > 0).reshape(-1,1)).sum(axis=0)
         _A = numpy.delete(A, numpy.argwhere(columns_vector != 0).T[0], 1)
-        return ge_polyhedron(numpy.append(_b.reshape(-1,1), _A, axis=1), getattr(self,'variables',[]), getattr(self,'index',[]))
+        return ge_polyhedron(numpy.append(_b.reshape(-1,1), _A, axis=1), self.variables[[True]+(columns_vector == 0).tolist()], self.index)
 
     def reducable_rows(self: numpy.ndarray) -> numpy.ndarray:
         """
@@ -513,7 +513,8 @@ class ge_polyhedron(variable_ndarray):
             ge_polyhedron([[ 0,  0, -1,  1,  0]])
         """
 
-        return self[rows_vector == 0]
+        msk = numpy.array(rows_vector) == 0
+        return ge_polyhedron(self[msk], self.variables, self.index[msk])
 
     def reducable_rows_and_columns(self: numpy.ndarray) -> tuple:
 
