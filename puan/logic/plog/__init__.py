@@ -152,6 +152,9 @@ class Proposition(puan.variable):
     def __hash__(self):
         return super().__hash__()
 
+    def __eq__(self, other):
+        return self.id == getattr(other, "id", other)
+
     def __add__(self, o):
         """
             Adding two propositions is equal to OR-ing them:
@@ -215,6 +218,9 @@ class Proposition(puan.variable):
     def to_dict(self):
         return {}
 
+    def reduce(self, _):
+        return self
+
 @dataclass(frozen=True, repr=False)
 class CompoundProposition(Proposition, list):
 
@@ -264,11 +270,11 @@ class CompoundProposition(Proposition, list):
         if not isinstance(v, Proposition):
             raise TypeError(v)
 
+    def __eq__(self, other):
+        return self.id == getattr(other, "id", other)
+
     def __len__(self): 
         return len(self.propositions)
-
-    def __eq__(self, v): 
-        return self.id == getattr(v, "id", v)
 
     def __getitem__(self, i): 
         return self.propositions[i]
@@ -620,108 +626,83 @@ class CompoundProposition(Proposition, list):
                 out : CompoundProposition
         """
         polyhedron = self.to_polyhedron(True)
-        assumed_polyhedron = polyhedron.reduce_columns(
-            polyhedron.A.construct(
-                *zip(fixed, (1,)*len(fixed))
-            )
+        assumed_vector = polyhedron.A.construct(
+            *zip(fixed, (1,)*len(fixed))
         )
-        return CompoundProposition.from_polyhedron(
-            assumed_polyhedron.reduce(
-                *assumed_polyhedron.reducable_rows_and_columns()
-            ),
-            id=self._id
-        )
+        assumed_polyhedron = polyhedron.reduce_columns(assumed_vector)
+        assumed_rows, part_assumed_columns = assumed_polyhedron.reducable_rows_and_columns()
+        fixed_variables = {
+            **dict(zip(polyhedron.A.variables, assumed_vector)),
+            **dict(zip(assumed_polyhedron.A.variables, part_assumed_columns)),
+            **dict(zip(assumed_polyhedron.index, assumed_rows))
+        }
+        return self.reduce(fixed_variables)
 
-    @staticmethod
-    def from_polyhedron(polyhedron: puan.ndarray.ge_polyhedron, id: str = None) -> "CompoundProposition":
+    def reduce(self, fixed: typing.Dict[puan.variable, int]) -> "CompoundProposition":
 
         """
-            Transforms a polyhedron to a compound propositions.
+            Reduces proposition by recursively removing sub propositions given the fixed
+            values in the `fixed` -dictionary.
 
-            Notes
-            -----
-                Requires no row compressions in polyhedron.
+            Parameters
+            ----------
+                fixed : typing.Dict[puan.variable, int]
+                    A dictionary with a puan.variable as key and positive/negative as value. Value is indicating
+                    that the variable has a fixed positive/negative value. No key given or value is zero then no fixed value.
+
+            Examples
+            --------
+                >>> AtLeast("x","y","z", value=2, id="A").reduce({"x": 1})
+                AtLeast(id='A', equation='+y+z>=1')
+
+                >>> AtLeast("x","y","z", value=2, id="A").reduce({"x": -1})
+                AtLeast(id='A', equation='+y+z>=2')
+
+                >>> AtMost("x","y","z", value=2, id="A").reduce({"x": 1})
+                AtMost(id='A', equation='-y-z>=-1')
+
+                >>> AtMost("x","y","z", value=2, id="A").reduce({"x": -1})
+                AtMost(id='A', equation='-y-z>=-2')
 
             Returns
             -------
-                out : CompoundProposition
+                out : CompoundProposition 
         """
-
-        def delinearize(variables: list, row: numpy.ndarray, index: puan.variable) -> CompoundProposition:
-            """
-                When linearizing expression A: x+y+z>=3 one'll get -3A+x+y+z>=0. In other words,
-                we'll rewrite the mixed linear logic expression A -> (x+y+z>=3) to a linear expression.
-                When delinearizing we do it backwards with the assumptions:
-                    - linearized expression came from either an AtMost or an AtLeast
-                    - linearized expression constants are either -1 or 1
-
-                Notes
-                -----
-                Support vector index assumed to be 0
-                
-                Examples
-                --------
-                When delinearizing -3a+x+y+z>=0
-                    >>> delinearize(puan.variable.from_strings(*list("0axyz")), [0,-3,1,1,1], puan.variable("a",0,True)) 
-                    (puan.variable("a",0,True), AtLeast(id="a", equation='+x+y+z>=3'))
-                
-                When delinearizing +x+y+z>=1. *Notice no change*.
-                    >>> delinearize(puan.variable.from_strings(*list("0axyz")), [1,0,1,1,1], puan.variable("a",0,True))
-                    (puan.variable("a",0,True), AtLeast(id="a", equation='+x+y+z>=1'))
-
-                Returns
-                -------
-                    out : CompoundProposition
-            """
-            if index in variables:
-                row[0] -= row[variables.index(index)]
-                row[variables.index(index)] = 0
-
-            b,a = row[0], row[1:]
-            sign = [-1,1][b > 0]
-            _cls = [AtMost,AtLeast][sign > 0]
-            return (
-                index,
-                _cls(
-                    *map(
-                        lambda i: Proposition(
-                            variables[1:][i].id,
-                            variables[1:][i].dtype,
-                            variables[1:][i].virtual,
-                        ), 
-                        numpy.argwhere(a == sign).T[0]
-                    ),
-                    value=abs(b),
-                    id=index.id,
-                )
-            )
-
-        variable_proposition_map = dict(
-            itertools.starmap(
-                functools.partial(
-                    delinearize,
-                    polyhedron.variables.tolist(),
-                ), 
-                zip(polyhedron, polyhedron.index)
-            )
-        )
-
-        return All(
-            *filter(
-                lambda v: not any(map(lambda x: v.id in x, variable_proposition_map.values())),
-                map(
-                    lambda v: v.__class__(
-                        *map(
-                            lambda x: variable_proposition_map.get(x, x),
-                            v.propositions
+        return self.__class__(
+            *map(
+                operator.methodcaller("reduce", fixed),
+                filter(
+                    maz.compose(
+                        functools.partial(
+                            operator.eq,
+                            0
                         ),
-                        value=v.value,
-                        id=v.id,
+                        maz.pospartial(
+                            fixed.get,
+                            [(1, 0)]
+                        ),
+                        operator.attrgetter("id")
                     ),
-                    variable_proposition_map.values()
+                    self.propositions
                 )
             ),
-            id=id
+            value=abs(self.value)-sum(
+                map(
+                    maz.compose(
+                        functools.partial(
+                            operator.le,
+                            1
+                        ),
+                        maz.pospartial(
+                            fixed.get,
+                            [(1, 0)]
+                        ),
+                        operator.attrgetter("id"),
+                    ),
+                    self.propositions
+                )
+            ),
+            id=self._id,
         )
 
     @property
@@ -1014,7 +995,7 @@ def from_b64(base64_str: str) -> typing.Any:
         )
     )
 
-def from_short(short_type: typing.Union[str, tuple, list], _id: str = None) -> "CompoundProposition":
+def from_short(short_type: typing.Union[str, tuple, list], _id: str = None) -> CompoundProposition:
 
     """
         A short type compound proposition is a tuple, string or list where
@@ -1074,7 +1055,7 @@ def from_short(short_type: typing.Union[str, tuple, list], _id: str = None) -> "
     else:
         raise ValueError(f"got invalid plog short data type: {short_type}")
 
-def from_short_text(short_text: str, _id: str = None) -> "CompoundProposition":
+def from_short_text(short_text: str, _id: str = None) -> CompoundProposition:
 
     """
         A short compound proposition text data type is a short compound proposition wrapped
@@ -1100,3 +1081,135 @@ def from_short_text(short_text: str, _id: str = None) -> "CompoundProposition":
     """
 
     return from_short(ast.literal_eval(short_text), _id)
+
+def delinearize(variables: list, row: numpy.ndarray, index: puan.variable) -> tuple:
+    """
+        When linearizing expression A: x+y+z>=3 one'll get -3A+x+y+z>=0. In other words,
+        we'll rewrite the mixed linear logic expression A -> (x+y+z>=3) to a linear expression.
+        When delinearizing we do it backwards with the assumptions:
+            - linearized expression came from either an AtMost or an AtLeast
+            - linearized expression constants are either -1 or 1
+
+        Notes
+        -----
+        Support vector index assumed to be 0
+        
+        Examples
+        --------
+        When delinearizing -3a+x+y+z>=0
+            >>> delinearize(puan.variable.from_strings(*list("0axyz")), numpy.array([0,-3,1,1,1]), puan.variable("a",0,True)) 
+            (1, ['x', 'y', 'z'], 3)
+        
+        When delinearizing +x+y+z>=1. *Notice no change*.
+            >>> delinearize(puan.variable.from_strings(*list("0axyz")), numpy.array([1,0,1,1,1]), puan.variable("a",0,True))
+            (1, ['x', 'y', 'z'], 1)
+
+        Returns
+        -------
+            out : tuple
+    """
+    if index in variables:
+        row[0] -= row[variables.index(index)]
+        row[variables.index(index)] = 0
+
+    b,a = row[0], row[1:]
+    sign = [-1,1][b > 0]
+
+    return (sign, list(map(lambda i: variables[1:][i].id, numpy.argwhere(a == sign).T[0])), b)
+
+def from_polyhedron(polyhedron: puan.ndarray.ge_polyhedron, id: str = None) -> CompoundProposition:
+
+    """
+        Transforms a polyhedron to a compound propositions.
+
+        Notes
+        -----
+            Requires no row compressions in polyhedron.
+
+        Returns
+        -------
+            out : CompoundProposition
+    """
+
+    return from_dict(
+        dict(
+            zip(
+                map(
+                    operator.attrgetter("id"), 
+                    polyhedron.index
+                ),
+                itertools.starmap(
+                    functools.partial(
+                        delinearize,
+                        polyhedron.variables.tolist(),
+                    ), 
+                    zip(polyhedron, polyhedron.index)
+                )
+            )
+        )
+    )
+
+def from_tuple(data: typing.Union[list, tuple], id: str = None) -> CompoundProposition:
+
+    """
+        A tuple(/list) data type of length 3 including (sign, variables(list), b-value)
+        and has a 1-1 mapping to a compound proposition object.
+
+        Examples
+        --------
+            >>> from_tuple((1, ['b','c'], 1, 'a'))
+            AtLeast(id='a', equation='+b+c>=1')
+
+        Returns
+        -------
+            out : CompoundProposition
+    """
+    return [AtMost, AtLeast][data[0] > 0](*data[1], value=abs(data[2]), id=id)
+
+def from_dict(d: dict, id: str = None) -> CompoundProposition:
+
+    """
+        Transform from dictionary to a compound proposition.
+        Values data type is following:
+        [int, [str...], int] where 0 is the sign value,
+        1 contains the variable names and 2 is the support vector value.
+
+        Examples
+        --------
+            >>> from_dict({'a': [1, ['b','c'], 1], 'b': [1, ['x','y'], 1], 'c': [1, ['p','q'], 1]})
+            AtLeast(id='a', equation='+b+c>=1')
+
+        Returns
+        -------
+            out : CompoundProposition
+    """
+    d_conv = dict(
+        zip(
+            d.keys(),
+            itertools.starmap(
+                from_tuple,
+                zip(d.values(), d.keys()),
+            )
+        )
+    )
+    composition = All(
+        *filter(
+            lambda v: not any(map(lambda x: v.id in x, d_conv.values())),
+            map(
+                lambda v: v.__class__(
+                    *map(
+                        lambda x: d_conv.get(x.id, x),
+                        v.propositions
+                    ),
+                    value=v.value,
+                    id=v.id,
+                ),
+                d_conv.values()
+            )
+        ),
+        id=id
+    )
+    if len(composition) == 1:
+        return composition[0]
+
+    return composition
