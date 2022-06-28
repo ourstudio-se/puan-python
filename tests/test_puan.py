@@ -1847,23 +1847,6 @@ def test_dont_override_propositions():
     )
     assert model.xor_xy.virtual == model.to_polyhedron().variables[4].virtual, f"models 'xor_xy' is virtual while models polyhedrons 'xor_xy' is not"
 
-def test_assume_simple_proposition():
-
-    model = pg.Imply(
-        pg.Any(
-            pg.All("a","b",id="D"),
-            pg.All("c","d",id="E"),
-            id="B",
-        ),
-        pg.All("x","y","z",id="C"),
-        id="A"
-    )
-    assert model.assume("x","y","z").is_tautologi
-    assert not model.assume("D").is_tautologi
-    assert model.assume("D","E").is_tautologi
-    assert model.assume("C").is_tautologi
-    assert model.assume("D","C").is_tautologi
-
 def test_reduce_columns_with_column_variables():
 
     ph = puan.ndarray.ge_polyhedron([

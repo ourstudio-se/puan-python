@@ -448,7 +448,7 @@ class CompoundProposition(Proposition, list):
 
             Notes
             -----
-            This function assumes no variable reductions and returnes the full variable space. 
+            This function assumes no variable reductions and returns the full variable space. 
 
             Returns
             -------
@@ -461,7 +461,7 @@ class CompoundProposition(Proposition, list):
                 [self.variable],
                 *map(operator.attrgetter("variables"), self.propositions)
             )
-        ), key=lambda x: (1-x.virtual, x.id))
+        ))
 
     def invert(self) -> "CompoundProposition":
         raise NotImplementedError()
@@ -630,13 +630,11 @@ class CompoundProposition(Proposition, list):
             *zip(fixed, (1,)*len(fixed))
         )
         assumed_polyhedron = polyhedron.reduce_columns(assumed_vector)
-        assumed_rows, part_assumed_columns = assumed_polyhedron.reducable_rows_and_columns()
-        fixed_variables = {
-            **dict(zip(polyhedron.A.variables, assumed_vector)),
-            **dict(zip(assumed_polyhedron.A.variables, part_assumed_columns)),
-            **dict(zip(assumed_polyhedron.index, assumed_rows))
-        }
-        return self.reduce(fixed_variables)
+        return from_polyhedron(
+            assumed_polyhedron.reduce(
+                *assumed_polyhedron.reducable_rows_and_columns()
+            )
+        )
 
     def reduce(self, fixed: typing.Dict[puan.variable, int]) -> "CompoundProposition":
 
@@ -703,6 +701,27 @@ class CompoundProposition(Proposition, list):
                 )
             ),
             id=self._id,
+        )
+
+    def flatten(self) -> typing.List[Proposition]:
+
+        """
+            Putting this proposition and all its sub propositions into a flat list of propositions.
+
+            Examples
+            --------
+                >>> AtLeast(AtLeast("x","y",value=1,id="C"),AtLeast("a","b",value=1,id="B"),value=1,id="A").flatten()
+                [AtLeast(id='A', equation='+B+C>=1'), AtLeast(id='B', equation='+a+b>=1'), Proposition(id='a', dtype=0, virtual=False), Proposition(id='b', dtype=0, virtual=False), AtLeast(id='C', equation='+x+y>=1'), Proposition(id='x', dtype=0, virtual=False), Proposition(id='y', dtype=0, virtual=False)]
+        """
+        return list(
+            itertools.chain(
+                [self],
+                *map(
+                    operator.methodcaller("flatten"),
+                    self.compound_propositions
+                ),
+                self.atomic_propositions
+            )
         )
 
     @property
@@ -1201,7 +1220,7 @@ def from_dict(d: dict, id: str = None) -> CompoundProposition:
                         lambda x: d_conv.get(x.id, x),
                         v.propositions
                     ),
-                    value=v.value,
+                    value=abs(v.value),
                     id=v.id,
                 ),
                 d_conv.values()

@@ -158,8 +158,29 @@ class Configurator(pg.AtLeast):
             id=self.id,
         )
     
-    def assume(self, *fixed: typing.List[str]) -> pg.CompoundProposition:
+    def assume(self, *fixed: typing.List[str]) -> "Configurator":
+
+        """
+            Assumes variables in `fixed`-list. Passes prio onwards as well.
+
+            Returns
+            -------
+                out : Configurator
+        """
+        assumed_sub = pg.AtLeast(
+            *self.propositions, 
+            value=len(self.propositions), 
+            id=self._id,
+        ).assume(*fixed)
+
+        # Put pack prio's
+        flatten = self.flatten()
+        d_flatten = dict(zip(map(operator.attrgetter("id"), flatten), flatten))
+        for fp in assumed_sub.flatten():
+            object.__setattr__(fp, "prio", getattr(d_flatten.get(fp.id, {}), "prio", -1))
+            print(fp, fp.prio)
+
         return Configurator(
-            *super(Configurator, self).assume(*fixed).propositions,
-            id=self.id,
+            *assumed_sub.propositions,
+            id=self._id,
         )
