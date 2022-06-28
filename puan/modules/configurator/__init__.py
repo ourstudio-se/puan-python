@@ -71,7 +71,7 @@ class Configurator(pg.AtLeast):
     def polyhedron(self) -> pnd.ge_polyhedron:
 
         """
-            This configurator model's polyhedron (see logic.plog.CompoundProposition.to_polyhedron).
+            This configurator model's polyhedron (see logic.plog.Proposition.to_polyhedron).
         """
         
         return self.to_polyhedron(True)

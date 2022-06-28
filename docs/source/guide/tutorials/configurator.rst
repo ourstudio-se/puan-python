@@ -16,24 +16,24 @@ For simplicity, we will use only two t-shirts, two sweaters, two jeans and two p
 
     model = cc.Configurator(
         pg.Xor(
-            pg.Proposition("t-thirt-blue"),
-            pg.Proposition("t-thirt-black"),
+            pg.Proposition(id="t-thirt-blue"),
+            pg.Proposition(id="t-thirt-black"),
             id="t-shirts"
         ),
         pg.AtMost(
-            pg.Proposition("sweater-green"),
-            pg.Proposition("sweater-black"),
+            pg.Proposition(id="sweater-green"),
+            pg.Proposition(id="sweater-black"),
             value=1,
             id="sweaters"
         ),
         pg.Xor(
-            pg.Proposition("jeans-blue"),
-            pg.Proposition("jeans-black"),
+            pg.Proposition(id="jeans-blue"),
+            pg.Proposition(id="jeans-black"),
             id="jeans"
         ),
         pg.Xor(
-            pg.Proposition("shoes-white"),
-            pg.Proposition("shoes-black"),
+            pg.Proposition(id="shoes-white"),
+            pg.Proposition(id="shoes-black"),
             id="shoes"
         ),
         id="outfit"
@@ -112,26 +112,26 @@ Instead of using the Xor (or Any) class from `puan.logic.plog`, we use them from
 
     model = cc.Configurator(
         cc.Xor(
-            pg.Proposition("t-thirt-blue"),
-            pg.Proposition("t-thirt-black"),
+            pg.Proposition(id="t-thirt-blue"),
+            pg.Proposition(id="t-thirt-black"),
             default="t-thirt-black",
             id="t-shirts"
         ),
         pg.AtMost(
-            pg.Proposition("sweater-green"),
-            pg.Proposition("sweater-black"),
+            pg.Proposition(id="sweater-green"),
+            pg.Proposition(id="sweater-black"),
             value=1,
             id="sweaters"
         ),
         cc.Xor(
-            pg.Proposition("jeans-blue"),
-            pg.Proposition("jeans-black"),
+            pg.Proposition(id="jeans-blue"),
+            pg.Proposition(id="jeans-black"),
             default="jeans-black",
             id="jeans"
         ),
         cc.Xor(
-            pg.Proposition("shoes-white"),
-            pg.Proposition("shoes-black"),
+            pg.Proposition(id="shoes-white"),
+            pg.Proposition(id="shoes-black"),
             default="shoes-black",
             id="shoes"
         ),

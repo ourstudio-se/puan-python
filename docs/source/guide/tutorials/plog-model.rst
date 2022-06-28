@@ -31,11 +31,11 @@ So let's set these variables up in code
 
     import puan.logic.plog as pg
 
-    milk_home   = pg.Proposition("milk_home",   bool, False)
-    milk_bought = pg.Proposition("milk_bought", bool, False)
-    chips       = pg.Proposition("chips",       bool, False)
-    tomatoes    = pg.Proposition("tomatoes",    int,  False)
-    cucumbers   = pg.Proposition("cucumbers",   int,  False)
+    milk_home   = pg.Proposition(id="milk_home",   dtype=bool, virtual=False)
+    milk_bought = pg.Proposition(id="milk_bought", dtype=bool, virtual=False)
+    chips       = pg.Proposition(id="chips",       dtype=bool, virtual=False)
+    tomatoes    = pg.Proposition(id="tomatoes",    dtype=int,  virtual=False)
+    cucumbers   = pg.Proposition(id="cucumbers",   dtype=int,  virtual=False)
 
 Now we need to set up their logical relationships between one another. We start by taking a look at the **milk**. 
 We were waying that if the milk in the fridge is half full, i.e milk_home is True, then it is implied that also the milk is bought, i.e milk_bought is True. 

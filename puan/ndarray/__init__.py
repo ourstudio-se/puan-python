@@ -190,7 +190,10 @@ class ge_polyhedron(variable_ndarray):
     def __new__(cls, input_array, variables: typing.List[puan.variable] = [], index: typing.List[typing.Union[int, puan.variable]] = []):
         if len(variables) == 0:
             arr = numpy.array(input_array)
-            variables = list(map(functools.partial(puan.variable, dtype=bool, virtual=False), range(arr.shape[arr.ndim-1])))
+            variables = list(map(functools.partial(puan.variable, dtype=0, virtual=False), range(arr.shape[arr.ndim-1])))
+
+        if len(index) == 0:
+            index = list(map(functools.partial(puan.variable, dtype=0, virtual=False), range(len(input_array))))
 
         return super().__new__(cls, input_array, variables=variables, index=index)
 
@@ -514,7 +517,7 @@ class ge_polyhedron(variable_ndarray):
         """
 
         msk = numpy.array(rows_vector) == 0
-        return ge_polyhedron(self[msk], self.variables, self.index[msk])
+        return ge_polyhedron(self[msk], getattr(self, "variables", []), self.index[msk] if hasattr(self, "index") else [])
 
     def reducable_rows_and_columns(self: numpy.ndarray) -> tuple:
 

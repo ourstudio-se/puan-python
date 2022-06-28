@@ -1093,10 +1093,10 @@ def test_application_to_rules():
     )
     assert len(model.propositions) == 1
     first_prop = model.propositions[0]
-    assert isinstance(first_prop.propositions[0], pg.AtMost)
-    assert len(first_prop.propositions[0].propositions) == 6
-    assert isinstance(first_prop.propositions[1], pg.AtLeast)
-    assert len(first_prop.propositions[1].propositions) == 3
+    assert isinstance(first_prop.propositions[0], pg.AtLeast)
+    assert len(first_prop.propositions[0].propositions) == 3
+    assert isinstance(first_prop.propositions[1], pg.AtMost)
+    assert len(first_prop.propositions[1].propositions) == 6
 
 def test_application_to_rules_with_condition_relation():
     items = [
@@ -1544,7 +1544,7 @@ def test_parse_short_compund_texts_with_different_combinations():
         "('Imply',[('AtLeast', ['xxx',('All',['yyy','zzz'])], 1),('All',['aaa','bbb'])])",
     ]
     actual_model = list(map(pg.from_short_text, text_lines))
-    assert actual_model[0].id == ''
+    assert actual_model[0].id == 'VAR4fc8'
     assert len(actual_model[1].propositions) == 2
     assert len(actual_model[2].propositions) == 2
     assert len(actual_model[3].propositions) == 2
@@ -1610,12 +1610,12 @@ def test_reducable_matrix_columns_should_keep_zero_columns():
         about "zero"-columns.
     """
 
-    M = numpy.array([
+    M = puan.ndarray.ge_polyhedron([
         [ 1, 0, 1, 0, 0],
         [-3,-2,-1,-1, 0],
-    ], dtype="int32")
+    ]).astype(numpy.int32)
 
-    rows, cols = puan.ndarray.reducable_rows_and_columns(M)
+    rows, cols = M.reducable_rows_and_columns()
     assert cols[3] == 0
 
 
@@ -1842,10 +1842,10 @@ def test_bind_relations_to_compound_id():
 def test_dont_override_propositions():
 
     model = pg.All(
-        pg.Imply(pg.Proposition("xor_xy", 0, True), pg.All(*list("abc"))),
+        pg.Imply(pg.Proposition(id="xor_xy", dtype=0, virtual=True), pg.All(*list("abc"))),
         pg.Xor("x","y", id="xor_xy"),
     )
-    assert model.xor_xy.virtual == model.to_polyhedron().variables[4].virtual, f"models 'xor_xy' is virtual while models polyhedrons 'xor_xy' is not"
+    assert model.xor_xy.virtual == next(filter(lambda x: x.id == "xor_xy", model.to_polyhedron().variables)).virtual, f"models 'xor_xy' is virtual while models polyhedrons 'xor_xy' is not"
 
 def test_reduce_columns_with_column_variables():
 
@@ -1881,32 +1881,31 @@ def test_reduce_rows_with_variable_index():
 def test_assume_when_xor_on_top_propositions():
 
     model = pg.All(
-        pg.Xor("p","q",id="B"),
+        pg.Xor("p","q", id="B"),
         pg.Imply(
-            pg.All("p","g",id="E"),
-            pg.All("x","y","z",id="F"),
-            id="C"
+            pg.All("p","g", id="E"),
+            pg.All("x","y","z", id="F"),
+            id="C",
         ),
         pg.Imply(
-            pg.All("q","g",id="G"),
-            pg.All("a","b","c",id="H"),
-            id="D"
+            pg.All("q","g", id="G"),
+            pg.All("a","b","c", id="H"),
+            id="D",
         ),
-        id="A"
+        id="A",
     )
 
     expected_assumed_model = pg.All(
         pg.Imply(
             pg.All("g", id="E"),
-            pg.All("x","y","z",id="F"),
-            id="C"
+            pg.All("x","y","z", id="F"),
         ),
         pg.Any(
-            "G", 
-            pg.All("a","b","c",id="H"),
+            "G",
+            pg.All("a","b","c", id="H"),
             id="D"
         ),
-        id="A"
+        id="A",
     )
 
     # when assuming p here we see that q cannot ever be selected (since first rule will be broken). Therefore, third proposition
