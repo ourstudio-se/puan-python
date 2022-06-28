@@ -167,18 +167,31 @@ class Configurator(pg.AtLeast):
             -------
                 out : Configurator
         """
+        # Prepare to put pack prio's
+        self_flatten = self.flatten()
+        d_flatten = dict(
+            zip(
+                map(
+                    operator.attrgetter("id"), 
+                    self_flatten,
+                ), 
+                self_flatten,
+            ),
+        )
+
         assumed_sub = pg.AtLeast(
             *self.propositions, 
             value=len(self.propositions), 
             id=self._id,
         ).assume(*fixed)
-
-        # Put pack prio's
-        flatten = self.flatten()
-        d_flatten = dict(zip(map(operator.attrgetter("id"), flatten), flatten))
-        for fp in assumed_sub.flatten():
-            object.__setattr__(fp, "prio", getattr(d_flatten.get(fp.id, {}), "prio", -1))
-            print(fp, fp.prio)
+        
+        # Put back prio into proposition with prio set
+        list(
+            map(
+                lambda fp: object.__setattr__(fp, "prio", getattr(d_flatten.get(fp.id, {}), "prio", -1)),
+                assumed_sub.flatten()
+            )
+        )
 
         return Configurator(
             *assumed_sub.propositions,

@@ -703,7 +703,7 @@ class CompoundProposition(Proposition, list):
             id=self._id,
         )
 
-    def flatten(self) -> typing.List[Proposition]:
+    def flatten(self) -> typing.Iterable[Proposition]:
 
         """
             Putting this proposition and all its sub propositions into a flat list of propositions.
@@ -712,16 +712,18 @@ class CompoundProposition(Proposition, list):
             --------
                 >>> AtLeast(AtLeast("x","y",value=1,id="C"),AtLeast("a","b",value=1,id="B"),value=1,id="A").flatten()
                 [AtLeast(id='A', equation='+B+C>=1'), AtLeast(id='B', equation='+a+b>=1'), Proposition(id='a', dtype=0, virtual=False), Proposition(id='b', dtype=0, virtual=False), AtLeast(id='C', equation='+x+y>=1'), Proposition(id='x', dtype=0, virtual=False), Proposition(id='y', dtype=0, virtual=False)]
+
+            Returns
+            -------
+                out : typing.Iterable[Proposition]
         """
-        return list(
-            itertools.chain(
-                [self],
-                *map(
-                    operator.methodcaller("flatten"),
-                    self.compound_propositions
-                ),
-                self.atomic_propositions
-            )
+        return itertools.chain(
+            [self],
+            *map(
+                operator.methodcaller("flatten"),
+                self.compound_propositions
+            ),
+            self.atomic_propositions
         )
 
     @property
