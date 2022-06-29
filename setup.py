@@ -21,6 +21,7 @@ if __name__ == "__main__":
             'puan.misc', 
             'puan.ndarray',
             'puan.modules',
+            'puan.modules.configurator',
         ],
         url = "https://puan.io",
         long_description = "",
