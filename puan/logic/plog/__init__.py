@@ -6,6 +6,7 @@ import base64
 import pickle
 import gzip
 import itertools
+import more_itertools
 import typing
 import operator
 import puan
@@ -157,7 +158,6 @@ class Proposition(puan.variable, list):
         dtype: int = 0, 
         virtual: bool = None,
     ):
-        
         # Allowing propositions to be either of type Proposition or type str
         # If str, then a new Proposition is instantiated with default dtype=bool and virtual=False
         object.__setattr__(self, "propositions", sorted(
@@ -494,25 +494,39 @@ class Proposition(puan.variable, list):
             Examples
             --------
                 >>> All(All("a","b", id="B"), Any("c","d", id="C"), id="A").to_dict()
-                {'A': [1, ['B', 'C'], 2], 'B': [1, ['a', 'b'], 2], 'C': [1, ['c', 'd'], 1]}
+                {'A': (1, ['B', 'C'], 2, 0, 1), 'B': (1, ['a', 'b'], 2, 0, 1), 'a': (1, [], 1, 0, 0), 'b': (1, [], 1, 0, 0), 'C': (1, ['c', 'd'], 1, 0, 1), 'c': (1, [], 1, 0, 0), 'd': (1, [], 1, 0, 0)}
 
             Returns
             -------
                 out : typing.Dict[str, list]
         """
 
+        t = self.to_tuple()
         return {
             **{
-                self.variable.id: self.to_tuple(),
+                t[0]: t[1:],
             },
-            **functools.reduce(lambda x,y: dict(x,**y), map(operator.methodcaller("to_dict"), self.compound_propositions), {})
+            **functools.reduce(lambda x,y: dict(x,**y), map(operator.methodcaller("to_dict"), self.propositions), {})
         }
 
     def to_tuple(self):
 
-        """"""
+        """
+            Tuple format consists of six elements:
+            (0) id (string)
+            (1) sign (1/-1)
+            (2) sub propositions (strings)
+            (3) support value
+            (4) data type (0 - bool / 1 - integer)
+            (5) is virtual (0/1)
 
-        return (self.sign, list(map(operator.attrgetter("id"), self.propositions)), self.value)
+            Examples
+            --------
+                >>> All("x","y","z",id="A").to_tuple()
+                ('A', 1, ['x', 'y', 'z'], 3, 0, 1)
+        """
+
+        return (self.id, self.sign, list(map(operator.attrgetter("id"), self.propositions)), self.value, self.dtype, self.virtual * 1)
 
     def to_b64(self, str_decoding: str = 'utf8') -> str:
 
@@ -551,11 +565,11 @@ class Proposition(puan.variable, list):
             --------
                 >>> model = AtLeast("x","y","z", value=2, id="A")
                 >>> model.assume("x")
-                AtLeast(id='A', equation='+y+z>=1')
+                Proposition(id='A', equation='+y+z>=1')
 
                 >>> model = All(Any("a","b",id="B"), Any("x","y",id="C"), id="A")
                 >>> model.assume("a")
-                AtLeast(id='A', equation='+C>=1')
+                Proposition(id='C', equation='+x+y>=1')
 
             Returns
             -------
@@ -648,20 +662,42 @@ class Proposition(puan.variable, list):
             Examples
             --------
                 >>> AtLeast(AtLeast("x","y",value=1,id="C"),AtLeast("a","b",value=1,id="B"),value=1,id="A").flatten()
-                [AtLeast(id='A', equation='+B+C>=1'), AtLeast(id='B', equation='+a+b>=1'), Proposition(id='a', dtype=0, virtual=False), Proposition(id='b', dtype=0, virtual=False), AtLeast(id='C', equation='+x+y>=1'), Proposition(id='x', dtype=0, virtual=False), Proposition(id='y', dtype=0, virtual=False)]
+                [AtLeast(id='A', equation='+B+C>=1'), AtLeast(id='B', equation='+a+b>=1'), AtLeast(id='C', equation='+x+y>=1'), Proposition(id='a', equation='>=1'), Proposition(id='b', equation='>=1'), Proposition(id='x', equation='>=1'), Proposition(id='y', equation='>=1')]
 
             Returns
             -------
                 out : typing.Iterable[Proposition]
         """
-        return itertools.chain(
-            [self],
-            *map(
-                operator.methodcaller("flatten"),
-                self.compound_propositions
-            ),
-            self.atomic_propositions
+        return sorted(
+            set(
+                itertools.chain(
+                    [self],
+                    *map(
+                        operator.methodcaller("flatten"),
+                        self.propositions
+                    ),
+                )
+            )
         )
+
+    def specify(self) -> typing.Union["AtLeast", "AtMost"]:
+
+        """
+            Returns a more specific variant of this proposition.
+
+            Returns
+            -------
+                out : typing.Union[AtLeast, AtMost]
+        """
+
+        instance = [AtMost, AtLeast][self.sign >= 1](
+            *self.propositions,
+            value=abs(self.value),
+            id=self._id
+        )
+        object.__setattr__(instance, "dtype", self.dtype)
+        object.__setattr__(instance, "virtual", self.virtual)
+        return instance
 
     @property
     def is_tautologi(self) -> bool:
@@ -734,6 +770,47 @@ class Proposition(puan.variable, list):
                 out : bool
         """
         return ((self.sign > 0) & (self.value > len(self.propositions))) | ((self.sign < 0) & (self.value > 0))
+
+    def to_short(self) -> tuple:
+
+        """
+            `short` is a tuple format with six element types:
+            (0) id, (1) sign, (2) propositions, (3) support value, (4) dtype and (5) is-virtual.
+
+            Notes
+            -----
+                to_short does not include sub propositions if any
+
+            Examples
+            --------
+                >>> All("x","y","z",id="A").to_short()
+                ('A', 1, ['x', 'y', 'z'], 3, 0, 1)
+
+            Returns
+            -------
+                out : tuple
+        """
+        return (self.id, self.sign, list(map(operator.attrgetter("id"), self.propositions)), self.value, self.dtype, self.virtual * 1)
+
+
+    def to_text(self) -> str:
+
+        """
+            Returns a readable, concise, version controllable text format.
+
+            Returns
+            -------
+                out : str
+        """
+        return "\n".join(
+            map(
+                maz.compose(
+                    str,
+                    operator.methodcaller("to_short")
+                ),
+                set(self.flatten())
+            )
+        )
 
 class AtLeast(Proposition):
 
@@ -953,93 +1030,6 @@ def from_b64(base64_str: str) -> typing.Any:
         )
     )
 
-def from_short(short_type: typing.Union[str, tuple, list], _id: str = None) -> Proposition:
-
-    """
-        A short type compound proposition is a tuple, string or list where
-        the tuple has at most 4 parameters being id, propositions and optional
-        value and/or id. 
-
-        Notes
-        -----
-        Given a list as input allowes the optional parameter _id to be set. A list of propositions is assumed to be an All-relation.
-
-        Parameters
-        ----------
-        short_type : typing.Union[str, tuple, list]
-        _id : str = None
-
-        Examples
-        --------
-            >>> from_short("a")
-            Proposition(id='a', dtype=0, virtual=False)
-
-            >>> from_short(("Any", ["a","b","c"], "A"))
-            AtLeast(id='A', equation='+a+b+c>=1')
-
-            >>> from_short(["a","b","c"], "A")
-            AtLeast(id='A', equation='+a+b+c>=3')
-
-            >>> from_short(("AtMost", ["a","b","c"], 2, "A"))
-            AtMost(id='A', equation='-a-b-c>=-2')
-
-            >>> from_short([("All", ["a","b","c"], "A"), ("AtMost", ["x","y","z"], 2, "B")], "fi")
-            AtLeast(id='fi', equation='+A+B>=2')
-    """
-
-    if isinstance(short_type, str):
-        return Proposition(short_type, 0, False)
-    elif isinstance(short_type, list):
-        return All(
-            *map(
-                from_short,
-                short_type
-            ),
-            id=_id
-        )
-    elif isinstance(short_type, tuple) and len(short_type) >= 2:
-        map_props = functools.partial(map, from_short)
-        ctype_map = {
-            "All":      lambda args: All(*args[0],id=args[1]),
-            "Any":      lambda args: Any(*args[0],id=args[1]),
-            "Xor":      lambda args: Xor(*args[0],id=args[1]),
-            "Imply":    lambda args: Imply(*args[0],id=args[1]),
-            "AtLeast":  lambda args: AtLeast(*args[0],value=args[1],id=args[2]),
-            "AtMost":   lambda args: AtMost(*args[0],value=args[1],id=args[2]),
-        }
-        return ctype_map[short_type[0]](
-            (map_props(short_type[1]),)+short_type[2:]+(None,)*(4-len(short_type))
-        )
-    else:
-        raise ValueError(f"got invalid plog short data type: {short_type}")
-
-def from_short_text(short_text: str, _id: str = None) -> Proposition:
-
-    """
-        A short compound proposition text data type is a short compound proposition wrapped
-        in a text. 
-
-        Parameters
-        ----------
-            short_text : str
-
-        Examples
-        --------
-            >>> from_short_text("('a')")
-            Proposition(id='a', dtype=0, virtual=False)
-
-            >>> from_short_text("('All',['x','y','z'],'A')")
-            AtLeast(id='A', equation='+x+y+z>=3')
-
-            >>> from_short_text("['x','y','z']", 'A')
-            AtLeast(id='A', equation='+x+y+z>=3')
-
-            >>> from_short_text("('All', [('Any', ['a','b'], 'B'), ('Any', ['c','d'], 'C')], 'A')")
-            AtLeast(id='A', equation='+B+C>=2')
-    """
-
-    return from_short(ast.literal_eval(short_text), _id)
-
 def delinearize(variables: list, row: numpy.ndarray, index: puan.variable) -> tuple:
     """
         When linearizing expression A: x+y+z>=3 one'll get -3A+x+y+z>=0. In other words,
@@ -1056,11 +1046,11 @@ def delinearize(variables: list, row: numpy.ndarray, index: puan.variable) -> tu
         --------
         When delinearizing -3a+x+y+z>=0
             >>> delinearize(puan.variable.from_strings(*list("0axyz")), numpy.array([0,-3,1,1,1]), puan.variable("a",0,True)) 
-            (1, ['x', 'y', 'z'], 3)
+            (1, ['x', 'y', 'z'], 3, 0, 1)
         
         When delinearizing +x+y+z>=1. *Notice no change*.
             >>> delinearize(puan.variable.from_strings(*list("0axyz")), numpy.array([1,0,1,1,1]), puan.variable("a",0,True))
-            (1, ['x', 'y', 'z'], 1)
+            (1, ['x', 'y', 'z'], 1, 0, 1)
 
         Returns
         -------
@@ -1073,7 +1063,7 @@ def delinearize(variables: list, row: numpy.ndarray, index: puan.variable) -> tu
     b,a = row[0], row[1:]
     sign = [-1,1][b > 0]
 
-    return (sign, list(map(lambda i: variables[1:][i].id, numpy.argwhere(a == sign).T[0])), b)
+    return (sign, list(map(lambda i: variables[1:][i].id, numpy.argwhere(a == sign).T[0])), b, index.dtype, index.virtual * 1)
 
 def from_polyhedron(polyhedron: puan.ndarray.ge_polyhedron, id: str = None) -> Proposition:
 
@@ -1108,22 +1098,69 @@ def from_polyhedron(polyhedron: puan.ndarray.ge_polyhedron, id: str = None) -> P
         id=id
     )
 
-def from_tuple(data: typing.Union[list, tuple], id: str = None) -> Proposition:
+def from_tuple(data: typing.Union[list, tuple]) -> Proposition:
 
     """
         A tuple(/list) data type of length 3 including (sign, variables(list), b-value)
         and has a 1-1 mapping to a compound proposition object.
 
+        See also
+        --------
+            Proposition.to_tuple
+            from_text
+            from_b64
+            from_dict
+            from_polyhedron
+
         Examples
         --------
-            >>> from_tuple((1, ['b','c'], 1, 'a'))
-            AtLeast(id='a', equation='+b+c>=1')
+            >>> from_tuple(('A', 1, ['b','c'], 1, 0, 0))
+            Proposition(id='A', equation='+b+c>=1')
 
         Returns
         -------
             out : Proposition
     """
-    return [AtMost, AtLeast][data[0] > 0](*data[1], value=abs(data[2]), id=id)
+    return Proposition(
+        *data[2], 
+        value=abs(data[3]), 
+        id=data[0], 
+        sign=data[1], 
+        dtype=data[4],
+        virtual=data[5]
+    )
+
+def from_text(text: str, id: str = None) -> Proposition:
+
+    """
+        Returns a proposition from text format
+
+        Returns
+        -------
+            out : Proposition
+    """
+    parsed = list(
+        map(
+            ast.literal_eval,
+            text.split("\n")
+        )
+    )
+    return from_dict(
+        dict(
+            zip(
+                map(
+                    operator.itemgetter(0),
+                    parsed
+                ),
+                map(
+                    operator.itemgetter(
+                        slice(1,None),
+                    ),
+                    parsed
+                )
+            )
+        )
+    )
 
 def from_dict(d: dict, id: str = None) -> Proposition:
 
@@ -1135,8 +1172,8 @@ def from_dict(d: dict, id: str = None) -> Proposition:
 
         Examples
         --------
-            >>> from_dict({'a': [1, ['b','c'], 1], 'b': [1, ['x','y'], 1], 'c': [1, ['p','q'], 1]})
-            AtLeast(id='a', equation='+b+c>=1')
+            >>> from_dict({'a': [1, ['b','c'], 1, 0, 0], 'b': [1, ['x','y'], 1, 0, 0], 'c': [1, ['p','q'], 1, 0, 0]})
+            Proposition(id='a', equation='+b+c>=1')
 
         Returns
         -------
@@ -1145,9 +1182,15 @@ def from_dict(d: dict, id: str = None) -> Proposition:
     d_conv = dict(
         zip(
             d.keys(),
-            itertools.starmap(
+            map(
                 from_tuple,
-                zip(d.values(), d.keys()),
+                itertools.starmap(
+                    maz.compose(
+                        tuple,
+                        more_itertools.prepend
+                    ), 
+                    d.items()
+                ),
             )
         )
     )

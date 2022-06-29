@@ -140,7 +140,8 @@ class Configurator(pg.AtLeast):
                 self.polyhedron.A, 
                 self.polyhedron.b,
                 self.polyhedron.A.integer_variable_indices(),
-                self._vectors_from_prios(prios)
+                self._vectors_from_prios(prios),
+                # -np.ones((1, self.polyhedron.A.shape[1]))
             )
         )
 
