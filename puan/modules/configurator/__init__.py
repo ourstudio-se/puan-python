@@ -54,11 +54,12 @@ class Xor():
             return pg.Xor(*propositions, id=id)
 
 
-class Configurator(pg.AtLeast):
+class StingyConfigurator(pg.AtLeast):
 
     """
         A class for supporting a sequential configurator experience.
-        The configurator always assumes least possible number of selections in a solution.
+        The "stingy" configurator always tries to select the least possible number of selections in a solution, with
+        respect to what's been prioritized.
         Whenever a AtLeast -proposition proposes multiple solutions that equal least number
         of selections, then a default may be added to avoid ambivalence.
     """
@@ -145,28 +146,28 @@ class Configurator(pg.AtLeast):
             )
         )
 
-    def add(self, proposition: pg.Proposition) -> "Configurator":
+    def add(self, proposition: pg.Proposition) -> "StingyConfigurator":
 
         """
             Add a new proposition to the model.
 
             Returns
             -------
-                out : Configurator
+                out : StingyConfigurator
         """
-        return Configurator(
+        return StingyConfigurator(
             *(self.propositions + [proposition]), 
             id=self.id,
         )
     
-    def assume(self, *fixed: typing.List[str]) -> "Configurator":
+    def assume(self, *fixed: typing.List[str]) -> "StingyConfigurator":
 
         """
             Assumes variables in `fixed`-list. Passes prio onwards as well.
 
             Returns
             -------
-                out : Configurator
+                out : StingyConfigurator
         """
         # Prepare to put pack prio's
         self_flatten = self.flatten()
@@ -194,7 +195,7 @@ class Configurator(pg.AtLeast):
             )
         )
 
-        return Configurator(
+        return StingyConfigurator(
             *assumed_sub.propositions,
             id=self._id,
         )

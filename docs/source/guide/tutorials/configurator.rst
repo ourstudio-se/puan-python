@@ -2,10 +2,10 @@ Create your own Configurator
 ============================
 You've probably seen and tried out one before. Maybe the most common ones are car configurators where you select all kinds of different
 car options, such as color, upholstery, wheels and so on, and seeing your car getting more and more towards how you'd want it. In this
-tutorial we will create a simple configurator using the Configurator module from Puan and a solver from NpyCVX pypi package.
+tutorial we will create a simple configurator using the StingyConfigurator module from Puan and a solver from NpyCVX pypi package.
 
-Wardrobe Wizard using Configurator
-----------------------------------
+Wardrobe Wizard using StingyConfigurator
+----------------------------------------
 From a previous tutorial we were modelling a logic system to represent an outfit. Here we will show how to use the system once it has been defined.
 For simplicity, we will use only two t-shirts, two sweaters, two jeans and two pair of shoes. We start off by defining or logic model based on these requirements:
 
@@ -14,7 +14,7 @@ For simplicity, we will use only two t-shirts, two sweaters, two jeans and two p
     import puan.logic.plog as pg
     import puan.modules.configurator as cc
 
-    model = cc.Configurator(
+    model = cc.StingyConfigurator(
         pg.Xor(
             pg.Proposition(id="t-thirt-blue"),
             pg.Proposition(id="t-thirt-black"),
@@ -44,7 +44,7 @@ For simplicity, we will use only two t-shirts, two sweaters, two jeans and two p
 
 In other words, we must have exactly one t-shirt, pair of jeans and pair of shoes. The sweater is optional but at most one.
 Before we start to get solutions from certain choices we must create a wrapper for a solver function (a solver is not yet included in Puan).
-We use GLPK solver from python package `NpyCVX <npycvx>` and create a wrapper around it. The `select` function in Configurator module take
+We use GLPK solver from python package `NpyCVX <npycvx>` and create a wrapper around it. The `select` function in StingyConfigurator module take
 a solver function taking four arguments: the A, and b numpy ndarray's from the polyhedron, which indices are integers and the objective functions:
 
 .. code:: python
@@ -97,7 +97,7 @@ And now we are ready to select stuff, and get solutions.
 We get our black jeans along with black shoes, black t-shirt and no sweater. Seams resonable. But... it could be the case that you didn't get the same solution. Sure, you did get
 the black jeans but did you also get the black shoes and t-shirt? It raises an important question: can we guarantee that we will always get the same solution given the same input? 
 As it is defined right now, the answer is no. Well, to be exact, the answer is actually yes but that's not the point. If we'd change to `shoes-white` in our solution, the objective function would return the same objective value, meaning
-the solutions are equally great. When this is the case, we say that the system is *ambiguous* and can lead to unexpected behaviour in the end. To avoid ambiguity, we use other classes from the Configurator module
+the solutions are equally great. When this is the case, we say that the system is *ambiguous* and can lead to unexpected behaviour in the end. To avoid ambiguity, we use other classes from the StingyConfigurator module
 directly.
 
 Fixing ambiguity
@@ -110,7 +110,7 @@ Instead of using the Xor (or Any) class from `puan.logic.plog`, we use them from
     import puan.logic.plog as pg
     import puan.modules.configurator as cc
 
-    model = cc.Configurator(
+    model = cc.ConfiguratStingyConfiguratoror(
         cc.Xor(
             pg.Proposition(id="t-thirt-blue"),
             pg.Proposition(id="t-thirt-black"),

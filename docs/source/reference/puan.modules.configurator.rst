@@ -12,7 +12,7 @@ Data types
 
 :class:`puan.modules.configurator.Xor` : Overriding puan.logic.plog.Xor class to take extra parameter `default`.
 
-:class:`puan.modules.configurator.Configurator` : A class for supporting a sequential configurator experience. The configurator always assumes least possible number of selections in a solution. Whenever a AtLeast -proposition proposes multiple solutions that equal least number of selections, then a default may be added to avoid ambivalence.
+:class:`puan.modules.configurator.StingyConfigurator` : A class for supporting a sequential configurator experience. The "stingy" configurator always tries to select the least possible number of selections in a solution, with respect to what's been prioritized. Whenever a AtLeast -proposition proposes multiple solutions that equal least number of selections, then a default may be added to avoid ambivalence.
 
 .. currentmodule:: puan.modules.configurator
 
@@ -30,9 +30,9 @@ Xor
    :undoc-members:
    :show-inheritance:
 
-Configurator
-++++++++++++
-.. autoclass:: Configurator
+StingyConfigurator
+++++++++++++++++++
+.. autoclass:: StingyConfigurator
    :members:
    :undoc-members:
    :show-inheritance:
