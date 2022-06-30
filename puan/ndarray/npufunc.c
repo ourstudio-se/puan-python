@@ -1,8 +1,5 @@
 #define PY_SSIZE_T_CLEAN
 #define NPY_NO_DEPRECATED_API NPY_1_7_API_VERSION
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
 #include <Python.h>
 #include "numpy/ndarraytypes.h"
 #include "numpy/ufuncobject.h"
@@ -14,8 +11,8 @@ static PyMethodDef NpUFuncMethods[] = {
         {NULL, NULL, 0, NULL}
 };
 
-static void optimized_bit_allocation_64(char **args, npy_intp *dimensions,
-                            npy_intp* steps, void* data)
+static void optimized_bit_allocation_64(char **args, const npy_intp *dimensions,
+                            const npy_intp* steps, void* data)
 {
     npy_intp i=0;
     npy_intp n = dimensions[0];
@@ -26,8 +23,8 @@ static void optimized_bit_allocation_64(char **args, npy_intp *dimensions,
     while(i<n) {
         /*BEGIN main ufunc computation*/
         grp_size = 0;
-        int64_t val = in[0];
-        while(*in == val)
+        int64_t val = *(int64_t *)in;
+        while(*(int64_t *)in == val)
         {
             grp_size++;
             *((int64_t *)out) = val_adj;
