@@ -14,11 +14,11 @@ if __name__ == "__main__":
             "maz>=0.0.1"
         ],
         packages=[
-            'puan', 
-            'puan.logic', 
-            'puan.logic.sta', 
-            'puan.logic.plog', 
-            'puan.misc', 
+            'puan',
+            'puan.logic',
+            'puan.logic.sta',
+            'puan.logic.plog',
+            'puan.misc',
             'puan.ndarray',
             'puan.modules',
             'puan.modules.configurator',
@@ -35,7 +35,7 @@ if __name__ == "__main__":
                 ]
             ),
             Extension(
-                'puan/logicfunc',
+                'puan/logic/logicfunc',
                 ['puan/logic/plog/logicfunc.c'],
                 include_dirs=[
                     "/usr/local/Cellar/python@3.9/3.9.12/Frameworks/Python.framework/Versions/3.9/include/python3.9",

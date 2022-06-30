@@ -15,7 +15,7 @@ import functools
 import maz
 import numpy
 from dataclasses import dataclass, field
-import puan.logicfunc as logicfunc
+import puan.logic.logicfunc as logicfunc
 
 numpy.set_printoptions(edgeitems=30, linewidth=100000, formatter=dict(float=lambda x: "%.3g" % x))
 
@@ -25,7 +25,7 @@ default_max_int: int = numpy.iinfo(numpy.int16).max
 class _Constraint(tuple):
 
     """
-        Let variables=["x","y","z"] be variable list and then constraint ((0,1,2),(1,1,-2),0) 
+        Let variables=["x","y","z"] be variable list and then constraint ((0,1,2),(1,1,-2),0)
         represents the linear inequality x+y-2z>=0
     """
 
@@ -66,17 +66,17 @@ class _Constraint(tuple):
             if any(map(lambda x: x == 1, self.dtypes)):
                 return _Constraint(
                     self.dtypes + (0,),
-                    self.index + (self.id,), 
-                    self.values + [(default_min_int-self.b,), (default_min_int,)][self.b > 0], 
-                    [default_min_int, default_min_int+self.b][self.b > 0], 
+                    self.index + (self.id,),
+                    self.values + [(default_min_int-self.b,), (default_min_int,)][self.b > 0],
+                    [default_min_int, default_min_int+self.b][self.b > 0],
                     self.id
                 )
             else:
                 return _Constraint(
                     self.dtypes + (0,),
-                    self.index + (self.id,), 
-                    self.values + (-self.b if self.b > 0 else -len(self.values),), 
-                    0 if self.b > 0 else -len(self.values)+self.b, 
+                    self.index + (self.id,),
+                    self.values + (-self.b if self.b > 0 else -len(self.values),),
+                    0 if self.b > 0 else -len(self.values)+self.b,
                     self.id
                 )
 
@@ -84,14 +84,14 @@ class _CompoundConstraint(tuple):
 
     """
         The compound constraint (1, 1, [((0,1),(-1,-1),-1),((2,3,4),(1,1,1),3)])
-        represents the union of linear inequalities: 
+        represents the union of linear inequalities:
             [
                 [-1,-1,-1, 0, 0, 0],
                 [ 3, 0, 0, 1, 1, 1],
             ]
 
         The union is told by the first index in the outer most tuple (1), which really means
-        first constraint ((0,1),(-1,-1),-1) + second constraint ((2,3,4),(1,1,1),3) >= 1. 
+        first constraint ((0,1),(-1,-1),-1) + second constraint ((2,3,4),(1,1,1),3) >= 1.
     """
 
     def __new__(cls, b: int, sign: int, constraints: typing.List[_Constraint], id: int) -> dict:
@@ -150,12 +150,12 @@ class Proposition(puan.variable, list):
     next_id = maz.compose(functools.partial(operator.add, "VAR"), str, itertools.count(1).__next__)
 
     def __init__(
-        self, 
-        *propositions: typing.List[typing.Union["Proposition", str]], 
-        value: int = 1, 
-        sign: int = 1, 
-        id: str = None, 
-        dtype: int = 0, 
+        self,
+        *propositions: typing.List[typing.Union["Proposition", str]],
+        value: int = 1,
+        sign: int = 1,
+        id: str = None,
+        dtype: int = 0,
         virtual: bool = None,
     ):
         # Allowing propositions to be either of type Proposition or type str
@@ -170,7 +170,7 @@ class Proposition(puan.variable, list):
                 )
             )
         )
-        
+
         # propositions as attributes on self
         list(map(lambda x: object.__setattr__(self, x.id, x), self.propositions))
         object.__setattr__(self, "value", value)
@@ -184,13 +184,13 @@ class Proposition(puan.variable, list):
     def __eq__(self, other):
         return self.id == getattr(other, "id", other)
 
-    def __len__(self): 
+    def __len__(self):
         return len(self.propositions)
 
-    def __getitem__(self, i): 
+    def __getitem__(self, i):
         return self.propositions[i]
 
-    def __delitem__(self, i): 
+    def __delitem__(self, i):
         del self.propositions[i]
         self.value -= 1 if self.sign > 0 else -1
 
@@ -219,8 +219,8 @@ class Proposition(puan.variable, list):
     def id(self) -> str:
         if self._id is None:
             return Proposition._id_generator(
-                self.propositions, 
-                self.value, 
+                self.propositions,
+                self.value,
                 self.sign,
             )
         return self._id
@@ -283,7 +283,7 @@ class Proposition(puan.variable, list):
         return _Constraint(
             map(
                 maz.compose(
-                    functools.partial(operator.mul, 1), 
+                    functools.partial(operator.mul, 1),
                     functools.partial(operator.eq, 1),
                     operator.attrgetter("dtype"),
                 ),
@@ -291,9 +291,9 @@ class Proposition(puan.variable, list):
             ),
             map(
                 maz.compose(
-                    index_predicate, 
+                    index_predicate,
                     operator.attrgetter("variable")
-                ), 
+                ),
                 self.propositions
             ),
             itertools.repeat(self.sign, len(self.propositions)),
@@ -368,7 +368,7 @@ class Proposition(puan.variable, list):
                 out : typing.Set[puan.variable]
         """
         return sorted(set(itertools.chain(*map(operator.attrgetter("variables"), self.propositions))), key=lambda x: (x.virtual, x.id))
-        
+
     def variables_full(self) -> typing.List[puan.variable]:
 
         """
@@ -381,7 +381,7 @@ class Proposition(puan.variable, list):
 
             Notes
             -----
-            This function assumes no variable reductions and returns the full variable space. 
+            This function assumes no variable reductions and returns the full variable space.
 
             Returns
             -------
@@ -398,7 +398,7 @@ class Proposition(puan.variable, list):
 
     def invert(self) -> "Proposition":
         return self
- 
+
     def to_compound_constraint(self, index_predicate: typing.Callable[[puan.variable], int], extend_top: bool = True) -> _CompoundConstraint:
 
         """
@@ -423,28 +423,28 @@ class Proposition(puan.variable, list):
             -------
                 out : _CompoundConstraint
         """
-        
+
         _constriant = self._to_constraint(index_predicate)
         return itertools.chain(
             [_constriant.extend() if extend_top else _constriant],
             *map(
                 operator.methodcaller(
-                    "to_compound_constraint", 
+                    "to_compound_constraint",
                     index_predicate=index_predicate,
                     extend_top=True, # Always extend children
-                ), 
+                ),
                 self.compound_propositions
             )
         )
-        
+
         # # C-func
         # transformed_constraint = _CompoundConstraint(
         #     *logicfunc.merge(
-        #         _CompoundConstraint(self.value, self.sign, map(lambda x: x.constraints[0], sub_constraints), index_predicate(self)), 
+        #         _CompoundConstraint(self.value, self.sign, map(lambda x: x.constraints[0], sub_constraints), index_predicate(self)),
         #         False
         #     )
         # )
-        
+
     def to_polyhedron(self, active: bool = False, dtype = numpy.int32, support_variable_id: typing.Union[int, str] = 0) -> puan.ndarray.ge_polyhedron:
 
         """
@@ -457,7 +457,7 @@ class Proposition(puan.variable, list):
 
             dtype : numpy.dtypes = numpy.int32
                 Data type of numpy matrix instance
-            
+
             support_variable_id : typing.Union[int, str] = 0
                 Variable id of the support (b) variable of the polyhedron
 
@@ -615,7 +615,7 @@ class Proposition(puan.variable, list):
 
             Returns
             -------
-                out : Proposition 
+                out : Proposition
         """
         return self.__class__(
             *map(
@@ -815,16 +815,16 @@ class Proposition(puan.variable, list):
 class AtLeast(Proposition):
 
     """
-        AtLeast is a Proposition which takes propositions and represents a lower bound on the 
+        AtLeast is a Proposition which takes propositions and represents a lower bound on the
         result of those propositions. For example, select at least one of x, y and z would be defined
         as AtLeast("x","y","z", value=1) and represented as x+y+z >= 1.
     """
 
     def __init__(self, *propositions: typing.List[typing.Union["Proposition", puan.variable]], value: int, id: str = None):
         super().__init__(*propositions, value=value, sign=1, id=id)
-    
+
     def invert(self) -> "AtMost":
-        
+
         """
             Inverts (or negates) proposition.
 
@@ -840,13 +840,13 @@ class AtLeast(Proposition):
 
         if any(self.compound_propositions):
             return AtLeast(*map(operator.methodcaller("invert"), self.compound_propositions), value=-(self.value-1)+len(self.propositions), id=self._id)
-        else:    
+        else:
             return AtMost(*self.propositions, value=(self.value-1), id=self._id)
 
 class AtMost(Proposition):
 
     """
-        AtMost is a Proposition which takes propositions and represents a lower bound on the 
+        AtMost is a Proposition which takes propositions and represents a lower bound on the
         result of those propositions. For example, select at least one of x, y and z would be defined
         as AtMost("x","y","z", value=2) and represented as -x-y-z >= -2.
     """
@@ -856,7 +856,7 @@ class AtMost(Proposition):
 
     def invert(self) -> AtLeast:
         return AtLeast(
-            *itertools.chain(map(operator.methodcaller("invert"), self.compound_propositions), self.propositions), 
+            *itertools.chain(map(operator.methodcaller("invert"), self.compound_propositions), self.propositions),
             value=abs(self.value)+1,
             id=self._id,
         )
@@ -866,7 +866,7 @@ class All():
     """
         'All' is a Proposition representing a conjunction of all given propositions.
         'All' is represented by an AtLeast -proposition with value set to the number of given propositions.
-        For example, x = All("x","y","z") is the same as y = AtLeast("x","y","z",value=3) 
+        For example, x = All("x","y","z") is the same as y = AtLeast("x","y","z",value=3)
     """
 
     def __new__(cls, *propositions, id: str = None):
@@ -877,7 +877,7 @@ class Any():
     """
         'Any' is a Proposition representing a disjunction of all given propositions.
         'Any' is represented by an AtLeast -proposition with value set to 1.
-        For example, Any("x","y","z") is the same as AtLeast("x","y","z",value=1) 
+        For example, Any("x","y","z") is the same as AtLeast("x","y","z",value=1)
     """
 
     def __new__(cls, *propositions, id: str = None):
@@ -888,13 +888,13 @@ class Imply():
     """
         Imply is the implication logic operand and has two main inputs: condition and consequence.
         For example, if x is selected then y and z must be selected could be defined with the Imply -class
-        as Imply("x", All("y","z")). 
+        as Imply("x", All("y","z")).
     """
 
     def __new__(cls, condition: Proposition, consequence: Proposition, id: str = None):
         return Any(
-            (condition if isinstance(condition, Proposition) else All(condition)).invert(), 
-            consequence if isinstance(consequence, Proposition) else All(consequence), 
+            (condition if isinstance(condition, Proposition) else All(condition)).invert(),
+            consequence if isinstance(consequence, Proposition) else All(consequence),
             id=id
         )
 
@@ -941,7 +941,7 @@ class Imply():
             Returns
             -------
                 out : Imply
-            
+
         """
         rule_type_map = {
             "REQUIRES_ALL": lambda x,id: All(*x,id=id),
@@ -982,7 +982,7 @@ class Xor():
 
     def __new__(cls, *propositions, id: str = None):
         return All(
-            AtLeast(*propositions, value=1, id=f"{id}_LB" if id is not None else None), 
+            AtLeast(*propositions, value=1, id=f"{id}_LB" if id is not None else None),
             AtMost(*propositions, value=1, id=f"{id}_UB" if id is not None else None),
             id=id
         )
@@ -1041,13 +1041,13 @@ def delinearize(variables: list, row: numpy.ndarray, index: puan.variable) -> tu
         Notes
         -----
         Support vector index assumed to be 0
-        
+
         Examples
         --------
         When delinearizing -3a+x+y+z>=0
-            >>> delinearize(puan.variable.from_strings(*list("0axyz")), numpy.array([0,-3,1,1,1]), puan.variable("a",0,True)) 
+            >>> delinearize(puan.variable.from_strings(*list("0axyz")), numpy.array([0,-3,1,1,1]), puan.variable("a",0,True))
             (1, ['x', 'y', 'z'], 3, 0, 1)
-        
+
         When delinearizing +x+y+z>=1. *Notice no change*.
             >>> delinearize(puan.variable.from_strings(*list("0axyz")), numpy.array([1,0,1,1,1]), puan.variable("a",0,True))
             (1, ['x', 'y', 'z'], 1, 0, 1)
@@ -1083,14 +1083,14 @@ def from_polyhedron(polyhedron: puan.ndarray.ge_polyhedron, id: str = None) -> P
         dict(
             zip(
                 map(
-                    operator.attrgetter("id"), 
+                    operator.attrgetter("id"),
                     polyhedron.index
                 ),
                 itertools.starmap(
                     functools.partial(
                         delinearize,
                         polyhedron.variables.tolist(),
-                    ), 
+                    ),
                     zip(polyhedron, polyhedron.index)
                 )
             )
@@ -1122,10 +1122,10 @@ def from_tuple(data: typing.Union[list, tuple]) -> Proposition:
             out : Proposition
     """
     return Proposition(
-        *data[2], 
-        value=abs(data[3]), 
-        id=data[0], 
-        sign=data[1], 
+        *data[2],
+        value=abs(data[3]),
+        id=data[0],
+        sign=data[1],
         dtype=data[4],
         virtual=data[5]
     )
@@ -1188,7 +1188,7 @@ def from_dict(d: dict, id: str = None) -> Proposition:
                     maz.compose(
                         tuple,
                         more_itertools.prepend
-                    ), 
+                    ),
                     d.items()
                 ),
             )
