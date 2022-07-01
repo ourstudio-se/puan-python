@@ -164,7 +164,7 @@ class Proposition(puan.variable, list):
                 itertools.chain(
                     filter(lambda x: issubclass(x.__class__, Proposition), propositions),
                     map(
-                        lambda x: Proposition(id=x, value=1),
+                        lambda x: Proposition(id=x),
                         filter(lambda x: isinstance(x, str), propositions)
                     )
                 )
@@ -283,22 +283,22 @@ class Proposition(puan.variable, list):
         return _Constraint(
             map(
                 maz.compose(
-                    functools.partial(operator.mul, 1),
+                    int,
                     functools.partial(operator.eq, 1),
-                    operator.attrgetter("dtype"),
+                    operator.attrgetter("dtype")
                 ),
                 self.propositions
             ),
             map(
                 maz.compose(
                     index_predicate,
-                    operator.attrgetter("variable")
-                ),
+                    operator.attrgetter("id")
+                ), 
                 self.propositions
             ),
             itertools.repeat(self.sign, len(self.propositions)),
             self.value,
-            index_predicate(self)
+            index_predicate(self.id)
         )
 
     @property
@@ -526,7 +526,7 @@ class Proposition(puan.variable, list):
                 ('A', 1, ['x', 'y', 'z'], 3, 0, 1)
         """
 
-        return (self.id, self.sign, list(map(operator.attrgetter("id"), self.propositions)), self.value, self.dtype, self.virtual * 1)
+        return (self.id, int(self.sign), list(map(operator.attrgetter("id"), self.propositions)), int(self.value), int(self.dtype), int(self.virtual))
 
     def to_b64(self, str_decoding: str = 'utf8') -> str:
 
@@ -550,7 +550,7 @@ class Proposition(puan.variable, list):
                 mtime=0,
             )
         ).decode(str_decoding)
-
+    
     def assume(self, *fixed: typing.List[str]) -> "Proposition":
 
         """
@@ -812,6 +812,41 @@ class Proposition(puan.variable, list):
             )
         )
 
+    def to_json(self) -> dict:
+
+        """
+            Returns proposition as a readable json.
+
+            Returns
+            -------
+                out : dict
+        """
+
+        d = {}
+        if self._id:
+            d["id"] = self._id
+        d["type"] = self.__class__.__name__
+        if self.dtype == 1:
+            d["dtype"] = int(self.dtype)
+        return d
+
+    @staticmethod
+    def from_json(data: dict) -> "Proposition":
+
+        """
+            Convert from json data to a Proposition.
+
+            Returns
+            -------
+                out : Proposition
+        """
+        return Not(
+            *map(
+                
+            ),
+            id=data.get("id", None),
+        )
+
 class AtLeast(Proposition):
 
     """
@@ -843,6 +878,12 @@ class AtLeast(Proposition):
         else:
             return AtMost(*self.propositions, value=(self.value-1), id=self._id)
 
+    def to_json(self) -> dict:
+        d = super().to_json()
+        d['propositions'] = list(map(operator.methodcaller("to_json"), self.propositions))
+        d['value'] = int(self.value)
+        return d
+
 class AtMost(Proposition):
 
     """
@@ -861,7 +902,13 @@ class AtMost(Proposition):
             id=self._id,
         )
 
-class All():
+    def to_json(self) -> dict:
+        d = super().to_json()
+        d['propositions'] = list(map(operator.methodcaller("to_json"), self.propositions))
+        d['value'] = abs(self.value)
+        return d
+
+class All(AtLeast):
 
     """
         'All' is a Proposition representing a conjunction of all given propositions.
@@ -869,10 +916,15 @@ class All():
         For example, x = All("x","y","z") is the same as y = AtLeast("x","y","z",value=3)
     """
 
-    def __new__(cls, *propositions, id: str = None):
-        return AtLeast(*set(propositions), value=len(set(propositions)), id=id)
+    def __init__(self, *propositions, id: str = None):
+        super().__init__(*set(propositions), value=len(set(propositions)), id=id)
 
-class Any():
+    def to_json(self) -> dict:
+        d = super().to_json()
+        del d['value']
+        return d
+
+class Any(AtLeast):
 
     """
         'Any' is a Proposition representing a disjunction of all given propositions.
@@ -880,10 +932,15 @@ class Any():
         For example, Any("x","y","z") is the same as AtLeast("x","y","z",value=1)
     """
 
-    def __new__(cls, *propositions, id: str = None):
-        return AtLeast(*propositions, value=1, id=id)
+    def __init__(self, *propositions, id: str = None):
+        return super().__init__(*propositions, value=1, id=id)
 
-class Imply():
+    def to_json(self) -> dict:
+        d = super().to_json()
+        del d['value']
+        return d
+
+class Imply(Any):
 
     """
         Imply is the implication logic operand and has two main inputs: condition and consequence.
@@ -891,8 +948,8 @@ class Imply():
         as Imply("x", All("y","z")).
     """
 
-    def __new__(cls, condition: Proposition, consequence: Proposition, id: str = None):
-        return Any(
+    def __init__(cls, condition: Proposition, consequence: Proposition, id: str = None):
+        return super().__init__(
             (condition if isinstance(condition, Proposition) else All(condition)).invert(),
             consequence if isinstance(consequence, Proposition) else All(consequence),
             id=id
@@ -936,7 +993,7 @@ class Imply():
                 ...         ]
                 ...     }
                 ... })
-                AtLeast(id='someId', equation='+VAR1805+VARb6a0>=1')
+                Imply(id='someId', equation='+VAR1805+VARb6a0>=1')
 
             Returns
             -------
@@ -973,31 +1030,47 @@ class Imply():
         else:
             return consequence
 
-class Xor():
+    def to_json(self) -> dict:
+        d = {
+            "type": self.__class__.__name__
+        }
+        if self._id:
+            d['id'] = self._id
+        d['condition'] = self.propositions[0].invert().to_json() # invert back since inverted when init
+        d['consequence'] = self.propositions[1].to_json()
+        return d
+
+class Xor(All):
 
     """
         Xor is restricting all propositions within to be selected exactly once.
         For example, Xor(x,y,z) means that x, y and z must be selected exactly once.
     """
 
-    def __new__(cls, *propositions, id: str = None):
-        return All(
+    def __init__(self, *propositions, id: str = None):
+        super().__init__(
             AtLeast(*propositions, value=1, id=f"{id}_LB" if id is not None else None),
             AtMost(*propositions, value=1, id=f"{id}_UB" if id is not None else None),
             id=id
         )
 
-class XNor():
+    def to_json(self):
+        d = super().to_json()
+        d['propositions'] = d['propositions'][0]['propositions']
+        return d
+
+
+class XNor(Xor):
 
     """
         XNor is a negated Xor. In the special case of two propositions, this is equivalent as a biconditional logical connective (<->).
         For example, XNor(x,y) means that only none or both are true.
     """
 
-    def __new__(cls, *propositions, id: str = None):
-        return Xor(*propositions).invert(id=id)
+    def __init__(self, *propositions, id: str = None):
+        super().__init__(*propositions).invert(id=id)
 
-class Not():
+class Not(AtMost):
 
     """
         Not is restricting propositions to never be selected.
@@ -1005,8 +1078,9 @@ class Not():
         Note that Not(x) is not necessarily equivilent to x.invert() (but could be).
     """
 
-    def __new__(cls, *propositions, id: str = None):
-        return AtMost(*propositions, value=0, id=id)
+    def __init__(self, *propositions, id: str = None):
+        super().__init__(*propositions, value=0, id=id)
+
 
 
 def from_b64(base64_str: str) -> typing.Any:
@@ -1215,3 +1289,38 @@ def from_dict(d: dict, id: str = None) -> Proposition:
         return composition[0]
 
     return composition
+
+def from_json(data: dict, class_map: list = [Proposition,AtLeast,AtMost,All,Any,Xor,XNor,Not,Imply]) -> Proposition:
+
+    """
+        Convert from json data to a Proposition.
+
+        Returns
+        -------
+            out : Proposition
+    """
+    _class_map = dict(zip(map(lambda x: x.__name__, class_map), class_map))
+    propositions_map = map(functools.partial(from_json, class_map=class_map), data.get('propositions', []))
+    if data['type'] in ["Proposition"]:
+        return _class_map[data['type']](
+            id=data.get('id', None)
+        )
+    elif data['type'] in ["AtLeast", "AtMost"]:
+        return _class_map[data['type']](
+            *propositions_map,
+            value=data.get('value'),
+            id=data.get('id', None)
+        )
+    elif data['type'] in ["All", "Any", "Xor", "XNor", "Not"]:
+        return _class_map[data['type']](
+            *propositions_map,
+            id=data.get('id', None)
+        )
+    elif data['type'] == "Imply":
+        return _class_map[data['type']](
+            from_json(data.get('condition', {}), class_map),
+            from_json(data.get('consequence'), class_map),
+            id=data.get('id', None)
+        )
+    else:
+        raise Exception(f"cannot parse type '{data['type']}'")

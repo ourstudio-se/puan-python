@@ -1503,69 +1503,6 @@ def test_cicJE_to_implication_proposition():
     )
     assert actual_output == expected_output
 
-def test_parse_short_compound_proposition():
-
-    line_rules = [
-        ("Any", ['a', 'b', 'c'], None, None),
-        ("AtMost", ['a', 'b', 'c'], 1, None),
-        ("Any", ['d', 'e'], None, None),
-        ("AtMost", ['d', 'e'], 1, None),
-        ("Imply", [("All", ['p', 'a', 'e'], None, None), ("Any", ['x', 'y'], None, None)], None, None),
-        ("All", [("All", ['p', 'a', 'e'], None, None), ("AtMost", ['x', 'y'], 1, None)], None, None),
-        ("Xor", [("Any", ['p', 'a', 'e'], None, None), ("All", ['x', 'z'], None, None)], None, None),
-        ("Imply", [("AtLeast", ['p', 'a', 'e'], 2, None), ("AtMost", ['x', 'z'], 1, None)], None, None),
-        ("Xor", [("All", ['a', 'q', 'e'], None, None), ("All", ['f', 'g', 'h'], None, None)], None, None),
-    ]
-    actual_model = pg.from_short(line_rules)
-    assert len(actual_model.propositions) == 9
-
-def test_parse_empty_short_compound_proposition():
-    actual_model = pg.from_short([])
-    assert len(actual_model.propositions) == 0
-
-def test_parse_short_compounds_from_text():
-    text_lines = [
-        # (a & b & (c | d) & (c | e)) -> (a & b & c)
-        "('Imply', [('All', ['a','b',('Any',['c','d']),('Any',['c','e'])]),('All', ['a','b','c'])])",
-        # (x | d | (z & m)) -xor-> a
-        "('Imply', [('Any', ['x','d', ('All', ['z','m'])]), ('Xor',['a'])])"
-    ]
-    actual_model = pg.from_short(list(map(ast.literal_eval, text_lines)))
-    assert len(actual_model.propositions) == 2
-
-def test_parse_short_compund_texts_with_different_combinations():
-    text_lines = [
-        "('')",
-        "('Imply', [('All',['a','b','c','d'],'B'),('Xor',['x','y','z'],'C')], 'A')",
-        "('Imply', ['a','x'], 'A')",
-        "('Imply', ['aa','xx'], 'A')",
-        "['a','b','c']",
-        "('AtMost',[('AtLeast', ['a','b'], 1),('AtMost',['x','y','z'],2)], 1)",
-        "('AtMost',[('AtLeast', ['Op9','99'], 1),('AtMost',['00','01','10001'],2)], 1)",
-        "('Imply',[('AtLeast', ['xxx',('All',['yyy','zzz'])], 1),('All',['aaa','bbb'])])",
-    ]
-    actual_model = list(map(pg.from_short_text, text_lines))
-    assert actual_model[0].id == 'VAR4fc8'
-    assert len(actual_model[1].propositions) == 2
-    assert len(actual_model[2].propositions) == 2
-    assert len(actual_model[3].propositions) == 2
-    assert len(actual_model[4].propositions) == 3
-    assert len(actual_model[5].propositions) == 2
-    assert len(actual_model[6].propositions) == 2
-    assert len(actual_model[7].propositions) == 2
-
-def test_parse_short_compound_texts_with_special_chars():
-
-    actual = pg.from_short_text(
-        "('Imply', [('All',['$§@£_-/','YY-0','X_y5'],'B'),('Xor',['1','22','345'],'C')], 'A')",
-    )
-    expected = pg.Imply(
-        pg.All('$§@£_-/','YY-0','X_y5', id='B'),
-        pg.Xor('$§@£_-/','YY-0','X_y5', id='C'),
-        id="A"
-    )
-    assert actual == expected
-
 def test_neglect_columns():
     inputs = (
         numpy.array(  # M
@@ -2259,3 +2196,23 @@ def test_logicfunc():
         for inpt, expected_output in test_cases:
             actual_output = lf.transform(*inpt)
             assert expected_output == actual_output
+
+def test_json_conversion():
+
+    model = pg.All(
+        pg.Any("x","y", id="B"),
+        pg.Any("a","b", id="C"),
+        id="A",
+    )
+
+    converted = pg.from_json(model.to_json())
+    assert model == converted
+
+    model = cc.StingyConfigurator(
+        cc.Any("x","y", id="B"),
+        cc.Any("a","b", id="C"),
+        id="A",
+    )
+
+    converted = cc.StingyConfigurator.from_json(model.to_json())
+    assert model == converted

@@ -1,3 +1,4 @@
+import maz
 import functools
 import operator
 import numpy as np
@@ -6,7 +7,7 @@ import puan.logic.plog as pg
 import puan.ndarray as pnd
 import typing
 
-class Any():
+class Any(pg.Any):
 
     """
         Overriding plog.Any proposition with default -attribute indicating which solution
@@ -17,23 +18,29 @@ class Any():
         and prio is set to c > A'.
     """
 
-    def __new__(cls, *propositions, default: str = None, id: str = None):
+    def __init__(self, *propositions, default: str = None, id: str = None):
+        self.default = default
         if default is not None:
-            inner = pg.AtLeast(
+            inner = super.__init__(
                 *filter(lambda x: not x == default, propositions),
                 value=1
             )
             inner.prio = getattr(inner, 'prio', -1)-1 
-            return pg.AtLeast(
+            super.__init__(
                 *filter(lambda x: x == default, propositions),
                 inner,
                 value=1,
                 id=id,
             )
         else:
-            return pg.Any(*propositions, id=id)
+            super().__init__(*propositions, id=id)
 
-class Xor():
+    def to_json(self) -> dict:
+        d = super().to_json()
+        d['default'] = self.default
+        return d
+
+class Xor(pg.All):
 
     """
         Overriding plog.Xor proposition with default -attribute indicating which solution
@@ -43,18 +50,25 @@ class Xor():
         and prio is set to c > A'.
     """
 
-    def __new__(cls, *propositions, default: str = None, id: str = None):
+    def __init__(self, *propositions, default: str = None, id: str = None):
         if default is not None:
-            return pg.All(
+            super().__init__(
                 Any(*propositions, default=default, id=f"{id}_LB" if not id is None else None),
                 pg.AtMost(*propositions, value=1, id=f"{id}_UB" if not id is None else None),
                 id=id
             )
         else:
-            return pg.Xor(*propositions, id=id)
+            super().__init__(*propositions, id=id)
+
+    def to_json(self):
+        d = super().to_json()
+        ls, rs = d['propositions']
+        d['propositions'] = rs['propositions']
+        d['default'] = ls['default']
+        return d
 
 
-class StingyConfigurator(pg.AtLeast):
+class StingyConfigurator(pg.All):
 
     """
         A class for supporting a sequential configurator experience.
@@ -65,7 +79,7 @@ class StingyConfigurator(pg.AtLeast):
     """
 
     def __init__(self, *propositions: typing.List[typing.Union[pg.Proposition, str]], id: str = None):
-        super().__init__(*propositions, value=len(propositions), id=id)
+        super().__init__(*propositions, id=id)
 
     @property
     @functools.lru_cache
@@ -134,7 +148,7 @@ class StingyConfigurator(pg.AtLeast):
             lambda v: list(
                 filter(
                     lambda vvr: not vvr[0].virtual or include_virtual_vars, 
-                    zip(self.polyhedron.A.variables[v > 0], v[v > 0]),
+                    zip(self.polyhedron.A.variables[v > 0], map(int, v[v > 0])),
                 )
             ), 
             solver(
@@ -198,4 +212,26 @@ class StingyConfigurator(pg.AtLeast):
         return StingyConfigurator(
             *assumed_sub.propositions,
             id=self._id,
+        )
+
+    def from_json(data: dict) -> "StingyConfigurator":
+
+        """"""
+        classes = [
+            pg.Proposition,
+            pg.AtLeast,
+            pg.AtMost,
+            pg.All,
+            Any,
+            Xor,
+            pg.Not,
+            pg.XNor,
+            pg.Imply,
+        ]
+        return StingyConfigurator(
+            *map(
+                functools.partial(pg.from_json, class_map=classes),
+                data.get('propositions', [])
+            ),
+            id=data.get('id', None)
         )
