@@ -548,7 +548,7 @@ class application(dict):
             ...         }
             ...     }
             ... ])
-            AtLeast(id='VAR8419', equation='+VARa7db+VARa918+VARe416>=3')
+            All(id='VARe724', equation='+VAR434f+VAR4a5d+VARa01c>=3')
     """
         n_ge_one = functools.partial(filter, maz.compose(maz.pospartial(operator.ge, [(1,1)]), len))
         return pg.All(

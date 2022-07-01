@@ -1,9 +1,17 @@
+import json
 import typing
 import maz
 import itertools
-from dataclasses import dataclass
+import dataclasses
+from json import JSONEncoder
 
-@dataclass(frozen=True, eq=False)
+def _default(self, obj):
+    return getattr(obj.__class__, "to_json", _default.default)(obj)
+
+_default.default = JSONEncoder().default
+JSONEncoder.default = _default
+
+@dataclasses.dataclass(frozen=True, eq=False)
 class variable(object):
 
     """
@@ -23,6 +31,9 @@ class variable(object):
 
     def __eq__(self, other):
         return self.id == getattr(other, "id", other)
+
+    def to_json(self):
+        return dataclasses.asdict(self)
 
     @staticmethod
     def from_strings(*variables: typing.List[str], dtype_default: typing.Union[bool, int] = 0, virtual_default: bool = False) -> typing.List["variable"]:

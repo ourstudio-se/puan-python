@@ -76,13 +76,13 @@ class variable_ndarray(numpy.ndarray):
             Constructing a new 1D variable ndarray shadow from this array and setting x = 5
                 >>> vnd = variable_ndarray([[1,2,3], [2,3,4]], [puan.variable("x", 1, False), puan.variable("y", 1, False), puan.variable("z", 1, False)])
                 >>> vnd.construct(("x", 5))
-                variable_ndarray([5, 0, 0], dtype=int64)
+                variable_ndarray([5, 0, 0])
 
             Constructing a new 2D variable ndarray shadow from this array and setting x0 = 5, y0 = 4 and y1 = 3
                 >>> vnd = variable_ndarray([[1,2,3], [2,3,4]], [puan.variable("x", 1, False), puan.variable("y", 1, False), puan.variable("z", 1, False)])
                 >>> vnd.construct([("x", 5), ("y", 4)], [("y", 3)])
                 variable_ndarray([[5, 4, 0],
-                                  [0, 3, 0]], dtype=int64)
+                                  [0, 3, 0]])
 
             Returns
             -------
@@ -235,7 +235,7 @@ class ge_polyhedron(variable_ndarray):
                 ...     [0,-1, 1, 0, 0],
                 ...     [0, 0,-1, 1, 0],
                 ...     [0, 0, 0,-1, 1]])).b
-                array([0, 0, 0])
+                integer_ndarray([0, 0, 0])
         """
         return integer_ndarray(self.T[0], index=self.index)
 
@@ -331,7 +331,7 @@ class ge_polyhedron(variable_ndarray):
                 ...     [0, 0, 0,-1, 1]])).to_linalg()
                 (integer_ndarray([[-1,  1,  0,  0],
                                  [ 0, -1,  1,  0],
-                                 [ 0,  0, -1,  1]]), array([0, 0, 0]))
+                                 [ 0,  0, -1,  1]]), integer_ndarray([0, 0, 0]))
         """
         return self.A, self.b
 
@@ -911,7 +911,7 @@ class ge_polyhedron(variable_ndarray):
                                [ 1,  0,  0,  0,  0,  0, -1,  0],
                                [ 1,  0,  0,  0,  0,  0,  0, -1]])
         """
-        polyhedron = numpy.zeros([len(priorities), len(variables)+1], dtype=dtype)
+        polyhedron = numpy.zeros([len(priorities), len(variables)+1])
         polyhedron[:,0] = 1
         lez_constraint = numpy.concatenate((numpy.ones((len(variables),1)), -numpy.eye(len(variables))), axis=1)
         priority_indices = list(map(lambda x: [variables.index(x[0]) + 1, variables.index(x[1]) + 1], priorities))
@@ -1282,7 +1282,7 @@ class integer_ndarray(variable_ndarray):
                                   [ 0,  0, -1]]])
 
         """
-        nvars = len(self.variables)
+        nvars = self.shape[self.ndim-1]
         if not method == "subtraction":
             inc_neighbourhood = numpy.tile(self, nvars).reshape(list(self.shape)+[nvars]) +  numpy.tile(delta * numpy.eye(nvars, dtype=numpy.int64), (list(self.shape)[:-1] + [1])).reshape(list(self.shape)+[nvars])
             if method == "addition":
@@ -1506,7 +1506,7 @@ class boolean_ndarray(variable_ndarray):
                 >>> x.get_neighbourhood(method="off")
                 boolean_ndarray([], shape=(0, 4), dtype=bool)
         """
-        nvars = len(self.variables)
+        nvars = self.shape[self.ndim-1]
         if method == "on_off":
             _res = numpy.logical_xor(numpy.tile(self, nvars).reshape(list(self.shape)+[nvars]), numpy.tile(numpy.eye(nvars, dtype=numpy.int64), (list(self.shape)[:-1] + [1])).reshape(list(self.shape)+[nvars]))
         elif method == "on":
