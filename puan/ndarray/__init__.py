@@ -9,8 +9,9 @@ import puan
 import puan.npufunc as npufunc
 import sys
 
+
 class variable_ndarray(numpy.ndarray):
-    
+
     def __new__(cls, input_array, variables: typing.List[puan.variable] = [], index: typing.List[typing.Union[int, puan.variable]] = []):
         arr = numpy.asarray(input_array, dtype=numpy.int64).view(cls)
         arr.variables = numpy.array(variables)
@@ -287,7 +288,7 @@ class ge_polyhedron(variable_ndarray):
 
     #         Notes
     #         -----
-    #         Super ge-polytope is assumed which assumes that each row index represents a column index (except row 0) 
+    #         Super ge-polytope is assumed which assumes that each row index represents a column index (except row 0)
 
     #         Examples
     #         --------
@@ -306,10 +307,10 @@ class ge_polyhedron(variable_ndarray):
     #     _res = self.A.dot(_interpretation) >= self.b
     #     __interpretation = self.A.construct(*zip(self.index,((~res*_res)+(res*_res) >= 1)*1))
     #     __interpretation += (__interpretation == 0)*interpretation
-        
+
     #     if (__interpretation == interpretation).all():
     #         return False, _interpretation
-            
+
     #     return self.evaluate(__interpretation)
 
     def to_linalg(self: numpy.ndarray) -> tuple:
@@ -341,6 +342,8 @@ class ge_polyhedron(variable_ndarray):
             The approximate condition is that only one row of ge_polyhedron is
             considered when deducing reducable columns. By considering combination of rows
             more reducable columns might be found.
+
+            Rows with values :math:`\\neq0` for any integer variable are neglected.
 
             Returns
             -------
@@ -390,7 +393,8 @@ class ge_polyhedron(variable_ndarray):
                 integer_ndarray([0])
 
         """
-        A, b = self.to_linalg()
+        A, b = ge_polyhedron(self, getattr(self, "variables", []), getattr(self, "index", [])).to_linalg()
+        A = A[(A[:,self.integer_variable_indices()]==0).all(axis=1)]
         r = (A*((A*(A <= 0) + (A*(A > 0)).sum(axis=1).reshape(-1,1)) < b.reshape(-1,1))) + A*((A * (A > 0)).sum(axis=1) == b).reshape(-1,1)
         return r.sum(axis=0)
 
@@ -442,6 +446,8 @@ class ge_polyhedron(variable_ndarray):
             Returns a boolean vector indicating what rows are reducable.
             A row is reducable iff it doesn't constrain any variable.
 
+            Rows with values :math:`\\neq0` for any integer variable are neglected.
+
             Returns
             -------
                 out : numpy.ndarray (vector)
@@ -470,7 +476,8 @@ class ge_polyhedron(variable_ndarray):
 
         """
         A, b = ge_polyhedron(self, getattr(self, "variables", []), getattr(self, "index", [])).to_linalg()
-        return (((A * (A < 0)).sum(axis=1) >= b)) + ((A >= 0).all(axis=1) & (b<=0))
+        rows_to_keep = (A[:, self.integer_variable_indices()] == 0).all(axis = 1)
+        return (((A * (A < 0)).sum(axis=1) >= b))*rows_to_keep
 
     def reduce_rows(self: numpy.ndarray, rows_vector: numpy.ndarray) -> numpy.ndarray:
 

@@ -1184,7 +1184,7 @@ def test_application_with_no_item_hits_should_yield_no_rules():
 
 def test_reduce_matrix():
 
-    matrix = numpy.array([
+    matrix = puan.ndarray.ge_polyhedron(numpy.array([
         [-1,-1,-1, 1, 0, 2], # stay
         [-2,-1,-1, 1, 0, 2], # remove
         [ 0,-1, 1, 1, 0, 0], # stay
@@ -1193,7 +1193,7 @@ def test_reduce_matrix():
         [ 2, 1, 1, 1, 1, 1], # stay
         [ 0, 1, 1, 0, 1, 0], # remove
         [ 0, 1, 1, 0, 1,-1], # stay
-    ])
+    ]))
     reducable_rows = puan.ndarray.reducable_rows(matrix)
     actual = puan.ndarray.reduce(matrix, rows_vector=reducable_rows)
     expected = numpy.array([
@@ -1203,6 +1203,33 @@ def test_reduce_matrix():
         [-4,-1,-1,-1,-1,-1], # stay
         [ 2, 1, 1, 1, 1, 1], # stay
         [ 0, 1, 1, 0, 1,-1], # stay
+    ])
+    assert numpy.array_equal(actual,expected)
+
+    matrix = puan.ndarray.ge_polyhedron(numpy.array([
+        [-1,-1,-1, 1, 0, 2], # stay
+        [-2,-1,-1, 1, 0, 2], # stay since variable "a" is integer
+        [ 0,-1, 1, 1, 0, 0], # stay
+        [-3,-2,-1,-1, 0, 0], # stay
+        [-4,-1,-1,-1,-1,-1], # stay
+        [ 2, 0, 1, 1, 1, 1], # stay
+        [ 0, 0, 1, 0, 1, 0], # remove
+        [ 0, 0, 1, 0, 1,-1], # stay
+    ]), [puan.variable("a", 1, False),
+         puan.variable("b", 0, False),
+         puan.variable("c", 0, False),
+         puan.variable("d", 0, False),
+         puan.variable("e", 0, False)])
+    reducable_rows = puan.ndarray.reducable_rows(matrix)
+    actual = puan.ndarray.reduce(matrix, rows_vector=reducable_rows)
+    expected = numpy.array([
+        [-1,-1,-1, 1, 0, 2], # stay
+        [-2,-1,-1, 1, 0, 2], # stay since variable "a" is integer
+        [ 0,-1, 1, 1, 0, 0], # stay
+        [-3,-2,-1,-1, 0, 0], # stay
+        [-4,-1,-1,-1,-1,-1], # stay
+        [ 2, 0, 1, 1, 1, 1], # stay
+        [ 0, 0, 1, 0, 1,-1], # stay
     ])
     assert numpy.array_equal(actual,expected)
 
@@ -1239,6 +1266,18 @@ def test_reducable_columns_approx():
     actual = input.reducable_columns_approx()
     expected = puan.ndarray.ge_polyhedron(numpy.array([0]))
     assert numpy.array_equal(actual, expected)
+    input = puan.ndarray.ge_polyhedron(numpy.array([
+        [0,-1,-1, 0, 0],
+        [0, 0, 0,-1,-1]]),
+        [puan.variable("a", 1, False),
+         puan.variable("b", 0, False),
+         puan.variable("c", 0, False),
+         puan.variable("d", 0, False)])
+    actual = input.reducable_columns_approx()
+    expected = puan.ndarray.ge_polyhedron(numpy.array([0, 0,-4,-4]))
+    assert numpy.array_equal(actual, expected)
+
+
 
 
 # def test_split_ruleset():
@@ -1440,7 +1479,8 @@ def test_ndint_compress():
             ]),
             puan.ndarray.integer_ndarray([
                 [-4, 1, 2, 16,-4,-4]
-            ])
+            ]),
+            0
         ),
         (
             puan.ndarray.integer_ndarray([
@@ -1453,7 +1493,8 @@ def test_ndint_compress():
             ]),
             puan.ndarray.integer_ndarray([
                 [ 1, 2, 4, 8, 16, 32],
-            ])
+            ]),
+            0
         ),
         (
             puan.ndarray.integer_ndarray([
@@ -1464,7 +1505,8 @@ def test_ndint_compress():
             ]),
             puan.ndarray.integer_ndarray([
                 -4, -4, 24, 12, 1, 2
-            ])
+            ]),
+            0
         ),
         (
             puan.ndarray.integer_ndarray([
@@ -1505,131 +1547,13 @@ def test_ndint_compress():
                 [ 1, 2, 4, 8,16,32],
                 [-1,-1,24,12, 6, 3],
                 [-2, 1, 4, 0, 0, 0]
-            ])
+            ]),
+            0
         ),
     ]
-    for inpt, expected_output in test_cases:
-        actual_output = inpt.ndint_compress(method="shadow")
-        assert (actual_output == expected_output).all()
-
-def test_truncate_documentation_examples():
-    """Documentation example"""
-    test_cases = [
-        (
-            puan.ndarray.integer_ndarray([1, 2, 3, 4]),
-            puan.ndarray.integer_ndarray([1, 2, 4, 8])),
-        (
-            puan.ndarray.integer_ndarray([3, 6, 2, 8]),
-            puan.ndarray.integer_ndarray([2, 4, 1, 8])),
-        (
-            puan.ndarray.integer_ndarray([-3, -6, 2, 8]),
-            puan.ndarray.integer_ndarray([-2, -4, 1, 8])),
-        (
-            puan.ndarray.integer_ndarray([1, 1, 2, 2, 2, 3]),
-            puan.ndarray.integer_ndarray([ 1,  1,  3,  3,  3, 12])),
-        (
-            puan.ndarray.integer_ndarray([
-                [ 0, 0, 0, 0, 1, 2],
-                [-1,-1,-1,-1, 0, 0],
-                [ 0, 0, 1, 2, 0, 0],
-                [ 0, 0, 1, 0, 0, 0]
-                ]),
-            puan.ndarray.integer_ndarray([-4, -4, 24, 12,  1,  2])),
-        (
-            puan.ndarray.integer_ndarray([
-                [
-                    [ 1,  2,  2,  2,  2],
-                    [ 1, -2, -1,  2, -2],
-                    [ 1,  0,  2, -1, -1],
-                    [ 2,  1,  1,  0,  1]
-                ], [
-                    [-1,  0, -1,  2,  0],
-                    [-1,  1, -2,  2, -1],
-                    [ 0, -2,  1, -2,  2],
-                    [ 0, -2,  2,  2,  0]
-                ], [
-                    [ 1, -1,  0,  1,  1],
-                    [ 2, -1, -2, -2,  0],
-                    [ 2,  2,  1,  1, -2],
-                    [ 1, -1,  1,  0,  2]
-                ]]),
-            puan.ndarray.integer_ndarray([
-                [ 8,  2,  2, -1,  2],
-                [-1, -4,  4,  4,  2],
-                [ 2, -2,  2,  1,  8]])
-        )]
-    for inpt, expected_output in test_cases:
-        actual_output = inpt.ndint_compress(method="shadow")
-        assert (actual_output == expected_output).all()
-
-def test_separable():
-    """Documentation example"""
-    ge = puan.ndarray.ge_polyhedron([0, -2, 1, 1])
-    actual_output = ge.separable(numpy.array([
-        [1,0,1],
-        [1,1,1],
-        [0,0,0]]))
-    expected_output = numpy.array([True, False, False])
-    assert numpy.array_equal(actual_output, expected_output)
-
-def test_ineq_separate_points():
-    """Documentation example"""
-    input = puan.ndarray.ge_polyhedron(numpy.array([
-            [ 0, 1, 0],
-            [ 0, 1, -1],
-            [ -1, -1, 1]
-        ]))
-    points = numpy.array([[1, 1], [4, 2]])
-    actual = input.ineq_separate_points(points)
-    expected = numpy.array([False, False, True])
-    assert numpy.array_equal(actual, expected)
-    input = puan.ndarray.ge_polyhedron(numpy.array([
-                [ 0, 1, 0, -1],
-                [ 0, 1, -1, 0],
-                [ -1, -1, 1, -1]
-            ]))
-    points = numpy.array([
-            [[1, 1, 1], [4, 2, 1]],
-            [[0, 1, 0], [1, 2, 1]]
-        ])
-    actual = input.ineq_separate_points(points)
-    expected = numpy.array([[False, False, True],
-                            [False, True, False]])
-    assert numpy.array_equal(actual, expected)
-
-def test_or_get():
-    """Documentation example"""
-    input = dict((("a", 1), ("b", 2)))
-    keys = ["1", "a"]
-    actual = puan.misc.or_get(input, keys)
-    expected = 1
-    assert actual == expected
-    input = dict((("a", 1), ("b", 2)))
-    keys = ["b", "a"]
-    actual = puan.misc.or_get(input, keys)
-    expected = 2
-    assert actual == expected
-    input = dict((("a", 1), ("b", 2)))
-    keys = [1]
-    default_value = 0
-    actual = puan.misc.or_get(input, keys, default_value)
-    expected = 0
-    assert actual == expected
-
-def test_or_replace():
-    """Documentation example"""
-    input = dict((("a", 1), ("b", 2)))
-    keys = ["1", "a"]
-    value = "1"
-    actual = puan.misc.or_replace(input, keys, value)
-    expected = {'a': '1', 'b': 2}
-    assert actual == expected
-    input = dict((("a", 1), ("b", 2)))
-    keys = ["b", "a"]
-    value = "1"
-    actual = puan.misc.or_replace(input, keys, value)
-    expected = {'a': 1, 'b': '1'}
-    assert actual == expected
+    for inpt, expected_output, axis in test_cases:
+        actual_output = inpt.ndint_compress(method="shadow", axis=axis)
+        assert numpy.array_equal(actual_output, expected_output)
 
 def test_implication_propositions_should_not_share_id():
 
