@@ -21,15 +21,13 @@ class Any(pg.Any):
     def __init__(self, *propositions, default: str = None, id: str = None):
         self.default = default
         if default is not None:
-            inner = super.__init__(
-                *filter(lambda x: not x == default, propositions),
-                value=1
+            inner = pg.Any(
+                *filter(lambda x: not x == default, propositions)
             )
             inner.prio = getattr(inner, 'prio', -1)-1 
-            super.__init__(
+            super().__init__(
                 *filter(lambda x: x == default, propositions),
                 inner,
-                value=1,
                 id=id,
             )
         else:
@@ -37,8 +35,24 @@ class Any(pg.Any):
 
     def to_json(self) -> dict:
         d = super().to_json()
-        d['default'] = self.default
+        # currently we only care about first element since no implementation
+        # to handle list of defaults (like a prio list). But since future may include list of 
+        # defaults, we keep interface as list
+        d['default'] = [self.default]
         return d
+
+    @staticmethod
+    def from_json(data: dict, class_map: list) -> pg.Proposition:
+        
+        """"""
+        default = data.get("default", [])
+        default_item = None if len(default) == 0 else default[0]
+        _class_map = dict(zip(map(lambda x: x.__name__, class_map), class_map))
+        return Any(
+            *map(functools.partial(pg.from_json, class_map=class_map), data.get('propositions', [])),
+            default=default_item,
+            id=data.get("id", None)
+        )
 
 class Xor(pg.All):
 

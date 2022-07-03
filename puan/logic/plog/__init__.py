@@ -940,6 +940,17 @@ class Any(AtLeast):
         del d['value']
         return d
 
+    @staticmethod
+    def from_json(data: dict, class_map: list) -> Proposition:
+        
+        """"""
+        
+        _class_map = dict(zip(map(lambda x: x.__name__, class_map), class_map))
+        return Any(
+            *map(functools.partial(from_json, class_map=class_map), data.get('propositions', [])),
+            id=data.get("id", None)
+        )
+
 class Imply(Any):
 
     """
@@ -1311,6 +1322,8 @@ def from_json(data: dict, class_map: list = [Proposition,AtLeast,AtMost,All,Any,
             value=data.get('value'),
             id=data.get('id', None)
         )
+    elif data['type'] in ["Any"]:
+        return _class_map[data['type']].from_json(data, class_map)
     elif data['type'] in ["All", "Any", "Xor", "XNor", "Not"]:
         return _class_map[data['type']](
             *propositions_map,

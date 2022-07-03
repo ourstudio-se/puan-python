@@ -4,7 +4,7 @@ from setuptools import Extension
 if __name__ == "__main__":
     setup(
         name="puan",
-        version="0.3.3",
+        version="0.3.4",
         description = "Function tools for combinatorial optimization",
         author = "Our Studio Void AB",
         author_email = "moa@ourstudio.se",
