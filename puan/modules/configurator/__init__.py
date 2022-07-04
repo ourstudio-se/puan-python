@@ -49,7 +49,17 @@ class Any(pg.Any):
         # currently we only care about first element since no implementation
         # to handle list of defaults (like a prio list). But since future may include list of 
         # defaults, we keep interface as list
-        d['default'] = [self.default]
+        if any(map(operator.attrgetter("virtual"), self.propositions)):
+            default_prop = next(filter(maz.compose(operator.not_, operator.attrgetter("virtual")), self.propositions))
+            non_default_prop = next(filter(operator.attrgetter("virtual"), self.propositions))
+            d['propositions'] = list(
+                itertools.chain(
+                    map(operator.methodcaller("to_json"), non_default_prop.propositions),
+                    [default_prop.to_json()]
+                )
+            )
+            d['default'] = [default_prop.id]
+
         return d
 
     @staticmethod
@@ -253,12 +263,9 @@ class StingyConfigurator(pg.All):
         ).assume(*fixed)
         
         # Put back prio into proposition with prio set
-        list(
-            map(
-                lambda fp: object.__setattr__(fp, "prio", getattr(d_flatten.get(fp.id, {}), "prio", -1)),
-                assumed_sub.flatten()
-            )
-        )
+        for proposition in filter(lambda x: isinstance(x, pg.Any), assumed_sub.flatten()):
+            proposition.__class__ = Any
+            proposition.prio = getattr(d_flatten.get(proposition.id, {}), "prio", -1)
 
         return StingyConfigurator(
             *assumed_sub.propositions,

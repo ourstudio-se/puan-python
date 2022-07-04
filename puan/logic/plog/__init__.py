@@ -825,7 +825,8 @@ class Proposition(puan.variable, list):
         d = {}
         if self._id:
             d["id"] = self._id
-        d["type"] = self.__class__.__name__
+        if type(self) != Proposition:
+            d["type"] = self.__class__.__name__
         if self.dtype == 1:
             d["dtype"] = int(self.dtype)
 
@@ -1334,8 +1335,6 @@ def from_dict(d: dict, id: str = None) -> Proposition:
         ),
         id=id
     )
-    if len(composition) == 1:
-        return composition[0]
 
     return composition
 
