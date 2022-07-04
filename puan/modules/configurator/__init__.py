@@ -1,3 +1,4 @@
+import itertools
 import maz
 import functools
 import operator
@@ -6,6 +7,16 @@ import puan
 import puan.logic.plog as pg
 import puan.ndarray as pnd
 import typing
+import dataclasses
+
+@dataclasses.dataclass(frozen=True)
+class SolutionVariable(puan.variable):
+
+    value: int
+
+    @staticmethod
+    def from_variable(variable: puan.variable, value: int) -> "SolutionVariable":
+        return SolutionVariable(variable.id, variable.dtype, variable.virtual, value)
 
 class Any(pg.Any):
 
@@ -65,6 +76,7 @@ class Xor(pg.All):
     """
 
     def __init__(self, *propositions, default: str = None, id: str = None):
+        propositions = list(propositions)
         if default is not None:
             super().__init__(
                 Any(*propositions, default=default, id=f"{id}_LB" if not id is None else None),
@@ -72,7 +84,11 @@ class Xor(pg.All):
                 id=id
             )
         else:
-            super().__init__(*propositions, id=id)
+            super().__init__(
+                pg.Any(*propositions, id=f"{id}_LB" if not id is None else None),
+                pg.AtMost(*propositions, value=1, id=f"{id}_UB" if not id is None else None),
+                id=id
+            )
 
     def to_json(self):
         d = super().to_json()
@@ -81,6 +97,18 @@ class Xor(pg.All):
         d['default'] = ls['default']
         return d
 
+    @staticmethod
+    def from_json(data: dict, class_map: list) -> pg.Proposition:
+
+        """"""
+        default = data.get("default", [])
+        default_item = None if len(default) == 0 else default[0]
+        _class_map = dict(zip(map(lambda x: x.__name__, class_map), class_map))
+        return Xor(
+            *map(functools.partial(pg.from_json, class_map=class_map), data.get('propositions', [])),
+            default=default_item,
+            id=data.get("id", None)
+        )
 
 class StingyConfigurator(pg.All):
 
@@ -161,8 +189,18 @@ class StingyConfigurator(pg.All):
         return map(
             lambda v: list(
                 filter(
-                    lambda vvr: not vvr[0].virtual or include_virtual_vars, 
-                    zip(self.polyhedron.A.variables[v > 0], map(int, v[v > 0])),
+                    maz.compose(
+                        functools.partial(
+                            operator.add,
+                            include_virtual_vars
+                        ),
+                        operator.not_,
+                        operator.attrgetter("virtual"),
+                    ),
+                    itertools.starmap(
+                        SolutionVariable.from_variable,
+                        zip(self.polyhedron.A.variables[v > 0], v[v > 0].tolist())
+                    ),
                 )
             ), 
             solver(
@@ -170,7 +208,6 @@ class StingyConfigurator(pg.All):
                 self.polyhedron.b,
                 self.polyhedron.A.integer_variable_indices(),
                 self._vectors_from_prios(prios),
-                # -np.ones((1, self.polyhedron.A.shape[1]))
             )
         )
 

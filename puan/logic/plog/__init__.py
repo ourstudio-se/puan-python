@@ -697,7 +697,7 @@ class Proposition(puan.variable, list):
         )
         object.__setattr__(instance, "dtype", self.dtype)
         object.__setattr__(instance, "virtual", self.virtual)
-        return instance
+        return instance.specify()
 
     @property
     def is_tautologi(self) -> bool:
@@ -828,10 +828,14 @@ class Proposition(puan.variable, list):
         d["type"] = self.__class__.__name__
         if self.dtype == 1:
             d["dtype"] = int(self.dtype)
+
+        if len(self.propositions) > 0:
+            d["propositions"] = list(map(operator.methodcaller("to_json"), self.propositions))
+
         return d
 
     @staticmethod
-    def from_json(data: dict) -> "Proposition":
+    def from_json(data: dict, class_map) -> "Proposition":
 
         """
             Convert from json data to a Proposition.
@@ -840,11 +844,14 @@ class Proposition(puan.variable, list):
             -------
                 out : Proposition
         """
-        return Not(
-            *map(
-                
-            ),
-            id=data.get("id", None),
+        propositions = data.get('propositions', [])
+        return Proposition(
+            *map(operator.methodcaller('from_json', class_map=class_map), propositions),
+            id=data.get('id', None),
+            dtype=data.get('dtype', 0),
+            virtual=data.get('virtual', [False,True][len(propositions)>0]),
+            sign=data.get('sign', 1),
+            value=data.get('value', 1)
         )
 
 class AtLeast(Proposition):
@@ -880,9 +887,20 @@ class AtLeast(Proposition):
 
     def to_json(self) -> dict:
         d = super().to_json()
-        d['propositions'] = list(map(operator.methodcaller("to_json"), self.propositions))
         d['value'] = int(self.value)
         return d
+
+    def specify(self) -> typing.Union["All", "Any", "AtLeast"]:
+        
+        """"""
+        if self.value == len(self.propositions):
+            self.__class__ = All
+            return self.specify()
+        elif self.value == 1:
+            self.__class__ = Any
+            return self.specify()
+        
+        return self
 
 class AtMost(Proposition):
 
@@ -904,9 +922,11 @@ class AtMost(Proposition):
 
     def to_json(self) -> dict:
         d = super().to_json()
-        d['propositions'] = list(map(operator.methodcaller("to_json"), self.propositions))
         d['value'] = abs(self.value)
         return d
+
+    def specify(self) -> "AtMost":
+        return self
 
 class All(AtLeast):
 
@@ -923,6 +943,13 @@ class All(AtLeast):
         d = super().to_json()
         del d['value']
         return d
+
+    def specify(self) -> typing.Union["Xor", "All"]:
+        if len(self.propositions) == 2:
+            if isinstance(self.propositions[0], Any) and isinstance(self.propositions[1], AtMost) and self.propositions[1].value == -1:
+                self.__class__ = Xor
+                
+        return self
 
 class Any(AtLeast):
 
@@ -944,12 +971,20 @@ class Any(AtLeast):
     def from_json(data: dict, class_map: list) -> Proposition:
         
         """"""
-        
+
         _class_map = dict(zip(map(lambda x: x.__name__, class_map), class_map))
         return Any(
             *map(functools.partial(from_json, class_map=class_map), data.get('propositions', [])),
             id=data.get("id", None)
         )
+
+    def specify(self) -> typing.Union["Imply", "Any"]:
+
+        """"""
+        if len(self.propositions) == 2 and self.propositions[0].sign == -1 and self.propositions[1].sign == 1:
+            self.__class__ = Imply
+
+        return self
 
 class Imply(Any):
 
@@ -1148,7 +1183,7 @@ def delinearize(variables: list, row: numpy.ndarray, index: puan.variable) -> tu
     b,a = row[0], row[1:]
     sign = [-1,1][b > 0]
 
-    return (sign, list(map(lambda i: variables[1:][i].id, numpy.argwhere(a == sign).T[0])), b, index.dtype, index.virtual * 1)
+    return (int(sign), list(map(lambda i: variables[1:][i].id, numpy.argwhere(a == sign).T[0])), int(b), index.dtype, index.virtual * 1)
 
 def from_polyhedron(polyhedron: puan.ndarray.ge_polyhedron, id: str = None) -> Proposition:
 
@@ -1213,7 +1248,7 @@ def from_tuple(data: typing.Union[list, tuple]) -> Proposition:
         sign=data[1],
         dtype=data[4],
         virtual=data[5]
-    )
+    ).specify()
 
 def from_text(text: str, id: str = None) -> Proposition:
 
@@ -1279,17 +1314,20 @@ def from_dict(d: dict, id: str = None) -> Proposition:
             )
         )
     )
+    def attach_propositions(instance, propositions):
+        object.__setattr__(instance, "propositions", list(propositions))
+        return instance
+
     composition = All(
         *filter(
             lambda v: not any(map(lambda x: v.id in x, d_conv.values())),
             map(
-                lambda v: v.__class__(
-                    *map(
+                lambda v: attach_propositions(
+                    v,
+                    map(
                         lambda x: d_conv.get(x.id, x),
                         v.propositions
                     ),
-                    value=abs(v.value),
-                    id=v.id,
                 ),
                 d_conv.values()
             )
@@ -1312,17 +1350,15 @@ def from_json(data: dict, class_map: list = [Proposition,AtLeast,AtMost,All,Any,
     """
     _class_map = dict(zip(map(lambda x: x.__name__, class_map), class_map))
     propositions_map = map(functools.partial(from_json, class_map=class_map), data.get('propositions', []))
-    if data['type'] in ["Proposition"]:
-        return _class_map[data['type']](
-            id=data.get('id', None)
-        )
+    if 'type' not in data or data['type'] in ["Proposition"]:
+        return _class_map["Proposition"].from_json(data, class_map)
     elif data['type'] in ["AtLeast", "AtMost"]:
         return _class_map[data['type']](
             *propositions_map,
             value=data.get('value'),
             id=data.get('id', None)
         )
-    elif data['type'] in ["Any"]:
+    elif data['type'] in ["Any", "Xor"]:
         return _class_map[data['type']].from_json(data, class_map)
     elif data['type'] in ["All", "Any", "Xor", "XNor", "Not"]:
         return _class_map[data['type']](

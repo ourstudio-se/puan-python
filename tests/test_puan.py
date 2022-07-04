@@ -2088,3 +2088,129 @@ def test_json_conversion():
 
     converted = cc.StingyConfigurator.from_json(model.to_json())
     assert model == converted
+
+def test_json_conversions_with_assume():
+
+    data = {
+        "type": "StingyConfigurator",
+        "propositions": [
+            {
+                "type": "Imply",
+                "condition": {
+                    "type": "Any",
+                    "propositions": [
+                        {"id": "a"},
+                        {"id": "b"}
+                    ]
+                },
+                "consequence": {
+                    "type": "Xor",
+                    "propositions": [
+                        {"id": "x"},
+                        {"id": "y"},
+                        {"id": "z"}
+                    ],
+                    "default": ["z"]
+                }
+            }
+        ]
+    }
+    actual = cc.StingyConfigurator.from_json(data).assume("a").to_json()
+    expected = {
+        "sign": 1,
+        "dtype": 0,
+        "type": "StingyConfigurator",
+        "propositions": [
+            {
+                "sign": 1,
+                "value": 1,
+                "dtype": 0,
+                "id": "VAR56ed",
+                "type": "Proposition",
+                "propositions": [
+                    {
+                        "sign": 1,
+                        "value": 1,
+                        "dtype": 0,
+                        "id": "x",
+                        "type": "Proposition"
+                    },
+                    {
+                        "sign": 1,
+                        "value": 1,
+                        "dtype": 0,
+                        "id": "y",
+                        "type": "Proposition"
+                    },
+                    {
+                        "sign": 1,
+                        "value": 1,
+                        "dtype": 0,
+                        "id": "z",
+                        "type": "Proposition"
+                    }
+                ]
+            },
+            {
+                "sign": 1,
+                "value": 1,
+                "dtype": 0,
+                "id": "VAR5823",
+                "type": "Proposition",
+                "propositions": [
+                    {
+                        "sign": 1,
+                        "value": 1,
+                        "dtype": 0,
+                        "id": "VAR2295",
+                        "type": "Proposition",
+                        "propositions": [
+                            {
+                                "sign": 1,
+                                "value": 1,
+                                "dtype": 0,
+                                "id": "x",
+                                "type": "Proposition"
+                            },
+                            {
+                                "sign": 1,
+                                "value": 1,
+                                "dtype": 0,
+                                "id": "y",
+                                "type": "Proposition"
+                            }
+                        ]
+                    },
+                    {
+                        "sign": 1,
+                        "value": 1,
+                        "dtype": 0,
+                        "id": "z",
+                        "type": "Proposition"
+                    }
+                ]
+            }
+        ]
+    }
+    assert actual == expected
+
+def test_assume_should_keep_full_tree():
+
+    actual = cc.StingyConfigurator(
+        pg.Imply(
+            pg.Any("a","b"),
+            cc.Xor(*("xyz"), default="z")
+        )
+    ).assume("a").to_dict()
+
+    expected = {
+        'VAR8d1b': (1, ['VAR56ed', 'VAR5823'], 2, 0, 1),
+        'VAR56ed': (-1, ['x', 'y', 'z'], -1, 0, 1),
+        'x': (1, [], 1, 0, 0),
+        'y': (1, [], 1, 0, 0),
+        'z': (1, [], 1, 0, 0),
+        'VAR5823': (1, ['VAR2295', 'z'], 1, 0, 1),
+        'VAR2295': (1, ['x','y'], 1, 0, 1)
+    }
+
+    assert actual == expected
