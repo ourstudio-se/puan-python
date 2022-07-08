@@ -50,15 +50,17 @@ class Any(pg.Any):
         # to handle list of defaults (like a prio list). But since future may include list of 
         # defaults, we keep interface as list
         if any(map(operator.attrgetter("virtual"), self.propositions)):
-            default_prop = next(filter(maz.compose(operator.not_, operator.attrgetter("virtual")), self.propositions))
-            non_default_prop = next(filter(operator.attrgetter("virtual"), self.propositions))
-            d['propositions'] = list(
-                itertools.chain(
-                    map(operator.methodcaller("to_json"), non_default_prop.propositions),
-                    [default_prop.to_json()]
+            defaults = list(filter(maz.compose(operator.not_, operator.attrgetter("virtual")), self.propositions))
+            if defaults:
+                default_prop = defaults[0]
+                non_default_prop = next(filter(operator.attrgetter("virtual"), self.propositions))
+                d['propositions'] = list(
+                    itertools.chain(
+                        map(operator.methodcaller("to_json"), non_default_prop.propositions),
+                        [default_prop.to_json()]
+                    )
                 )
-            )
-            d['default'] = [default_prop.id]
+                d['default'] = [default_prop.id]
 
         return d
 
@@ -150,15 +152,18 @@ class StingyConfigurator(pg.All):
         """
             Is the objective vector when nothing is selected.
         """
-
-        prios = set([(self.id, getattr(self, 'prio', -1))])
-        queue = set(self.propositions)
-        while len(queue) > 0:
-            prop = queue.pop()
-            prios.add((prop.id, getattr(prop, 'prio', -1)))
-            queue.update(getattr(prop, 'propositions', []))
-
-        return np.array(list(map(operator.itemgetter(1), sorted(prios, key=operator.itemgetter(0)))), dtype=np.int32)
+        return np.array(
+            list(
+                map(
+                    lambda p: getattr(p, "prio", 0 if p.virtual else -1),
+                    sorted(
+                        self.flatten(),
+                        key=lambda p: self.variables.index(p.id)
+                    ),
+                ),
+            ), 
+            dtype=np.int32
+        )
 
     def _vectors_from_prios(self, prios: typing.List[typing.Dict[str, int]]) -> np.ndarray:
 
@@ -235,14 +240,14 @@ class StingyConfigurator(pg.All):
             id=self.id,
         )
     
-    def assume(self, *fixed: typing.List[str]) -> "StingyConfigurator":
+    def assume(self, fixed: typing.Dict[str, int]) -> tuple:
 
         """
             Assumes variables in `fixed`-list. Passes prio onwards as well.
 
             Returns
             -------
-                out : StingyConfigurator
+                out : tuple(StingyConfigurator, dict)
         """
         # Prepare to put pack prio's
         self_flatten = self.flatten()
@@ -256,11 +261,11 @@ class StingyConfigurator(pg.All):
             ),
         )
 
-        assumed_sub = pg.AtLeast(
+        assumed_sub, variable_consequence = pg.AtLeast(
             *self.propositions, 
             value=len(self.propositions), 
             id=self._id,
-        ).assume(*fixed)
+        ).assume(fixed)
         
         # Put back prio into proposition with prio set
         for proposition in filter(lambda x: isinstance(x, pg.Any), assumed_sub.flatten()):
@@ -270,7 +275,7 @@ class StingyConfigurator(pg.All):
         return StingyConfigurator(
             *assumed_sub.propositions,
             id=self._id,
-        )
+        ), variable_consequence
 
     def from_json(data: dict) -> "StingyConfigurator":
 
@@ -293,3 +298,7 @@ class StingyConfigurator(pg.All):
             ),
             id=data.get('id', None)
         )
+
+    def to_json(self) -> dict:
+        d = super().to_json()
+        return d

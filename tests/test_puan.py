@@ -1645,7 +1645,7 @@ def test_assume_when_xor_on_top_propositions():
     # when assuming p here we see that q cannot ever be selected (since first rule will be broken). Therefore, third proposition
     # will always be true (q=0 implies All("q","h") = False and therefore pg.Imply(pg.All("q","h"), pg.All("a","y","c"))) = True)
     # I.e pg.Imply("g", pg.All("x","y","z")) should be left in model and h,a,b,c will be unbound
-    actual_assumed_model = model.assume("p")
+    actual_assumed_model, _ = model.assume({"p": 1})
     assert actual_assumed_model == expected_assumed_model
 
 def test_logicfunc():

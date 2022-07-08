@@ -248,8 +248,9 @@ class Proposition(puan.variable, list):
         return filter(maz.compose(functools.partial(operator.le, 1), len), self.propositions)
 
     def __repr__(self) -> str:
-        eq="".join(map("".join, zip(itertools.repeat(["-","+"][self.sign > 0], len(self.propositions)), map(operator.attrgetter("id"), self.propositions))))
-        return f"{self.__class__.__name__}(id='{self.id}', equation='{eq}>={self.value}')"
+        leftside_eq="".join(map("".join, zip(itertools.repeat(["-","+"][self.sign > 0], len(self.propositions)), map(operator.attrgetter("id"), self.propositions))))
+        eq = f", equation='{leftside_eq}>={self.value}'" if len(leftside_eq) > 0 else ''
+        return f"{self.__class__.__name__}(id='{self.id}'{eq})"
 
     def _id_generator(propositions, value, sign, n: int = 4, prefix: str = "VAR"):
         return prefix + hashlib.sha256(str("".join(map(operator.attrgetter("id"), sorted(propositions))) + str(value) + str(sign)).encode()).hexdigest()[:n]
@@ -551,41 +552,74 @@ class Proposition(puan.variable, list):
             )
         ).decode(str_decoding)
     
-    def assume(self, *fixed: typing.List[str]) -> "Proposition":
+    def assume(self, fixed: typing.Dict[str, int]) -> tuple:
 
         """
             Assumes certian propositions inside model to be fixed at some value.
 
             Parameters
             ----------
-                fixed : typing.List[str]
+                fixed : typing.Dict[str, int]
                     fixed is a list of id's representing the id of propositions that are fixed to True
+
+            Notes
+            -----
+                If a variable is in consequences as True/False (i.e. the variable was assumed) but is still
+                left as a variable in the reduced model, then this means that the variable was lacking relations
+                to other variables. This is typically the root variable / model-id.
 
             Examples
             --------
                 >>> model = AtLeast("x","y","z", value=2, id="A")
-                >>> model.assume("x")
-                Proposition(id='A', equation='+y+z>=1')
+                >>> model.assume({"x": 1})
+                (All(id='A', equation='+A>=1'), {'x': True})
 
                 >>> model = All(Any("a","b",id="B"), Any("x","y",id="C"), id="A")
-                >>> model.assume("a")
-                Proposition(id='C', equation='+x+y>=1')
+                >>> model.assume({"a": 1})
+                (All(id='A', equation='+C>=1'), {'B': True, 'C': True, 'a': True})
 
             Returns
             -------
                 out : Proposition
         """
         polyhedron = self.to_polyhedron(True)
-        assumed_vector = polyhedron.A.construct(
-            *zip(fixed, (1,)*len(fixed))
+        assumed_polyhedron = polyhedron.reduce_columns(
+            polyhedron.A.construct(*fixed.items())
         )
-        assumed_polyhedron = polyhedron.reduce_columns(assumed_vector)
-        return from_polyhedron(
+        assumed_rows, assumed_cols = assumed_polyhedron.reducable_rows_and_columns()
+        reduced_polyhedron = from_polyhedron(
             assumed_polyhedron.reduce(
-                *assumed_polyhedron.reducable_rows_and_columns()
-            ),
+                assumed_rows, 
+                assumed_cols,
+            ), 
             id=self._id
         )
+        column_consequence = dict(
+            sorted(
+                map(
+                    lambda x: (x[0], x[1] > 0),    
+                    itertools.chain(
+                        filter(
+                            maz.compose(
+                                functools.partial(operator.ne, 0), 
+                                operator.itemgetter(1)
+                            ), 
+                            zip(
+                                map(
+                                    operator.attrgetter("id"), 
+                                    polyhedron.A.variables
+                                ), 
+                                assumed_cols
+                            )
+                        ), 
+                        fixed.items()
+                    )
+                ),
+                key=operator.itemgetter(0),
+            )
+        )
+        return reduced_polyhedron, column_consequence
+
 
     def reduce(self, fixed: typing.Dict[puan.variable, int]) -> "Proposition":
 
@@ -847,7 +881,7 @@ class Proposition(puan.variable, list):
         """
         propositions = data.get('propositions', [])
         return Proposition(
-            *map(operator.methodcaller('from_json', class_map=class_map), propositions),
+            *map(functools.partial(Proposition.from_json, class_map=class_map), propositions),
             id=data.get('id', None),
             dtype=data.get('dtype', 0),
             virtual=data.get('virtual', [False,True][len(propositions)>0]),
@@ -982,7 +1016,7 @@ class Any(AtLeast):
     def specify(self) -> typing.Union["Imply", "Any"]:
 
         """"""
-        if len(self.propositions) == 2 and self.propositions[0].sign == -1 and self.propositions[1].sign == 1:
+        if len(self.propositions) == 2:
             self.__class__ = Imply
 
         return self
@@ -996,11 +1030,7 @@ class Imply(Any):
     """
 
     def __init__(cls, condition: Proposition, consequence: Proposition, id: str = None):
-        return super().__init__(
-            (condition if isinstance(condition, Proposition) else All(condition)).invert(),
-            consequence if isinstance(consequence, Proposition) else All(consequence),
-            id=id
-        )
+        return super().__init__(condition.invert(), consequence, id=id)
 
     @staticmethod
     def from_cicJE(data: dict, id_ident: str = "id") -> "Imply":
@@ -1249,7 +1279,7 @@ def from_tuple(data: typing.Union[list, tuple]) -> Proposition:
         sign=data[1],
         dtype=data[4],
         virtual=data[5]
-    ).specify()
+    )
 
 def from_text(text: str, id: str = None) -> Proposition:
 
@@ -1294,7 +1324,7 @@ def from_dict(d: dict, id: str = None) -> Proposition:
         Examples
         --------
             >>> from_dict({'a': [1, ['b','c'], 1, 0, 0], 'b': [1, ['x','y'], 1, 0, 0], 'c': [1, ['p','q'], 1, 0, 0]})
-            Proposition(id='a', equation='+b+c>=1')
+            All(id='VARea1f', equation='+a>=1')
 
         Returns
         -------
@@ -1329,7 +1359,7 @@ def from_dict(d: dict, id: str = None) -> Proposition:
                         lambda x: d_conv.get(x.id, x),
                         v.propositions
                     ),
-                ),
+                ).specify(),
                 d_conv.values()
             )
         ),

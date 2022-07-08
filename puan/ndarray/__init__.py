@@ -394,7 +394,7 @@ class ge_polyhedron(variable_ndarray):
 
         """
         A, b = ge_polyhedron(self, getattr(self, "variables", []), getattr(self, "index", [])).to_linalg()
-        A = A[(A[:,self.integer_variable_indices()]==0).all(axis=1)]
+        # A = A[(A[:,self.A.integer_variable_indices()]==0).all(axis=1)]
         r = (A*((A*(A <= 0) + (A*(A > 0)).sum(axis=1).reshape(-1,1)) < b.reshape(-1,1))) + A*((A * (A > 0)).sum(axis=1) == b).reshape(-1,1)
         return r.sum(axis=0)
 
