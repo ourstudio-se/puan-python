@@ -696,7 +696,7 @@ class Proposition(puan.variable, list):
             Examples
             --------
                 >>> AtLeast(AtLeast("x","y",value=1,id="C"),AtLeast("a","b",value=1,id="B"),value=1,id="A").flatten()
-                [AtLeast(id='A', equation='+B+C>=1'), AtLeast(id='B', equation='+a+b>=1'), AtLeast(id='C', equation='+x+y>=1'), Proposition(id='a', equation='>=1'), Proposition(id='b', equation='>=1'), Proposition(id='x', equation='>=1'), Proposition(id='y', equation='>=1')]
+                [AtLeast(id='A', equation='+B+C>=1'), AtLeast(id='B', equation='+a+b>=1'), AtLeast(id='C', equation='+x+y>=1'), Proposition(id='a'), Proposition(id='b'), Proposition(id='x'), Proposition(id='y')]
 
             Returns
             -------
@@ -1030,7 +1030,7 @@ class Imply(Any):
     """
 
     def __init__(cls, condition: Proposition, consequence: Proposition, id: str = None):
-        return super().__init__(condition.invert(), consequence, id=id)
+        return super().__init__((Proposition(condition) if isinstance(condition, str) else condition).invert(), consequence, id=id)
 
     @staticmethod
     def from_cicJE(data: dict, id_ident: str = "id") -> "Imply":
