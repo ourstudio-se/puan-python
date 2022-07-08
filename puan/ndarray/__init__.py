@@ -476,8 +476,8 @@ class ge_polyhedron(variable_ndarray):
 
         """
         A, b = ge_polyhedron(self, getattr(self, "variables", []), getattr(self, "index", [])).to_linalg()
-        rows_to_keep = (A[:, self.integer_variable_indices()] == 0).all(axis = 1)
-        return (((A * (A < 0)).sum(axis=1) >= b))*rows_to_keep
+        # rows_to_keep = (A[:, self.integer_variable_indices()] == 0).all(axis = 1)
+        return (((A * (A < 0)).sum(axis=1) >= b))#*rows_to_keep
 
     def reduce_rows(self: numpy.ndarray, rows_vector: numpy.ndarray) -> numpy.ndarray:
 
