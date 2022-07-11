@@ -1,10 +1,12 @@
+import numpy
 from setuptools import setup
 from setuptools import Extension
+from sysconfig import get_paths
 
 if __name__ == "__main__":
     setup(
         name="puan",
-        version="0.3.7",
+        version="0.3.8",
         description = "Function tools for combinatorial optimization",
         author = "Our Studio Void AB",
         author_email = "moa@ourstudio.se",
@@ -25,22 +27,21 @@ if __name__ == "__main__":
         ],
         url = "https://puan.io",
         long_description = "",
-        # ext_modules=[
-        #     Extension(
-        #         'puan/npufunc',
-        #         ['puan/ndarray/npufunc.c'],
-        #         include_dirs=[
-        #             "/usr/local/Cellar/python@3.9/3.9.12/Frameworks/Python.framework/Versions/3.9/include/python3.9",
-        #             "/usr/local/Cellar/numpy/1.22.3_1/lib/python3.9/site-packages/numpy/core/include/",
-        #         ]
-        #     ),
-        #     Extension(
-        #         'puan/logic/logicfunc',
-        #         ['puan/logic/plog/logicfunc.c'],
-        #         include_dirs=[
-        #             "/usr/local/Cellar/python@3.9/3.9.12/Frameworks/Python.framework/Versions/3.9/include/python3.9",
-        #             "/usr/local/Cellar/numpy/1.22.3_1/lib/python3.9/site-packages/numpy/core/include/",
-        #         ]
-        #     ),
-        # ]
+        ext_modules=[
+            Extension(
+                'puan/npufunc',
+                ['puan/ndarray/npufunc.c'],
+                include_dirs=[
+                    numpy.get_include(),
+                    get_paths()['include']
+                ]
+            ),
+            Extension(
+                'puan/logic/logicfunc',
+                ['puan/logic/plog/logicfunc.c'],
+                include_dirs=[
+                    get_paths()['include']
+                ]
+            ),
+        ]
     )
