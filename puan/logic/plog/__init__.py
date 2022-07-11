@@ -400,6 +400,25 @@ class Proposition(puan.variable, list):
     def invert(self) -> "Proposition":
         return self
 
+    @staticmethod
+    def random_boolean(max_sub_propositions: int = 5) -> "Proposition":
+
+        """
+            Generates a random proposition.
+
+            Returns
+            -------
+                out : Proposition
+        """
+        return Proposition(
+            map(lambda: operator.methodcaller("Proposition.random"), range(numpy.random.randint(max_sub_propositions))),
+            [None, numpy.random.choice(list("abcdefghijklmnopqrstuvwxyz"), 5)][numpy.random.randint(0,2)], 
+            0, # <- because "_boolean(...)" 
+            numpy.random.randint(0,2) == 1,
+            value=1,
+            sign=1,
+        ).specify()
+
     def to_compound_constraint(self, index_predicate: typing.Callable[[puan.variable], int], extend_top: bool = True) -> _CompoundConstraint:
 
         """
@@ -1145,18 +1164,18 @@ class XNor(Xor):
     """
 
     def __init__(self, *propositions, id: str = None):
-        super().__init__(*propositions).invert(id=id)
+        super().__init__(*propositions)
+        self.invert()
 
-class Not(AtMost):
+class Not(object):
 
     """
-        Not is restricting propositions to never be selected.
-        For example, Not("x","y","z") means that x, y or z can never be selected.
-        Note that Not(x) is not necessarily equivilent to x.invert() (but could be).
+        Not is negating a proposition.
+        For example, Not(All("x","y","z")) means any combination of x, y or z is ok while all of them is not.
     """
 
-    def __init__(self, *propositions, id: str = None):
-        super().__init__(*propositions, value=0, id=id)
+    def __new__(self, proposition: Proposition):
+        return (proposition if isinstance(proposition, Proposition) else All(proposition)).invert()
 
 
 
