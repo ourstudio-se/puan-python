@@ -11,7 +11,7 @@ import numpy
 import operator
 import maz
 
-from hypothesis import example, given, strategies as st, settings
+from hypothesis import example, given, strategies as st, settings, assume
 
 def atom_proposition_strategy():
     return st.builds(
@@ -49,34 +49,37 @@ def proposition_strategy():
         dtype=st.integers(min_value=0, max_value=1),
         virtual=st.booleans(),
         value=st.integers(min_value=-5, max_value=5),
-        sign=st.integers(min_value=-1, max_value=1),
+        sign=st.sampled_from([-1,1]),
     )
 
 @given(proposition_strategy(), st.integers(min_value=-1, max_value=1))
 def test_model_assume_to_polyhedron_hypothesis(model, value):
     model.assume({model.variables[0].id: value})[0].to_polyhedron()
 
-# @settings(deadline=None)
-# @given(proposition_strategy(), st.integers(min_value=-1, max_value=1), st.integers(min_value=0, max_value=10))
-# def test_model_assume_interpretation_hypothesis(model, value, n_vars):
+@settings(deadline=None)
+@given(proposition_strategy(), st.integers(min_value=-1, max_value=1), st.integers(min_value=0, max_value=10))
+def test_model_assume_interpretation_hypothesis(model, value, n_vars):
     
-#     """
-#         We test that if an interpretation of model is in the assumed model,
-#         then that implies that it is also in the original model.
-#     """
-#     selected_variable = numpy.random.choice(model.variables)
-#     assumed, consequence = model.assume({selected_variable.id: value})
-    
-#     original_polyhedron = model.to_polyhedron(True)
-#     assumed_polyhedron = assumed.to_polyhedron()
+    """
+        We test that if an interpretation of model is in the assumed model,
+        then that implies that it is also in the original model. 
+    """
 
-#     random_interpretation = {v.id: 1 for v in numpy.random.choice(assumed.variables, size=n_vars)}
-#     original_interpretation_vector = original_polyhedron.construct(*random_interpretation.items())
-#     assumed_interpretation_vector = assumed_polyhedron.construct(*random_interpretation.items())
+    # If the model is contradiction, then we doesn't need to test (also it will not work)
+    if not model.is_contradiction:
+        selected_variable = numpy.random.choice(model.variables)
+        assumed, consequence = model.assume({v.id: value for v in numpy.random.choice(model.variables, size=n_vars)})
+        
+        original_polyhedron = model.to_polyhedron(True)
+        assumed_polyhedron = assumed.to_polyhedron()
 
-#     # Now, if interpretation is in the assumed model, then it impies that is should be in original model as well
-#     # (Implication x -> y means -x v y)
-#     assert (not all(assumed_polyhedron.A.dot(assumed_interpretation_vector) >= assumed_polyhedron.b)) or all(original_polyhedron.A.dot(original_interpretation_vector) >= original_polyhedron.b)
+        random_interpretation = {v.id: 1 for v in numpy.random.choice(assumed.variables, size=n_vars)}
+        original_interpretation_vector = original_polyhedron.construct(*random_interpretation.items())
+        assumed_interpretation_vector = assumed_polyhedron.construct(*random_interpretation.items())
+
+        # Now, if interpretation is in the assumed model, then it impies that is should be in original model as well
+        # (Implication x -> y means -x v y)
+        assert (not all(assumed_polyhedron.A.dot(assumed_interpretation_vector) >= assumed_polyhedron.b)) or all(original_polyhedron.A.dot(original_interpretation_vector) >= original_polyhedron.b)
 
     
 @given(proposition_strategy())
@@ -1177,10 +1180,10 @@ def test_cicJE_to_implication_proposition():
 
     expected_output = pg.Imply(
         pg.All(
-            pg.Any(*list("xy")),
-            pg.Any(*list("ab")),
+            pg.Any(*"xy"),
+            pg.Any(*"ab"),
         ),
-        pg.All(*list("mno"))
+        pg.All(*"mno")
     )
     assert actual_output == expected_output
 
@@ -1346,7 +1349,7 @@ def test_bind_relations_to_compound_id():
 def test_dont_override_propositions():
 
     model = pg.All(
-        pg.Imply(pg.Proposition(id="xor_xy", dtype=0, virtual=True), pg.All(*list("abc"))),
+        pg.Imply(pg.Proposition(id="xor_xy", dtype=0, virtual=True), pg.All(*"abc")),
         pg.Xor("x","y", id="xor_xy"),
     )
     assert model.xor_xy.virtual == next(filter(lambda x: x.id == "xor_xy", model.to_polyhedron().variables)).virtual, f"models 'xor_xy' is virtual while models polyhedrons 'xor_xy' is not"
@@ -1358,7 +1361,7 @@ def test_reduce_columns_with_column_variables():
             [ 0, 0, 1,-2, 1],
             [-1, 0,-1,-1,-1],
         ],
-        puan.variable.from_strings(*list("0abcd"))
+        puan.variable.from_strings(*"0abcd")
     )
     ph_red = ph.reduce_columns(ph.A.construct(*{"a": 1}.items()))
     assert not any((v.id == "a" for v in ph_red.index))
@@ -1373,8 +1376,8 @@ def test_reduce_rows_with_variable_index():
             [ 0, 0, 1,-2, 1],
             [-1, 0,-1,-1,-1],
         ],
-        puan.variable.from_strings(*list("0abcd")),
-        puan.variable.from_strings(*list("ABC")),
+        puan.variable.from_strings(*"0abcd"),
+        puan.variable.from_strings(*"ABC"),
     )
     ph_red = ph.reduce_rows([1,0,0])
     assert not any((v.id == "A" for v in ph_red.index))
@@ -1921,3 +1924,54 @@ def test_proposition_polyhedron_conversions():
     assert not all(actual.A.dot(actual.construct(*{"x": 1, "z": 1}.items())) >= actual.b)
     assert not all(actual.A.dot(actual.construct(*{"y": 1, "z": 1}.items())) >= actual.b)
     assert all(actual.A.dot(actual.construct(*{"x": 1, "y": 1, "z": 1}.items())) >= actual.b)
+
+def test_assuming_integer_variables():
+
+    """
+        Assumes x,y,z and we'll expect that t must be between
+        10 and 20.
+    """
+    model = pg.Imply(
+        pg.All(*"xyz"),
+        pg.All(
+            pg.AtLeast(
+                pg.Integer("t"),
+                value=10 
+            ),
+            pg.AtMost(
+                pg.Integer("t"),
+                value=20
+            )
+        ), 
+    )
+
+    assumed = model.assume({"x": 1, "y": 1, "z": 1})[0].to_polyhedron(True)
+    assert all(assumed.A.dot(assumed.construct(*{"t": 10}.items())) >= assumed.b)
+    assert all(assumed.A.dot(assumed.construct(*{"t": 20}.items())) >= assumed.b)
+    assert not all(assumed.A.dot(assumed.construct(*{"t": 1}.items())) >= assumed.b)
+    assert not all(assumed.A.dot(assumed.construct(*{"t": -22}.items())) >= assumed.b)
+    assert not all(assumed.A.dot(assumed.construct(*{"t": 9}.items())) >= assumed.b)
+    assert not all(assumed.A.dot(assumed.construct(*{"t": 21}.items())) >= assumed.b)
+
+    model = pg.Imply(
+        pg.All(
+            pg.AtLeast(
+                pg.Integer("t"),
+                value=10 
+            ),
+            pg.AtMost(
+                pg.Integer("t"),
+                value=20
+            )
+        ), 
+        pg.All(*"xyz")
+    )
+
+    assumed = model.assume({"t": 12})[0].to_polyhedron(True)
+    assert all(assumed.A.dot(assumed.construct(*{"x": 1, "y": 1, "z": 1}.items())) >= assumed.b)
+    assert not all(assumed.A.dot(assumed.construct(*{"x": 1, "y": 1}.items())) >= assumed.b)
+    assert not all(assumed.A.dot(assumed.construct(*{"x": 1, "z": 1}.items())) >= assumed.b)
+    assert not all(assumed.A.dot(assumed.construct(*{"z": 1, "y": 1}.items())) >= assumed.b)
+    assert not all(assumed.A.dot(assumed.construct(*{"x": 1}.items())) >= assumed.b)
+    assert not all(assumed.A.dot(assumed.construct(*{"y": 1}.items())) >= assumed.b)
+    assert not all(assumed.A.dot(assumed.construct(*{"z": 1}.items())) >= assumed.b)

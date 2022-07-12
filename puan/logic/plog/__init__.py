@@ -639,7 +639,6 @@ class Proposition(puan.variable, list):
         )
         return reduced_polyhedron, column_consequence
 
-
     def reduce(self, fixed: typing.Dict[puan.variable, int]) -> "Proposition":
 
         """
@@ -845,7 +844,6 @@ class Proposition(puan.variable, list):
         """
         return (self.id, self.sign, list(map(operator.attrgetter("id"), self.propositions)), self.value, self.dtype, self.virtual * 1)
 
-
     def to_text(self) -> str:
 
         """
@@ -907,6 +905,16 @@ class Proposition(puan.variable, list):
             sign=data.get('sign', 1),
             value=data.get('value', 1)
         )
+
+class Boolean(Proposition):
+
+    def __init__(self, id: str = None, virtual: bool = False):
+        super().__init__(id=id, dtype=0, virtual=virtual)
+
+class Integer(Proposition):
+
+    def __init__(self, id: str = None, virtual: bool = False):
+        super().__init__(id=id, dtype=1, virtual=virtual)
 
 class AtLeast(Proposition):
 
