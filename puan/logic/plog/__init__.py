@@ -14,6 +14,7 @@ import puan.ndarray
 import functools
 import maz
 import numpy
+import dictdiffer
 from dataclasses import dataclass, field
 import puan.logic.logicfunc as logicfunc
 
@@ -200,6 +201,39 @@ class Proposition(puan.variable, list):
 
     def __contains__(self,v):
         return v in self.propositions
+
+    def diff(self, other) -> list:
+
+        """
+            Diff method is part of the model versioning methods helping users
+            to keep track of model changes. 
+            Diff computes difference between this proposition and another proposition.
+
+            Returns
+            -------
+                out : list
+        """
+        return list(dictdiffer.diff(self.to_dict(), other.to_dict()))
+
+    def patch(self, diff):
+
+        """
+            Patch method is part of the model versioning methods helping users to
+            keep track of model changes. Patch apply's diff-result onto this proposition.
+
+            Returns
+            -------
+                out : Proposition
+        """
+        return from_dict(dictdiffer.patch(diff, self.to_dict()))
+
+    def revert(self, diff):
+
+        """
+            Swap method is part of the model versioning methods helping user to keep track
+            of model changes. Revert reverts a patch change back to it's original.
+        """
+        return from_dict(dictdiffer.revert(diff, self.to_dict()))
 
     def append(self, i, v):
         self.__check__(v)
