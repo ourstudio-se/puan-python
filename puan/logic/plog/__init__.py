@@ -148,7 +148,6 @@ class Proposition(puan.variable, list):
         such that it's underlying representation is e.g. A = a+b+c >= 3 (where all a,b and c are "atomic" propositions, sign is +, value is 3 and id is "A").
     """
     _id : str = None
-    next_id = maz.compose(functools.partial(operator.add, "VAR"), str, itertools.count(1).__next__)
 
     def __init__(
         self,
@@ -209,6 +208,11 @@ class Proposition(puan.variable, list):
             to keep track of model changes. 
             Diff computes difference between this proposition and another proposition.
 
+            See also
+            --------
+            revert: Reverts a patch change back to it's original.
+            patch: Apply's diff-result onto this proposition.
+
             Returns
             -------
                 out : list
@@ -221,6 +225,11 @@ class Proposition(puan.variable, list):
             Patch method is part of the model versioning methods helping users to
             keep track of model changes. Patch apply's diff-result onto this proposition.
 
+            See also
+            --------
+            revert: Reverts a patch change back to it's original.
+            diff: Computes difference between this proposition and another proposition.
+
             Returns
             -------
                 out : Proposition
@@ -230,8 +239,13 @@ class Proposition(puan.variable, list):
     def revert(self, diff):
 
         """
-            Swap method is part of the model versioning methods helping user to keep track
+            Revert method is part of the model versioning methods helping user to keep track
             of model changes. Revert reverts a patch change back to it's original.
+
+            See also
+            --------
+            diff: Computes difference between this proposition and another proposition.
+            patch: Apply's diff-result onto this proposition.
         """
         return from_dict(dictdiffer.revert(diff, self.to_dict()))
 
