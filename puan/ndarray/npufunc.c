@@ -20,18 +20,21 @@ static void optimized_bit_allocation_64(char **args, const npy_intp *dimensions,
     npy_intp in_step = steps[0], out_step = steps[1];
     int64_t grp_size;
     int64_t val_adj = 1;
+    int64_t val;
     while(i<n) {
         /*BEGIN main ufunc computation*/
         grp_size = 0;
-        int64_t val = *(int64_t *)in;
-        while(*(int64_t *)in == val)
+        val = *(int64_t *)in;
+        while(i<n && *(int64_t *)in == val)
         {
             grp_size++;
             *((int64_t *)out) = val_adj;
+
+            i++;
             in += in_step;
             out += out_step;
         }
-        i+=grp_size;
+        // i+=grp_size;
         val_adj = val_adj*grp_size + val_adj;
         /*END main ufunc computation*/
     }
