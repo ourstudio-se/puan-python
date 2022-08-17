@@ -158,7 +158,10 @@ class StingyConfigurator(pg.All):
                     lambda p: getattr(p, "prio", 0 if p.virtual else -1),
                     sorted(
                         self.flatten(),
-                        key=lambda p: self.variables.index(p.id)
+                        key=maz.compose(
+                            self.variables.index, 
+                            operator.attrgetter("id")
+                        )
                     ),
                 ),
             ), 
