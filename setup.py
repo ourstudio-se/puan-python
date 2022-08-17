@@ -6,7 +6,7 @@ from sysconfig import get_paths
 if __name__ == "__main__":
     setup(
         name="puan",
-        version="0.4.0",
+        version="0.4.1",
         description = "Function tools for combinatorial optimization",
         author = "Our Studio Void AB",
         author_email = "moa@ourstudio.se",
