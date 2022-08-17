@@ -11,6 +11,86 @@ import numpy
 import operator
 import maz
 
+from hypothesis import example, given, strategies as st, settings, assume
+
+def atom_proposition_strategy():
+    return st.builds(
+        pg.Proposition,
+        id=st.text(), 
+        dtype=st.binary(min_size=1, max_size=1),
+        virtual=st.binary(min_size=1, max_size=1),
+        value=st.integers(min_value=-5, max_value=5),
+        sign=st.binary(min_size=1, max_size=1),
+    )
+
+def proposition_strategy():
+
+    def extend(prop):
+        return st.builds(
+            pg.Proposition, 
+            prop,
+            id=st.text(), 
+            dtype=st.binary(min_size=1, max_size=1),
+            virtual=st.binary(min_size=1, max_size=1),
+            value=st.integers(min_value=-5, max_value=5),
+            sign=st.binary(min_size=1, max_size=1),
+        )
+
+    return st.builds(
+        pg.Proposition, 
+        st.iterables(
+            st.recursive(
+                atom_proposition_strategy(), 
+                extend
+            ),
+            max_size=5
+        ),
+        id=st.text(), 
+        dtype=st.integers(min_value=0, max_value=1),
+        virtual=st.booleans(),
+        value=st.integers(min_value=-5, max_value=5),
+        sign=st.sampled_from([-1,1]),
+    )
+
+@given(proposition_strategy(), st.integers(min_value=-1, max_value=1))
+def test_model_assume_to_polyhedron_hypothesis(model, value):
+    model.assume({model.variables[0].id: value})[0].to_polyhedron()
+
+@settings(deadline=None)
+@given(proposition_strategy(), st.integers(min_value=-1, max_value=1), st.integers(min_value=0, max_value=10))
+def test_model_assume_interpretation_hypothesis(model, value, n_vars):
+    
+    """
+        We test that if an interpretation of model is in the assumed model,
+        then that implies that it is also in the original model. 
+    """
+
+    # If the model is contradiction, then we doesn't need to test (also it will not work)
+    if not model.is_contradiction:
+        selected_variable = numpy.random.choice(model.variables)
+        assumed, consequence = model.assume({v.id: value for v in numpy.random.choice(model.variables, size=n_vars)})
+        
+        original_polyhedron = model.to_polyhedron(True)
+        assumed_polyhedron = assumed.to_polyhedron()
+
+        random_interpretation = {v.id: 1 for v in numpy.random.choice(assumed.variables, size=n_vars)}
+        original_interpretation_vector = original_polyhedron.construct(*random_interpretation.items())
+        assumed_interpretation_vector = assumed_polyhedron.construct(*random_interpretation.items())
+
+        # Now, if interpretation is in the assumed model, then it impies that is should be in original model as well
+        # (Implication x -> y means -x v y)
+        assert (not all(assumed_polyhedron.A.dot(assumed_interpretation_vector) >= assumed_polyhedron.b)) or all(original_polyhedron.A.dot(original_interpretation_vector) >= original_polyhedron.b)
+
+    
+@given(proposition_strategy())
+def test_model_variables_hypothesis(model):
+    _ = model.variables
+
+@given(proposition_strategy())
+def test_specity_proposition_hypothesis(model):
+    _ = model.specify()
+
+
 def test_application_to_rules():
     items = [
         {"id": 0, "type": "M"},
@@ -190,313 +270,6 @@ def test_rules2matrix_with_mixed_condition_rules():
     eval_fn = maz.compose(all, functools.partial(operator.le, matrix.b), matrix.A.dot)
     assert all(map(eval_fn, expected_feasible_configurations))
     assert not any(map(eval_fn, expected_infeasible_configurations))
-
-# def test_compress_rules():
-#     rules = [
-#         {'condition': {
-#             'relation': "ALL",
-#             'subConditions': [{
-#                 'relation': "ALL",
-#                 'components': [
-#                     {'id': 'a'},
-#                     {'id': 'b'}
-#                     ]
-#                 }
-#             ]
-#         },
-#         'consequence': {
-#             'ruleType': 'REQUIRES_ALL',
-#             'components': [
-#                 {'id': 'x'}
-#                 ]
-#             }
-#         },
-#         {'condition': {
-#             'relation': "ALL",
-#             'subConditions': [{
-#                 'relation': "ALL",
-#                 'components': [
-#                     {'id': 'b'},
-#                     {'id': 'a'}
-#                     ]
-#                 }]
-#             },
-#         'consequence': {
-#             'ruleType': 'REQUIRES_ALL',
-#             'components': [
-#                 {'id': 'x'},
-#                 {'id': 'y'}
-#                 ]
-#             }
-#         },
-#         {'condition': {
-#             'relation': "ALL",
-#             'subConditions': [{
-#                 'relation': "ALL",
-#                 'components': [
-#                     {'id': 'a'},
-#                     {'id': 'b'}
-#                     ]
-#                 }]
-#             },
-#         'consequence': {
-#             'ruleType': 'FORBIDS_ALL',
-#             'components': [
-#                 {'id': 'x'},
-#                 {'id': 'y'}
-#                 ]
-#             }
-#         },
-#         {'condition': {
-#             'relation': "ALL",
-#             'subConditions': [{
-#                 'relation': "ALL",
-#                 'components': [
-#                     {'id': 'a'},
-#                     {'id': 'b'}
-#                     ]
-#                 }]
-#             },
-#         'consequence': {
-#             'ruleType': 'FORBIDS_ALL',
-#             'components': [
-#                 {'id': 'y'},
-#                 {'id': 'z'}
-#                 ]
-#             }
-#         },
-#         {'condition': {
-#             'relation': "ALL",
-#             'subConditions': [{
-#                 'relation': "ALL",
-#                 'components': [
-#                     {'id': 'a'},
-#                     {'id': 'b'}
-#                     ]
-#                 }
-#             ]
-#         },
-#         'consequence': {
-#             'ruleType': 'ONE_OR_NONE',
-#             'components': [
-#                 {'id': 'x'},
-#                 {'id': 'y'}
-#                 ]
-#             }
-#         },
-#         {'condition': {
-#             'relation': "ALL",
-#             'subConditions': [{
-#                 'relation': "ALL",
-#                 'components': [
-#                     {'id': 'a'},
-#                     {'id': 'b'}
-#                     ]
-#                 }
-#             ]
-#         },
-#         'consequence': {
-#             'ruleType': 'ONE_OR_NONE',
-#             'components': [
-#                 {'id': 'y'},
-#                 {'id': 'z'}
-#                 ]
-#             }
-#         },
-#         {'condition': {
-#             'relation': "ALL",
-#             'subConditions': [{
-#                 'relation': "ALL",
-#                 'components': [
-#                     {'id': 'a'},
-#                     {'id': 'b'}
-#                     ]
-#                 }
-#             ]
-#         },
-#         'consequence': {
-#             'ruleType': 'REQUIRES_EXCLUSIVELY',
-#             'components': [
-#                 {'id': 'x'},
-#                 {'id': 'y'}
-#                 ]
-#             }
-#         },
-#         {'condition': {
-#             'relation': "ALL",
-#             'subConditions': [{
-#                 'relation': "ALL",
-#                 'components': [
-#                     {'id': 'a'},
-#                     {'id': 'b'}
-#                     ]
-#                 }
-#             ]
-#         },
-#         'consequence': {
-#             'ruleType': 'REQUIRES_EXCLUSIVELY',
-#             'components': [
-#                 {'id': 'z'}
-#                 ]
-#             }
-#         },
-#         {'condition': {
-#             'relation': "ALL",
-#             'subConditions': [{
-#                 'relation': "ALL",
-#                 'components': [
-#                     {'id': 'a'},
-#                     {'id': 'b'}
-#                     ]
-#                 }
-#             ]
-#         },
-#         'consequence': {
-#             'ruleType': 'REQUIRES_ANY',
-#             'components': [
-#                 {'id': 'i'}
-#                 ]
-#             }
-#         },
-#         {'condition': {
-#             'relation': "ALL",
-#             'subConditions': [{
-#                 'relation': "ALL",
-#                 'components': [
-#                     {'id': 'a'},
-#                     {'id': 'b'}
-#                     ]
-#                 }
-#             ]
-#         },
-#         'consequence': {
-#             'ruleType': 'REQUIRES_ANY',
-#             'components': [
-#                 {'id': 'j'},
-#                 {'id': 'k'}
-#                 ]
-#             }
-#         }
-#     ]
-
-#     expected_result = [{
-#         'condition': {
-#         'relation': "ALL",
-#         'subConditions': [{
-#             'relation': "ALL",
-#             'components': [
-#                 {'id': 'a'},
-#                 {'id': 'b'}
-#                 ]
-#             }]
-#         },
-#         'consequence': {
-#             'ruleType': 'REQUIRES_ALL',
-#             'components': [
-#                 {'id': 'i'},  # From require any
-#                 {'id': 'x'},
-#                 {'id': 'y'},
-#                 {'id': 'z'}  # From require exclusively
-#                 ]
-#             }
-#         },
-#         {'condition': {
-#             'relation': "ALL",
-#             'subConditions': [{
-#                 'relation': "ALL",
-#                 'components': [
-#                     {'id': 'a'},
-#                     {'id': 'b'}
-#                     ]
-#                 }]
-#             },
-#         'consequence': {
-#             'ruleType': 'FORBIDS_ALL',
-#             'components': [
-#                 {'id': 'x'},
-#                 {'id': 'y'},
-#                 {'id': 'z'},
-#                 ]
-#             }
-#         },
-#         {'condition': {
-#             'relation': "ALL",
-#             'subConditions': [{
-#                 'relation': "ALL",
-#                 'components': [
-#                     {'id': 'a'},
-#                     {'id': 'b'}
-#                     ]
-#                 }]
-#             },
-#         'consequence': {
-#             'ruleType': 'ONE_OR_NONE',
-#             'components': [
-#                 {'id': 'x'},
-#                 {'id': 'y'}
-#                 ]
-#             }
-#         },
-#         {'condition': {
-#             'relation': "ALL",
-#             'subConditions': [{
-#                 'relation': "ALL",
-#                 'components': [
-#                     {'id': 'a'},
-#                     {'id': 'b'}
-#                     ]
-#                 }]
-#             },
-#         'consequence': {
-#             'ruleType': 'ONE_OR_NONE',
-#             'components': [
-#                 {'id': 'y'},
-#                 {'id': 'z'}
-#                 ]
-#             }
-#         },
-#         {'condition': {
-#             'relation': "ALL",
-#             'subConditions': [{
-#                 'relation': "ALL",
-#                 'components': [
-#                     {'id': 'a'},
-#                     {'id': 'b'}
-#                     ]
-#                 }]
-#             },
-#         'consequence': {
-#             'ruleType': 'REQUIRES_EXCLUSIVELY',
-#             'components': [
-#                 {'id': 'x'},
-#                 {'id': 'y'}
-#                 ]
-#             }
-#         },
-#         {'condition': {
-#             'relation': "ALL",
-#             'subConditions': [{
-#                 'relation': "ALL",
-#                 'components': [
-#                     {'id': 'a'},
-#                     {'id': 'b'}
-#                     ]
-#                 }]
-#             },
-#         'consequence': {
-#             'ruleType': 'REQUIRES_ANY',
-#             'components': [
-#                 {'id': 'j'},
-#                 {'id': 'k'}
-#                 ]
-#             }
-#         }
-#     ]
-#     actual = cc.cicJEs.compress(rules, id_ident="id")
-#     for rule in actual:
-#         rule['consequence']['components'] = sorted(rule['consequence']['components'], key=lambda d: d['id'])
-#     assert [i for i in actual if i not in expected_result] == []
-#     assert [i for i in expected_result if i not in actual] == []
 
 def test_extract_value_from_list_when_index_out_of_range():
     try:
@@ -1407,10 +1180,10 @@ def test_cicJE_to_implication_proposition():
 
     expected_output = pg.Imply(
         pg.All(
-            pg.Any(*list("xy")),
-            pg.Any(*list("ab")),
+            pg.Any(*"xy"),
+            pg.Any(*"ab"),
         ),
-        pg.All(*list("mno"))
+        pg.All(*"mno")
     )
     assert actual_output == expected_output
 
@@ -1576,7 +1349,7 @@ def test_bind_relations_to_compound_id():
 def test_dont_override_propositions():
 
     model = pg.All(
-        pg.Imply(pg.Proposition(id="xor_xy", dtype=0, virtual=True), pg.All(*list("abc"))),
+        pg.Imply(pg.Proposition(id="xor_xy", dtype=0, virtual=True), pg.All(*"abc")),
         pg.Xor("x","y", id="xor_xy"),
     )
     assert model.xor_xy.virtual == next(filter(lambda x: x.id == "xor_xy", model.to_polyhedron().variables)).virtual, f"models 'xor_xy' is virtual while models polyhedrons 'xor_xy' is not"
@@ -1588,7 +1361,7 @@ def test_reduce_columns_with_column_variables():
             [ 0, 0, 1,-2, 1],
             [-1, 0,-1,-1,-1],
         ],
-        puan.variable.from_strings(*list("0abcd"))
+        puan.variable.from_strings(*"0abcd")
     )
     ph_red = ph.reduce_columns(ph.A.construct(*{"a": 1}.items()))
     assert not any((v.id == "a" for v in ph_red.index))
@@ -1603,8 +1376,8 @@ def test_reduce_rows_with_variable_index():
             [ 0, 0, 1,-2, 1],
             [-1, 0,-1,-1,-1],
         ],
-        puan.variable.from_strings(*list("0abcd")),
-        puan.variable.from_strings(*list("ABC")),
+        puan.variable.from_strings(*"0abcd"),
+        puan.variable.from_strings(*"ABC"),
     )
     ph_red = ph.reduce_rows([1,0,0])
     assert not any((v.id == "A" for v in ph_red.index))
@@ -2066,3 +1839,139 @@ def test_assume_should_keep_full_tree():
     }
 
     assert actual == expected
+
+def test_xnor_proposition():
+    
+    actual_model = pg.XNor(
+        pg.All(
+            "x",
+            pg.Xor("y","z")
+        )
+    )
+
+    expected_dict = {
+        'VARe546': (1, ['VAR3d36', 'VARc034'], 2, 0, 1),
+        'VAR3d36': (1, ['VAR28eb'], 1, 0, 1),
+        'VAR28eb': (1, ['VAR41ae', 'x'], 2, 0, 1),
+        'VAR41ae': (1, ['VAR077e', 'VARbed7'], 2, 0, 1),
+        'VAR077e': (1, ['y', 'z'], 1, 0, 1),
+        'y': (1, [], 1, 0, 0),
+        'z': (1, [], 1, 0, 0),
+        'VARbed7': (-1, ['y', 'z'], -1, 0, 1),
+        'x': (1, [], 1, 0, 0),
+        'VARc034': (-1, ['VAR28eb'], -1, 0, 1)
+    }
+
+    assert actual_model.to_dict() == expected_dict
+
+def test_proposition_polyhedron_conversions():
+
+    actual = pg.All(
+        pg.Not("x"),
+        id="all_not"
+    ).to_polyhedron(True)
+    assert not all(actual.A.dot(actual.construct(*{"x": 1}.items())) >= actual.b)
+    assert all(actual.A.dot(actual.construct(*{"VARc96e": 1}.items())) >= actual.b)
+
+    actual = pg.Not(
+        pg.All("x","y","z", id="all_xyz")
+    ).to_polyhedron(True)
+    assert all(actual.A.dot(actual.construct(*{"x": 1}.items())) >= actual.b)
+    assert all(actual.A.dot(actual.construct(*{"x": 1, "y": 1}.items())) >= actual.b)
+    assert not all(actual.A.dot(actual.construct(*{"x": 1, "y": 1, "z": 1}.items())) >= actual.b)
+
+    actual = pg.Not(
+        pg.Any("x","y","z")
+    ).to_polyhedron(True)
+    assert not all(actual.A.dot(actual.construct(*{"x": 1}.items())) >= actual.b)
+    assert not all(actual.A.dot(actual.construct(*{"y": 1}.items())) >= actual.b)
+    assert not all(actual.A.dot(actual.construct(*{"z": 1}.items())) >= actual.b)
+
+    actual = pg.Imply(
+        condition=pg.Not("x"),
+        consequence=pg.All("a","b","c")
+    ).to_polyhedron(True)
+    assert all(actual.A.dot(actual.construct(*{"VARfe37": 1, "x": 1}.items())) >= actual.b)
+    assert all(actual.A.dot(actual.construct(*{"VARa786": 1, "a": 1, "b": 1, "c": 1}.items())) >= actual.b)
+
+    actual = pg.Not(
+        pg.Imply(
+            condition=pg.All("x","y","z"), 
+            consequence=pg.Any("a","b","c")
+        ),
+    ).to_polyhedron(True)
+    assert all(actual.A.dot(actual.construct(*{"VARb6a0": 1, "VARe391": 1, "x": 1, "y": 1, "z": 1}.items())) >= actual.b)
+    assert not all(actual.A.dot(actual.construct(*{"VARb6a0": 1, "VARe391": 1, "x": 1, "y": 1, "z": 1, "a": 1}.items())) >= actual.b)
+    assert not all(actual.A.dot(actual.construct(*{"VARb6a0": 1, "VARe391": 1, "x": 1, "y": 1, "z": 1, "b": 1}.items())) >= actual.b)
+    assert not all(actual.A.dot(actual.construct(*{"VARb6a0": 1, "VARe391": 1, "x": 1, "y": 1, "z": 1, "c": 1}.items())) >= actual.b)
+    assert not all(actual.A.dot(actual.construct(*{"VARb6a0": 1, "VARe391": 1, "x": 1, "y": 1}.items())) >= actual.b)
+
+    actual = pg.Not(
+        pg.AtLeast("x","y","z", value=2)
+    ).to_polyhedron(True)
+    assert not all(actual.A.dot(actual.construct(*{"x": 1, "y": 1, "z": 1}.items())) >= actual.b)
+    assert all(actual.A.dot(actual.construct(*{"x": 1}.items())) >= actual.b)
+    assert all(actual.A.dot(actual.construct(*{"y": 1}.items())) >= actual.b)
+    assert all(actual.A.dot(actual.construct(*{"z": 1}.items())) >= actual.b)
+
+    actual = pg.Not(
+        pg.AtMost("x","y","z", value=2)
+    ).to_polyhedron(True)
+    assert not all(actual.A.dot(actual.construct(*{"x": 1}.items())) >= actual.b)
+    assert not all(actual.A.dot(actual.construct(*{"y": 1}.items())) >= actual.b)
+    assert not all(actual.A.dot(actual.construct(*{"z": 1}.items())) >= actual.b)
+    assert not all(actual.A.dot(actual.construct(*{"x": 1, "y": 1}.items())) >= actual.b)
+    assert not all(actual.A.dot(actual.construct(*{"x": 1, "z": 1}.items())) >= actual.b)
+    assert not all(actual.A.dot(actual.construct(*{"y": 1, "z": 1}.items())) >= actual.b)
+    assert all(actual.A.dot(actual.construct(*{"x": 1, "y": 1, "z": 1}.items())) >= actual.b)
+
+def test_assuming_integer_variables():
+
+    """
+        Assumes x,y,z and we'll expect that t must be between
+        10 and 20.
+    """
+    model = pg.Imply(
+        pg.All(*"xyz"),
+        pg.All(
+            pg.AtLeast(
+                pg.Integer("t"),
+                value=10 
+            ),
+            pg.AtMost(
+                pg.Integer("t"),
+                value=20
+            )
+        ), 
+    )
+
+    assumed = model.assume({"x": 1, "y": 1, "z": 1})[0].to_polyhedron(True)
+    assert all(assumed.A.dot(assumed.construct(*{"t": 10}.items())) >= assumed.b)
+    assert all(assumed.A.dot(assumed.construct(*{"t": 20}.items())) >= assumed.b)
+    assert not all(assumed.A.dot(assumed.construct(*{"t": 1}.items())) >= assumed.b)
+    assert not all(assumed.A.dot(assumed.construct(*{"t": -22}.items())) >= assumed.b)
+    assert not all(assumed.A.dot(assumed.construct(*{"t": 9}.items())) >= assumed.b)
+    assert not all(assumed.A.dot(assumed.construct(*{"t": 21}.items())) >= assumed.b)
+
+    model = pg.Imply(
+        pg.All(
+            pg.AtLeast(
+                pg.Integer("t"),
+                value=10 
+            ),
+            pg.AtMost(
+                pg.Integer("t"),
+                value=20
+            )
+        ), 
+        pg.All(*"xyz")
+    )
+
+    assumed = model.assume({"t": 12})[0].to_polyhedron(True)
+    assert all(assumed.A.dot(assumed.construct(*{"x": 1, "y": 1, "z": 1}.items())) >= assumed.b)
+    assert not all(assumed.A.dot(assumed.construct(*{"x": 1, "y": 1}.items())) >= assumed.b)
+    assert not all(assumed.A.dot(assumed.construct(*{"x": 1, "z": 1}.items())) >= assumed.b)
+    assert not all(assumed.A.dot(assumed.construct(*{"z": 1, "y": 1}.items())) >= assumed.b)
+    assert not all(assumed.A.dot(assumed.construct(*{"x": 1}.items())) >= assumed.b)
+    assert not all(assumed.A.dot(assumed.construct(*{"y": 1}.items())) >= assumed.b)
+    assert not all(assumed.A.dot(assumed.construct(*{"z": 1}.items())) >= assumed.b)

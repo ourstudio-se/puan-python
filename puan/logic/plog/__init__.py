@@ -14,6 +14,7 @@ import puan.ndarray
 import functools
 import maz
 import numpy
+import dictdiffer
 from dataclasses import dataclass, field
 import puan.logic.logicfunc as logicfunc
 
@@ -200,6 +201,39 @@ class Proposition(puan.variable, list):
 
     def __contains__(self,v):
         return v in self.propositions
+
+    def diff(self, other) -> list:
+
+        """
+            Diff method is part of the model versioning methods helping users
+            to keep track of model changes. 
+            Diff computes difference between this proposition and another proposition.
+
+            Returns
+            -------
+                out : list
+        """
+        return list(dictdiffer.diff(self.to_dict(), other.to_dict()))
+
+    def patch(self, diff):
+
+        """
+            Patch method is part of the model versioning methods helping users to
+            keep track of model changes. Patch apply's diff-result onto this proposition.
+
+            Returns
+            -------
+                out : Proposition
+        """
+        return from_dict(dictdiffer.patch(diff, self.to_dict()))
+
+    def revert(self, diff):
+
+        """
+            Swap method is part of the model versioning methods helping user to keep track
+            of model changes. Revert reverts a patch change back to it's original.
+        """
+        return from_dict(dictdiffer.revert(diff, self.to_dict()))
 
     def append(self, i, v):
         self.__check__(v)
@@ -399,6 +433,25 @@ class Proposition(puan.variable, list):
 
     def invert(self) -> "Proposition":
         return self
+
+    @staticmethod
+    def random_boolean(max_sub_propositions: int = 5) -> "Proposition":
+
+        """
+            Generates a random proposition.
+
+            Returns
+            -------
+                out : Proposition
+        """
+        return Proposition(
+            map(lambda: operator.methodcaller("Proposition.random"), range(numpy.random.randint(max_sub_propositions))),
+            [None, numpy.random.choice(list("abcdefghijklmnopqrstuvwxyz"), 5)][numpy.random.randint(0,2)], 
+            0, # <- because "_boolean(...)" 
+            numpy.random.randint(0,2) == 1,
+            value=1,
+            sign=1,
+        ).specify()
 
     def to_compound_constraint(self, index_predicate: typing.Callable[[puan.variable], int], extend_top: bool = True) -> _CompoundConstraint:
 
@@ -620,7 +673,6 @@ class Proposition(puan.variable, list):
         )
         return reduced_polyhedron, column_consequence
 
-
     def reduce(self, fixed: typing.Dict[puan.variable, int]) -> "Proposition":
 
         """
@@ -826,7 +878,6 @@ class Proposition(puan.variable, list):
         """
         return (self.id, self.sign, list(map(operator.attrgetter("id"), self.propositions)), self.value, self.dtype, self.virtual * 1)
 
-
     def to_text(self) -> str:
 
         """
@@ -888,6 +939,16 @@ class Proposition(puan.variable, list):
             sign=data.get('sign', 1),
             value=data.get('value', 1)
         )
+
+class Boolean(Proposition):
+
+    def __init__(self, id: str = None, virtual: bool = False):
+        super().__init__(id=id, dtype=0, virtual=virtual)
+
+class Integer(Proposition):
+
+    def __init__(self, id: str = None, virtual: bool = False):
+        super().__init__(id=id, dtype=1, virtual=virtual)
 
 class AtLeast(Proposition):
 
@@ -1145,18 +1206,18 @@ class XNor(Xor):
     """
 
     def __init__(self, *propositions, id: str = None):
-        super().__init__(*propositions).invert(id=id)
+        super().__init__(*propositions)
+        self.invert()
 
-class Not(AtMost):
+class Not(object):
 
     """
-        Not is restricting propositions to never be selected.
-        For example, Not("x","y","z") means that x, y or z can never be selected.
-        Note that Not(x) is not necessarily equivilent to x.invert() (but could be).
+        Not is negating a proposition.
+        For example, Not(All("x","y","z")) means any combination of x, y or z is ok while all of them is not.
     """
 
-    def __init__(self, *propositions, id: str = None):
-        super().__init__(*propositions, value=0, id=id)
+    def __new__(self, proposition: Proposition):
+        return (proposition if isinstance(proposition, Proposition) else All(proposition)).invert()
 
 
 
