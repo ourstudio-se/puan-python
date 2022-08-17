@@ -33,56 +33,62 @@ Proposition
 +++++++++++
 .. autoclass:: Proposition
    :members:
-   :inherited-members:
+   :undoc-members:
    :show-inheritance:
 
 AtLeast
 +++++++
 .. autoclass:: AtLeast
    :members:
-   :inherited-members:
+   :undoc-members:
    :show-inheritance:
 
 AtMost
 ++++++
 .. autoclass:: AtMost
    :members:
-   :inherited-members:
+   :undoc-members:
    :show-inheritance:
 
 All
 +++
 .. autoclass:: All
    :members:
+   :undoc-members:
    :show-inheritance:
 
 Any
 +++
 .. autoclass:: Any
    :members:
+   :undoc-members:
    :show-inheritance:
 
 Imply
 +++++
 .. autoclass:: Imply
    :members:
+   :undoc-members:
    :show-inheritance:
 
 Xor
 +++
 .. autoclass:: Xor
    :members:
+   :undoc-members:
    :show-inheritance:
 
 XNor
 ++++
 .. autoclass:: XNor
    :members:
+   :undoc-members:
    :show-inheritance:
 
 Not
 +++
 .. autoclass:: Not
    :members:
+   :undoc-members:
    :show-inheritance:
 
