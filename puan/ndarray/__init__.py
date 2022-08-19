@@ -32,14 +32,14 @@ class variable_ndarray(numpy.ndarray):
             pass
         return target
 
-    def integer_variable_indices(self) -> typing.Set[int]:
+    def integer_variable_indices(self) -> numpy.ndarray:
 
         """
             Variable indices where variable dtype is int.
 
             Returns
             -------
-                out : Set : int
+                out : numpy.ndarray
 
             Examples
             --------
@@ -49,19 +49,21 @@ class variable_ndarray(numpy.ndarray):
                 ...     [0, 0, 0,-1, 1],
                 ... ]), [puan.variable("a", 1, False), puan.variable("b", 0, False), puan.variable("c", 1, False), puan.variable("d", 0, False)])
                 >>> ge_polyhedron.integer_variable_indices()
-                [0, 2]
+                array([0, 2])
         """
 
-        return sorted(
-            map(
-                operator.itemgetter(0),
-                filter(
-                    maz.compose(
-                        functools.partial(operator.eq, 1),
-                        operator.attrgetter("dtype"),
-                        operator.itemgetter(1)
-                    ),
-                    enumerate(self.variables)
+        return numpy.array(
+            sorted(
+                map(
+                    operator.itemgetter(0),
+                    filter(
+                        maz.compose(
+                            functools.partial(operator.eq, 1),
+                            operator.attrgetter("dtype"),
+                            operator.itemgetter(1)
+                        ),
+                        enumerate(self.variables)
+                    )
                 )
             )
         )
