@@ -2522,11 +2522,11 @@ def test_our_land_doig_dankins():
             (
                 1800,
                 numpy.array([20, 60]),
-                numpy.array([
-                    [ 0.,  1., -1.,  2.,  0.],
-                    [ 0.,  0., -1.,  1.,  1.],
-                    [ 1.,  0.,  1., -1.,  0.]
-                ]),
+                #numpy.array([
+                #    [ 0.,  1., -1.,  2.,  0.],
+                #    [ 0.,  0., -1.,  1.,  1.],
+                #    [ 1.,  0.,  1., -1.,  0.]
+                #]),
                 'Solution is unique'
             )
         ),
@@ -2538,15 +2538,15 @@ def test_our_land_doig_dankins():
             (
                 7,
                 numpy.array([4, 3]),
-                numpy.array([
-                    [  1.,   0.,   0.,   0.,   0.,   0.,   0.,   1.,   0.],
-                    [  0.,   0.,   0.,   1.,   0.,   0.,   0.,  11., -12.],
-                    [  0.,   0.,   0.,   0.,   1.,   0.,   0.,   0.,  -1.],
-                    [  0.,   0.,   0.,   0.,   0.,   1.,   0.,  -1.,   0.],
-                    [  0.,   0.,   0.,   0.,   0.,   0.,   1.,   0.,  -1.],
-                    [  0.,   1.,   0.,   0.,   0.,   0.,   0.,   0.,   1.],
-                    [  0.,   0.,   1.,   0.,   0.,   0.,   0., -11.,   8.]
-                ]),
+                #numpy.array([
+                #    [  1.,   0.,   0.,   0.,   0.,   0.,   0.,   1.,   0.],
+                #    [  0.,   0.,   0.,   1.,   0.,   0.,   0.,  11., -12.],
+                #    [  0.,   0.,   0.,   0.,   1.,   0.,   0.,   0.,  -1.],
+                #    [  0.,   0.,   0.,   0.,   0.,   1.,   0.,  -1.,   0.],
+                #    [  0.,   0.,   0.,   0.,   0.,   0.,   1.,   0.,  -1.],
+                #    [  0.,   1.,   0.,   0.,   0.,   0.,   0.,   0.,   1.],
+                #    [  0.,   0.,   1.,   0.,   0.,   0.,   0., -11.,   8.]
+                #]),
                 'Solution is unique'
             )
         )
@@ -2556,5 +2556,5 @@ def test_our_land_doig_dankins():
         actual = puan.solver.our_land_doig_dankins(*input)
         assert actual[0] == expected_output[0]
         assert numpy.allclose(actual[1], expected_output[1])
-        assert numpy.allclose(actual[2], expected_output[2])
-        assert actual[3] == expected_output[3]
+        #assert numpy.allclose(actual[2], expected_output[2])
+        assert actual[2] == expected_output[2]
