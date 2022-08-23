@@ -932,6 +932,50 @@ class ge_polyhedron(variable_ndarray):
         variables = list(map(lambda x: (x, int), variables))
         return ge_polyhedron(numpy.concatenate((polyhedron, lez_constraint), axis=0), variables)
 
+    def bounds_approx(self, outer_bounds = (puan.default_min_int, puan.default_max_int)) -> numpy.array:
+        
+        """
+            Return an approximate of column/variable lower and upper bounds. There may exist a tighter bound.
+
+            Parameters
+            ----------
+                outer_bounds : (int, int), optional
+                    Sets the outer most integer bound on variables. 
+
+            Notes
+            -----
+            Array returned has two rows - first is the lower bound on each column and the second is the upper bound.
+
+            Examples
+            --------
+                >>> ge_polyhedron([[0,-2,1,1,0],[3,1,0,0,0],[3,0,0,0,1],[-3,0,0,0,-1]]).bounds_approx()
+                array([[3., 0., 0., 3.],
+                       [1., 1., 1., 1.]])
+
+            Returns
+            -------
+                out : numpy.array
+        """
+
+        mn, mx = outer_bounds
+        init = numpy.tile([0,1], (self.A.shape[1], 1)).T # init as if all was boolean
+        int_idxs = self.A.integer_variable_indices()
+        if int_idxs.size > 0:
+            init.T[int_idxs] = [mn, mx] # replace those which are ints with int min/max
+
+        A, b = self.A, self.b
+        A_max = (init[0]*(A<0)*A)+(init[1]*(A>0)*A)
+        cell_max = b.reshape(-1,1)-(A_max.sum(axis=1).reshape(-1,1)-A_max)
+        cell_bound = numpy.divide(cell_max, A, out=numpy.zeros_like(A, dtype=float), where=A!=0)
+        cell_bound_lb = cell_bound.copy()
+        cell_bound_lb[A <= 0] = numpy.nan
+        column_lb = numpy.nanmax(numpy.append(cell_bound_lb, [init[0]], axis=0), axis=0)
+        cell_bound_ub = cell_bound.copy()
+        cell_bound_ub[A >= 0] = numpy.nan
+        column_ub = numpy.nanmin(numpy.append(cell_bound_ub, [init[1]], axis=0), axis=0)
+        bounds = numpy.array([column_lb, column_ub])
+        return bounds
+
 class integer_ndarray(variable_ndarray):
     """
         A numpy.ndarray sub class with only integers in it.

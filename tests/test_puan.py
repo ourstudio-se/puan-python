@@ -1975,3 +1975,94 @@ def test_assuming_integer_variables():
     assert not all(assumed.A.dot(assumed.construct(*{"x": 1}.items())) >= assumed.b)
     assert not all(assumed.A.dot(assumed.construct(*{"y": 1}.items())) >= assumed.b)
     assert not all(assumed.A.dot(assumed.construct(*{"z": 1}.items())) >= assumed.b)
+
+def test_bound_approx():
+
+    # Test random constraints with a being an integer
+    variables = [
+        puan.variable("0", 1, True),
+        puan.variable("a", 1, False),
+        puan.variable("b", 0, False),
+        puan.variable("c", 0, False),
+        puan.variable("d", 0, False),
+    ]
+    actual = puan.ndarray.ge_polyhedron([
+        [ 3, 1, 1, 1, 0],
+        [ 3, 1, 0, 0, 0],
+        [ 0,-2, 1, 1, 0],
+        [-1,-1,-1, 0, 0],
+    ], variables=variables).bounds_approx((-10,10))
+    expected = numpy.array([
+        [ 3, 0, 0, 0],
+        [ 1, 1, 1, 1]
+    ])
+    assert (actual == expected).all()
+
+
+    # Test integer lower bound will increase
+    variables = [
+        puan.variable("0", 1, True),
+        puan.variable("a", 1, False),
+        puan.variable("b", 0, False),
+        puan.variable("c", 0, False),
+        puan.variable("d", 0, False),
+    ]
+    actual = puan.ndarray.ge_polyhedron([
+        [ 3, 1, 0, 0, 0],
+        [ 0,-2, 1, 1, 0],
+    ], variables=variables).bounds_approx((-10,10))
+    expected = numpy.array([
+        [3,0,0,0],
+        [1,1,1,1]
+    ])
+    assert (actual == expected).all()
+    
+    # Test that ordinary bounds are kept
+    actual = puan.ndarray.ge_polyhedron([
+        [ 0,-2, 1, 1, 0],
+        [-3,-2,-1,-1, 0],
+        [-3,-2,-2, 1, 1]
+    ]).bounds_approx((-10,10))
+    expected = numpy.array([
+        [0,0,0,0],
+        [1,1,1,1]
+    ])
+    assert (actual == expected).all()
+    
+    # Test force lower bound to increase to 1
+    actual = puan.ndarray.ge_polyhedron([
+        [3,1,1,1,0]
+    ]).bounds_approx((-10,10))
+    expected = numpy.array([
+        [1,1,1,0],
+        [1,1,1,1]
+    ])
+    assert (actual == expected).all()
+    
+    # Test lower bound won't increase while at least one must be set
+    actual = puan.ndarray.ge_polyhedron([
+        [1,1,1,1,0]
+    ]).bounds_approx((-10,10))
+    expected = numpy.array([
+        [0,0,0,0],
+        [1,1,1,1]
+    ])
+    assert (actual == expected).all()
+    
+    # Test integer upper bound will decrease
+    variables = [
+        puan.variable("0", 1, True),
+        puan.variable("a", 1, False),
+        puan.variable("b", 0, False),
+        puan.variable("c", 0, False),
+        puan.variable("d", 0, False),
+    ]
+    actual = puan.ndarray.ge_polyhedron([
+        [-10,-1, 0, 0, 0],
+        [  0,-2, 1, 1, 0],
+    ], variables=variables).bounds_approx((-10,10))
+    expected = numpy.array([
+        [-10,0,0,0],
+        [ 1,1,1,1]
+    ])
+    assert (actual == expected).all()    

@@ -20,9 +20,6 @@ import puan.logic.logicfunc as logicfunc
 
 numpy.set_printoptions(edgeitems=30, linewidth=100000, formatter=dict(float=lambda x: "%.3g" % x))
 
-default_min_int: int = numpy.iinfo(numpy.int16).min
-default_max_int: int = numpy.iinfo(numpy.int16).max
-
 class _Constraint(tuple):
 
     """
@@ -68,8 +65,8 @@ class _Constraint(tuple):
                 return _Constraint(
                     self.dtypes + (0,),
                     self.index + (self.id,),
-                    self.values + [(default_min_int-self.b,), (default_min_int,)][self.b > 0],
-                    [default_min_int, default_min_int+self.b][self.b > 0],
+                    self.values + [(puan.default_min_int-self.b,), (puan.default_min_int,)][self.b > 0],
+                    [puan.default_min_int, puan.default_min_int+self.b][self.b > 0],
                     self.id
                 )
             else:

@@ -1,9 +1,13 @@
 import json
+import numpy
 import typing
 import maz
 import itertools
 import dataclasses
 from json import JSONEncoder
+
+default_min_int: int = numpy.iinfo(numpy.int16).min
+default_max_int: int = numpy.iinfo(numpy.int16).max
 
 def _default(self, obj):
     return getattr(obj.__class__, "to_json", _default.default)(obj)
