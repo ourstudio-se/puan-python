@@ -944,13 +944,22 @@ class ge_polyhedron(variable_ndarray):
 
             Notes
             -----
-            Array returned has two rows - first is the lower bound on each column and the second is the upper bound.
+            - Array returned has two rows - first is the lower bound on each column and the second is the upper bound.
+            - Lower bound may be larger than upper bound without implying contradiction.
 
             Examples
             --------
                 >>> ge_polyhedron([[0,-2,1,1,0],[3,1,0,0,0],[3,0,0,0,1],[-3,0,0,0,-1]]).bounds_approx()
-                array([[3., 0., 0., 3.],
-                       [1., 1., 1., 1.]])
+                array([[3, 0, 0, 3],
+                       [1, 1, 1, 1]])
+
+                >>> ge_polyhedron([[3,1,1,1,0]]).bounds_approx()
+                array([[1, 1, 1, 0],
+                       [1, 1, 1, 1]])
+
+                >>> ge_polyhedron([[0,-1,-1,0,0]]).bounds_approx()
+                array([[0, 0, 0, 0],
+                       [0, 0, 1, 1]])
 
             Returns
             -------
@@ -973,7 +982,7 @@ class ge_polyhedron(variable_ndarray):
         cell_bound_ub = cell_bound.copy()
         cell_bound_ub[A >= 0] = numpy.nan
         column_ub = numpy.nanmin(numpy.append(cell_bound_ub, [init[1]], axis=0), axis=0)
-        bounds = numpy.array([column_lb, column_ub])
+        bounds = numpy.array([column_lb, column_ub], dtype=int)
         return bounds
 
 class integer_ndarray(variable_ndarray):
