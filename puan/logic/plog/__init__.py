@@ -1218,7 +1218,7 @@ class XNor(Xor):
     """
 
     def __init__(self, *propositions, id: str = None):
-        super().__init__(*propositions)
+        super().__init__(*propositions, id=id)
         self.invert()
 
 class Not(object):
@@ -1228,8 +1228,8 @@ class Not(object):
         For example, Not(All("x","y","z")) means any combination of x, y or z is ok while all of them is not.
     """
 
-    def __new__(self, proposition: Proposition):
-        return (proposition if isinstance(proposition, Proposition) else All(proposition)).invert()
+    def __new__(self, proposition: Proposition, id: str = None):
+        return (proposition if isinstance(proposition, Proposition) else All(proposition, id=id)).invert()
 
 
 
@@ -1462,10 +1462,15 @@ def from_json(data: dict, class_map: list = [Proposition,AtLeast,AtMost,All,Any,
         )
     elif data['type'] in ["Any", "Xor"]:
         return _class_map[data['type']].from_json(data, class_map)
-    elif data['type'] in ["All", "Any", "Xor", "XNor", "Not"]:
+    elif data['type'] in ["All", "Any", "Xor", "XNor"]:
         return _class_map[data['type']](
             *propositions_map,
             id=data.get('id', None)
+        )
+    elif data['type'] == 'Not':
+        return _class_map[data['type']](
+            from_json(data['proposition'], class_map),
+            id=data.get('id', None),
         )
     elif data['type'] == "Imply":
         return _class_map[data['type']](

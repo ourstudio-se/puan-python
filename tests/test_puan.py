@@ -2126,3 +2126,43 @@ def test_bounds_init():
         [ 0, 0, 0, 0]
     ])
     assert (actual == expected).all()
+
+def test_plog_not_json_should_only_accept_single_proposition():
+
+    try:
+        # Should not be allowed
+        puan.logic.plog.Not("x", "y").to_json()
+        assert False
+    except:
+        pass
+
+    try:
+        # Should not be allowed
+        puan.logic.plog.from_json({
+            "type": "Not",
+            "propositions": [
+                {"id": "x"},
+                {"id": "y"},
+                {"id": "z"},
+            ]
+        })
+        assert False
+    except:
+        pass
+
+    expected_model = puan.logic.plog.Not(
+        puan.logic.plog.All(*"xyz")
+    )
+    actual_model = puan.logic.plog.from_json({
+        "type": "Not",
+        "proposition": {
+            "type": "All",
+            "propositions": [
+                {"id": "x"},
+                {"id": "y"},
+                {"id": "z"},
+            ]
+        }
+    })
+
+    assert expected_model == actual_model
