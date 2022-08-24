@@ -956,15 +956,15 @@ def test_application_with_no_item_hits_should_yield_no_rules():
 
 
 def test_reduce_matrix():
-
+    
     matrix = puan.ndarray.ge_polyhedron(numpy.array([
         [-1,-1,-1, 1, 0, 2], # stay
-        [-2,-1,-1, 1, 0, 2], # remove
+        [-2, 0, 0, 0, 0, 0], # remove
         [ 0,-1, 1, 1, 0, 0], # stay
         [-3,-2,-1,-1, 0, 0], # stay
         [-4,-1,-1,-1,-1,-1], # stay
         [ 2, 1, 1, 1, 1, 1], # stay
-        [ 0, 1, 1, 0, 1, 0], # remove
+        [ 0, 0, 0, 0, 0, 0], # remove
         [ 0, 1, 1, 0, 1,-1], # stay
     ]))
     reducable_rows = puan.ndarray.reducable_rows(matrix)
@@ -979,50 +979,23 @@ def test_reduce_matrix():
     ])
     assert numpy.array_equal(actual,expected)
 
-    # matrix = puan.ndarray.ge_polyhedron(numpy.array([
-    #     [-1,-1,-1, 1, 0, 2], # stay
-    #     [-2,-1,-1, 1, 0, 2], # stay since variable "a" is integer
-    #     [ 0,-1, 1, 1, 0, 0], # stay
-    #     [-3,-2,-1,-1, 0, 0], # stay
-    #     [-4,-1,-1,-1,-1,-1], # stay
-    #     [ 2, 0, 1, 1, 1, 1], # stay
-    #     [ 0, 0, 1, 0, 1, 0], # remove
-    #     [ 0, 0, 1, 0, 1,-1], # stay
-    # ]), [puan.variable("a", 1, False),
-    #      puan.variable("b", 0, False),
-    #      puan.variable("c", 0, False),
-    #      puan.variable("d", 0, False),
-    #      puan.variable("e", 0, False)])
-    # reducable_rows = puan.ndarray.reducable_rows(matrix)
-    # actual = puan.ndarray.reduce(matrix, rows_vector=reducable_rows)
-    # expected = numpy.array([
-    #     [-1,-1,-1, 1, 0, 2], # stay
-    #     [-2,-1,-1, 1, 0, 2], # stay since variable "a" is integer
-    #     [ 0,-1, 1, 1, 0, 0], # stay
-    #     [-3,-2,-1,-1, 0, 0], # stay
-    #     [-4,-1,-1,-1,-1,-1], # stay
-    #     [ 2, 0, 1, 1, 1, 1], # stay
-    #     [ 0, 0, 1, 0, 1,-1], # stay
-    # ])
-    # assert numpy.array_equal(actual,expected)
-
 
 def test_reducable_columns_approx():
     input = puan.ndarray.ge_polyhedron(numpy.array([[0, -1, -1, -1]]))
     actual = input.reducable_columns_approx()
-    expected = puan.ndarray.ge_polyhedron(numpy.array([-2, -2, -2]))
+    expected = numpy.array([0, 0, 0])
     assert numpy.array_equal(actual, expected)
     input = puan.ndarray.ge_polyhedron(numpy.array([[3, 1, 1, 1]]))
     actual = input.reducable_columns_approx()
-    expected = puan.ndarray.ge_polyhedron(numpy.array([1, 1, 1]))
+    expected = numpy.array([1, 1, 1])
     assert numpy.array_equal(actual, expected)
     input = puan.ndarray.ge_polyhedron(numpy.array([[0, 1, 1, -3]]))
     actual = input.reducable_columns_approx()
-    expected = puan.ndarray.ge_polyhedron(numpy.array([0, 0, -3]))
-    assert numpy.array_equal(actual, expected)
+    expected = numpy.array([numpy.nan, numpy.nan, 0])
+    assert numpy.array_equal(actual, expected, equal_nan=True)
     input = puan.ndarray.ge_polyhedron(numpy.array([[2, 1, 1, -1]]))
     actual = input.reducable_columns_approx()
-    expected = puan.ndarray.ge_polyhedron(numpy.array([1, 1, -2]))
+    expected = numpy.array([1, 1, 0])
     assert numpy.array_equal(actual, expected)
     input = puan.ndarray.ge_polyhedron(numpy.array([
         [ 0,-1, 1, 0, 0, 0], # 1
@@ -1030,25 +1003,28 @@ def test_reducable_columns_approx():
         [-1,-1, 0,-1, 0, 0], # 3 1+2+3 -> Force not variable 0
     ]))
     actual = input.reducable_columns_approx()
-    expected = puan.ndarray.ge_polyhedron(numpy.array([ 0, 0, 0, 0, 0]))
-    assert numpy.array_equal(actual, expected)
+    expected = numpy.array([ 0, 0, 0, 0, 0])*numpy.nan
+    assert numpy.array_equal(actual, expected, equal_nan=True)
     input = puan.ndarray.ge_polyhedron(numpy.array([
         [1, 1],
         [1, -1]
     ]))
     actual = input.reducable_columns_approx()
-    expected = puan.ndarray.ge_polyhedron(numpy.array([0]))
-    assert numpy.array_equal(actual, expected)
-    # input = puan.ndarray.ge_polyhedron(numpy.array([
-    #     [0,-1,-1, 0, 0],
-    #     [0, 0, 0,-1,-1]]),
-    #     [puan.variable("a", 1, False),
-    #      puan.variable("b", 0, False),
-    #      puan.variable("c", 0, False),
-    #      puan.variable("d", 0, False)])
-    # actual = input.reducable_columns_approx()
-    # expected = puan.ndarray.ge_polyhedron(numpy.array([0, 0,-4,-4]))
-    # assert numpy.array_equal(actual, expected)
+    expected = numpy.array([numpy.nan])
+    assert numpy.array_equal(actual, expected, equal_nan=True)
+    input = puan.ndarray.ge_polyhedron(numpy.array([
+        [0,-1,-1, 0, 0],
+        [0, 0, 0,-1,-1]]),
+        [
+            puan.variable("0", 1, True),
+            puan.variable("a", 0, False),
+            puan.variable("b", 0, False),
+            puan.variable("c", 0, False),
+            puan.variable("d", 0, False)
+        ])
+    actual = input.reducable_columns_approx()
+    expected = numpy.array([0,0,0,0])
+    assert numpy.array_equal(actual, expected, equal_nan=True)
 
 
 
@@ -1238,7 +1214,8 @@ def test_reducable_matrix_columns_should_keep_zero_columns():
     ]).astype(numpy.int32)
 
     rows, cols = M.reducable_rows_and_columns()
-    assert cols[3] == 0
+    assert numpy.isnan(cols[3])
+    assert cols[1] == 1
 
 
 def test_ndint_compress():
@@ -1363,7 +1340,7 @@ def test_reduce_columns_with_column_variables():
         ],
         puan.variable.from_strings(*"0abcd")
     )
-    ph_red = ph.reduce_columns(ph.A.construct(*{"a": 1}.items()))
+    ph_red = ph.reduce_columns(ph.A.construct(*{"a": 1}.items(), default_value=numpy.nan, dtype=float))
     assert not any((v.id == "a" for v in ph_red.index))
     assert ph_red.shape[0] == 3
     assert ph_red.shape[1] == 4
@@ -1812,33 +1789,63 @@ def test_json_conversions_with_assume():
             }
         ]
     }
-    actual = cc.StingyConfigurator.from_json(data).assume({"a": 1})[0]
-    expected = cc.StingyConfigurator(
-        pg.AtMost("x","y","z",value=1),
-        cc.Any("x","y","z", default="z"),
-    )
-    assert actual == expected
+    actual, consequence = cc.StingyConfigurator.from_json(data).assume({"a": 1})
+    expected = {
+        "type": "StingyConfigurator",
+        "propositions": [
+            {
+                "id": "VAR56ed",
+                "type": "AtMost",
+                "propositions": [
+                    {
+                        "id": "x"
+                    },
+                    {
+                        "id": "y"
+                    },
+                    {
+                        "id": "z"
+                    }
+                ],
+                "value": 1
+            },
+            {
+                "id": "VAR5823",
+                "type": "Any",
+                "propositions": [
+                    {
+                        "id": "x"
+                    },
+                    {
+                        "id": "y"
+                    },
+                    {
+                        "id": "z"
+                    }
+                ],
+                "default": [
+                    "z"
+                ]
+            }
+        ]
+    }
+    assert consequence['a'] == 1
+    assert actual.to_json() == expected
 
 def test_assume_should_keep_full_tree():
 
-    actual = cc.StingyConfigurator(
+    assumed, consequence = cc.StingyConfigurator(
         pg.Imply(
             pg.Any("a","b"),
             cc.Xor(*("xyz"), default="z")
         )
-    ).assume({"a": 1})[0].to_dict()
+    ).assume({"a": 1})
+    prio_candidates = list(filter(lambda x: hasattr(x, "prio"), assumed.propositions))
 
-    expected = {
-        'VAR8d1b': (1, ['VAR56ed', 'VAR5823'], 2, 0, 1),
-        'VAR56ed': (-1, ['x', 'y', 'z'], -1, 0, 1),
-        'x': (1, [], 1, 0, 0),
-        'y': (1, [], 1, 0, 0),
-        'z': (1, [], 1, 0, 0),
-        'VAR5823': (1, ['VAR2295', 'z'], 1, 0, 1),
-        'VAR2295': (1, ['x','y'], 1, 0, 1)
-    }
-
-    assert actual == expected
+    assert consequence['a'] == 1
+    assert len(prio_candidates) == 1
+    assert prio_candidates[0].prio == -1
+    assert prio_candidates[0].propositions[1].id == "z"
 
 def test_xnor_proposition():
     
@@ -1936,18 +1943,20 @@ def test_assuming_integer_variables():
         pg.All(
             pg.AtLeast(
                 pg.Integer("t"),
-                value=10 
+                value=10,
+                id="at-least-10"
             ),
             pg.AtMost(
                 pg.Integer("t"),
-                value=20
+                value=20,
+                id="at-most-20"
             )
         ), 
     )
 
     assumed = model.assume({"x": 1, "y": 1, "z": 1})[0].to_polyhedron(True)
-    assert all(assumed.A.dot(assumed.construct(*{"t": 10}.items())) >= assumed.b)
-    assert all(assumed.A.dot(assumed.construct(*{"t": 20}.items())) >= assumed.b)
+    assert all(assumed.A.dot(assumed.construct(*{"at-least-10": 1, "at-most-20": 1, "t": 10}.items())) >= assumed.b)
+    assert all(assumed.A.dot(assumed.construct(*{"at-least-10": 1, "at-most-20": 1, "t": 20}.items())) >= assumed.b)
     assert not all(assumed.A.dot(assumed.construct(*{"t": 1}.items())) >= assumed.b)
     assert not all(assumed.A.dot(assumed.construct(*{"t": -22}.items())) >= assumed.b)
     assert not all(assumed.A.dot(assumed.construct(*{"t": 9}.items())) >= assumed.b)
@@ -1957,24 +1966,24 @@ def test_assuming_integer_variables():
         pg.All(
             pg.AtLeast(
                 pg.Integer("t"),
-                value=10 
+                value=10,
+                id="at-least-10"
             ),
             pg.AtMost(
                 pg.Integer("t"),
-                value=20
+                value=20,
+                id="at-most-20"
             )
         ), 
-        pg.All(*"xyz")
+        pg.All(*"xyz", id="all-xyz")
     )
 
-    assumed = model.assume({"t": 12})[0].to_polyhedron(True)
-    assert all(assumed.A.dot(assumed.construct(*{"x": 1, "y": 1, "z": 1}.items())) >= assumed.b)
-    assert not all(assumed.A.dot(assumed.construct(*{"x": 1, "y": 1}.items())) >= assumed.b)
-    assert not all(assumed.A.dot(assumed.construct(*{"x": 1, "z": 1}.items())) >= assumed.b)
-    assert not all(assumed.A.dot(assumed.construct(*{"z": 1, "y": 1}.items())) >= assumed.b)
-    assert not all(assumed.A.dot(assumed.construct(*{"x": 1}.items())) >= assumed.b)
-    assert not all(assumed.A.dot(assumed.construct(*{"y": 1}.items())) >= assumed.b)
-    assert not all(assumed.A.dot(assumed.construct(*{"z": 1}.items())) >= assumed.b)
+    assumed_model, assumed_items = model.assume({"t": 12})
+    assert assumed_model.is_tautologi
+    assert assumed_items['t'] == 12
+    assert assumed_items['x'] == 1
+    assert assumed_items['y'] == 1
+    assert assumed_items['z'] == 1
 
 def test_bound_approx():
 
@@ -2066,3 +2075,54 @@ def test_bound_approx():
         [ 1,1,1,1]
     ])
     assert (actual == expected).all()    
+
+    # Test "inverted" boolean (as integers)
+    variables = [
+        puan.variable("0", 1, True),
+        puan.variable("a", 1, False),
+        puan.variable("b", 1, False),
+        puan.variable("c", 1, False),
+        puan.variable("d", 1, False),
+    ]
+    actual = puan.ndarray.ge_polyhedron([
+        [ 4,-1,-1,-1,-1],
+    ], variables=variables).bounds_approx((-1,0))
+    expected = numpy.array([
+        [-1,-1,-1,-1],
+        [-1,-1,-1,-1],
+    ])
+    assert (actual == expected).all()    
+
+    # Test if finding lower bound < 0 
+    variables = [
+        puan.variable("0", 1, True),
+        puan.variable("a", 1, False),
+        puan.variable("b", 0, False)
+    ]
+    actual = puan.ndarray.ge_polyhedron([
+        [ 1,-1,-1],
+    ], variables=variables).bounds_approx((-5,0))
+    expected = numpy.array([
+        [-5,0],
+        [-1,0],
+    ])
+    assert (actual == expected).all()    
+
+def test_bounds_init(): 
+
+    variables = [
+        puan.variable("0", 1, True),
+        puan.variable("a", 1, False),
+        puan.variable("b", 0, False),
+        puan.variable("c", 1, False),
+        puan.variable("d", 0, False),
+    ]
+
+    actual = puan.ndarray.ge_polyhedron([
+        [ 1,-1,-1,-1,-1],
+    ], variables=variables).bounds_init((-5,0))
+    expected = numpy.array([
+        [-5, 0,-5, 0],
+        [ 0, 0, 0, 0]
+    ])
+    assert (actual == expected).all()

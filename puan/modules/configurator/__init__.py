@@ -224,7 +224,7 @@ class StingyConfigurator(pg.All):
             solver(
                 self.polyhedron.A, 
                 self.polyhedron.b,
-                self.polyhedron.A.integer_variable_indices(),
+                self.polyhedron.A.integer_variable_indices,
                 self._vectors_from_prios(prios),
             )
         )
