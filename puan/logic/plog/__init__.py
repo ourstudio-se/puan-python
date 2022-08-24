@@ -20,9 +20,6 @@ import puan.logic.logicfunc as logicfunc
 
 numpy.set_printoptions(edgeitems=30, linewidth=100000, formatter=dict(float=lambda x: "%.3g" % x))
 
-default_min_int: int = numpy.iinfo(numpy.int16).min
-default_max_int: int = numpy.iinfo(numpy.int16).max
-
 class _Constraint(tuple):
 
     """
@@ -68,8 +65,8 @@ class _Constraint(tuple):
                 return _Constraint(
                     self.dtypes + (0,),
                     self.index + (self.id,),
-                    self.values + [(default_min_int-self.b,), (default_min_int,)][self.b > 0],
-                    [default_min_int, default_min_int+self.b][self.b > 0],
+                    self.values + [(puan.default_min_int-self.b,), (puan.default_min_int,)][self.b > 0],
+                    [puan.default_min_int, puan.default_min_int+self.b][self.b > 0],
                     self.id
                 )
             else:
@@ -639,11 +636,11 @@ class Proposition(puan.variable, list):
             --------
                 >>> model = AtLeast("x","y","z", value=2, id="A")
                 >>> model.assume({"x": 1})
-                (All(id='A', equation='+A>=1'), {'x': True})
-
+                (All(id='A', equation='+A>=1'), {'x': 1})
+                
                 >>> model = All(Any("a","b",id="B"), Any("x","y",id="C"), id="A")
                 >>> model.assume({"a": 1})
-                (All(id='A', equation='+C>=1'), {'B': True, 'C': True, 'a': True})
+                (All(id='A', equation='+C>=1'), {'B': 1, 'C': 1, 'a': 1})
 
             Returns
             -------
@@ -651,30 +648,31 @@ class Proposition(puan.variable, list):
         """
         polyhedron = self.to_polyhedron(True)
         assumed_polyhedron = polyhedron.reduce_columns(
-            polyhedron.A.construct(*fixed.items())
+            polyhedron.A.construct(
+                *fixed.items(), 
+                default_value=numpy.nan,
+                dtype=float,
+            )
         )
         assumed_rows, assumed_cols = assumed_polyhedron.reducable_rows_and_columns()
-        reduced_polyhedron = from_polyhedron(
-            assumed_polyhedron.reduce(
-                assumed_rows, 
-                assumed_cols,
-            ), 
-            id=self._id
-        )
+        assumed_cols_dict = dict(zip(assumed_polyhedron.A.variables, assumed_cols))
+        reduced_polyhedron = assumed_polyhedron.reduce(assumed_rows, assumed_cols)
+        reduced_proposition = from_polyhedron(reduced_polyhedron, id=self._id)
         column_consequence = dict(
             sorted(
                 map(
-                    lambda x: (x[0], x[1] > 0),    
+                    lambda x: (x[0], int(x[1])),
                     itertools.chain(
                         filter(
                             maz.compose(
-                                functools.partial(operator.ne, 0), 
+                                operator.not_, 
+                                numpy.isnan, 
                                 operator.itemgetter(1)
                             ), 
                             zip(
                                 map(
                                     operator.attrgetter("id"), 
-                                    polyhedron.A.variables
+                                    assumed_polyhedron.A.variables
                                 ), 
                                 assumed_cols
                             )
@@ -685,7 +683,7 @@ class Proposition(puan.variable, list):
                 key=operator.itemgetter(0),
             )
         )
-        return reduced_polyhedron, column_consequence
+        return reduced_proposition, {**column_consequence, **fixed}
 
     def reduce(self, fixed: typing.Dict[puan.variable, int]) -> "Proposition":
 

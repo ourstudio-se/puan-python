@@ -12,10 +12,19 @@ import sys
 
 class variable_ndarray(numpy.ndarray):
 
-    def __new__(cls, input_array, variables: typing.List[puan.variable] = [], index: typing.List[typing.Union[int, puan.variable]] = []):
-        arr = numpy.asarray(input_array, dtype=numpy.int64).view(cls)
+    def __new__(cls, input_array, variables: typing.List[puan.variable] = [], index: typing.List[typing.Union[int, puan.variable]] = [], dtype=numpy.int64):
+        arr = numpy.asarray(input_array, dtype=dtype).view(cls)
+        if len(variables) == 0:
+            variables = list(map(functools.partial(puan.variable, dtype=0, virtual=False), range(arr.shape[arr.ndim-1])))
+
+        if len(index) == 0:
+            index = list(map(functools.partial(puan.variable, dtype=0, virtual=False), range(arr.shape[arr.ndim-2])))
+
         arr.variables = numpy.array(variables)
         arr.index = numpy.array(index)
+        if (arr.index.size, arr.variables.size) != (arr.shape[arr.ndim-2], arr.shape[arr.ndim-1]):
+            raise ValueError(f"array shape mismatch: array shape is {arr.shape} while length of index and variables are {(arr.index.size, arr.variables.size)}")
+
         return arr
 
     def __array_finalize__(self, obj):
@@ -32,14 +41,41 @@ class variable_ndarray(numpy.ndarray):
             pass
         return target
 
-    def integer_variable_indices(self) -> typing.Set[int]:
+    def variable_indices(self, variable_type: int) -> numpy.ndarray:
 
         """
-            Variable indices where variable dtype is int.
+            Variable indices of variable type 0 (bool) or 1 (int).
 
             Returns
             -------
-                out : Set : int
+                out : numpy.ndarray 
+        """
+
+        return numpy.array(
+            sorted(
+                map(
+                    operator.itemgetter(0),
+                    filter(
+                        maz.compose(
+                            functools.partial(operator.eq, variable_type),
+                            operator.attrgetter("dtype"),
+                            operator.itemgetter(1)
+                        ),
+                        enumerate(self.variables)
+                    )
+                )
+            )
+        )
+
+    @property
+    def boolean_variable_indices(self) -> numpy.ndarray:
+
+        """
+            Variable indices where variable dtype is bool.
+
+            Returns
+            -------
+                out : numpy.ndarray
 
             Examples
             --------
@@ -47,26 +83,37 @@ class variable_ndarray(numpy.ndarray):
                 ...     [0,-1, 1, 0, 0],
                 ...     [0, 0,-1, 1, 0],
                 ...     [0, 0, 0,-1, 1],
-                ... ]), [puan.variable("a", 1, False), puan.variable("b", 0, False), puan.variable("c", 1, False), puan.variable("d", 0, False)])
-                >>> ge_polyhedron.integer_variable_indices()
-                [0, 2]
+                ... ]), [puan.variable("0", 1, True), puan.variable("a", 1, False), puan.variable("b", 0, False), puan.variable("c", 1, False), puan.variable("d", 0, False)])
+                >>> ge_polyhedron.boolean_variable_indices
+                array([2, 4])
         """
 
-        return sorted(
-            map(
-                operator.itemgetter(0),
-                filter(
-                    maz.compose(
-                        functools.partial(operator.eq, 1),
-                        operator.attrgetter("dtype"),
-                        operator.itemgetter(1)
-                    ),
-                    enumerate(self.variables)
-                )
-            )
-        )
+        return self.variable_indices(0)
 
-    def construct(self, *variable_values: typing.List[typing.Tuple[str, int]], default_value: int = 0, dtype=numpy.int64) -> "variable_ndarray":
+    @property
+    def integer_variable_indices(self) -> numpy.ndarray:
+
+        """
+            Variable indices where variable dtype is int.
+
+            Returns
+            -------
+                out : numpy.ndarray
+
+            Examples
+            --------
+                >>> ge_polyhedron = ge_polyhedron(numpy.array([
+                ...     [0,-1, 1, 0, 0],
+                ...     [0, 0,-1, 1, 0],
+                ...     [0, 0, 0,-1, 1],
+                ... ]), [puan.variable("0", 1, True), puan.variable("a", 1, False), puan.variable("b", 0, False), puan.variable("c", 1, False), puan.variable("d", 0, False)])
+                >>> ge_polyhedron.integer_variable_indices
+                array([0, 1, 3])
+        """
+
+        return self.variable_indices(1)
+
+    def construct(self, *variable_values: typing.List[typing.Tuple[str, int]], default_value: int = 0, dtype=numpy.int64) -> numpy.ndarray:
 
         """
             Constructs a variable_ndarray from a list of tuples of variable ID's and integers.
@@ -77,20 +124,20 @@ class variable_ndarray(numpy.ndarray):
             Constructing a new 1D variable ndarray shadow from this array and setting x = 5
                 >>> vnd = variable_ndarray([[1,2,3], [2,3,4]], [puan.variable("x", 1, False), puan.variable("y", 1, False), puan.variable("z", 1, False)])
                 >>> vnd.construct(("x", 5))
-                variable_ndarray([5, 0, 0])
+                array([5, 0, 0])
 
             Constructing a new 2D variable ndarray shadow from this array and setting x0 = 5, y0 = 4 and y1 = 3
                 >>> vnd = variable_ndarray([[1,2,3], [2,3,4]], [puan.variable("x", 1, False), puan.variable("y", 1, False), puan.variable("z", 1, False)])
                 >>> vnd.construct([("x", 5), ("y", 4)], [("y", 3)])
-                variable_ndarray([[5, 4, 0],
-                                  [0, 3, 0]])
+                array([[5, 4, 0],
+                       [0, 3, 0]])
 
             Returns
             -------
                 out : variable_ndarray
         """
         if len(variable_values) == 0:
-                return numpy.zeros((self.shape[1]), dtype=dtype)
+            return numpy.zeros((self.shape[1]), dtype=dtype)
         elif isinstance(variable_values[0], tuple):
             variable_indices = list(
                 map(
@@ -105,9 +152,9 @@ class variable_ndarray(numpy.ndarray):
             )
             v = numpy.ones(len(self.variables), dtype=dtype) * default_value
             v[variable_indices] = list(map(operator.itemgetter(1), variable_values))
-            return self.__class__(v, self.variables)
+            return v
         else:
-            return self.__class__(
+            return numpy.array(
                 list(
                     itertools.starmap(
                         functools.partial(
@@ -117,7 +164,7 @@ class variable_ndarray(numpy.ndarray):
                         variable_values
                     )
                 ),
-                self.variables
+                dtype=dtype
             )
 
     def to_value_map(self: numpy.ndarray) -> dict:
@@ -189,13 +236,6 @@ class ge_polyhedron(variable_ndarray):
     """
 
     def __new__(cls, input_array, variables: typing.List[puan.variable] = [], index: typing.List[typing.Union[int, puan.variable]] = []):
-        if len(variables) == 0:
-            arr = numpy.array(input_array)
-            variables = list(map(functools.partial(puan.variable, dtype=0, virtual=False), range(arr.shape[arr.ndim-1])))
-
-        if len(index) == 0:
-            index = list(map(functools.partial(puan.variable, dtype=0, virtual=False), range(len(input_array))))
-
         return super().__new__(cls, input_array, variables=variables, index=index)
 
     @property
@@ -220,6 +260,33 @@ class ge_polyhedron(variable_ndarray):
         """
         return integer_ndarray(self[tuple([slice(None, None)]*(self.ndim-1)+[slice(1, None)])], self.variables[1:], self.index)
 
+
+    @property
+    def A_max(self) -> numpy.array:
+
+        """
+            Returns the maximum coefficient value based on variable's initial bounds.
+
+            Returns
+            -------
+                out : numpy.ndarray
+        """
+        init = self.bounds_init()
+        return (init[0]*(self.A<0)*self.A)+(init[1]*(self.A>0)*self.A)
+
+    @property
+    def A_min(self) -> numpy.array:
+
+        """
+            Returns the minimum coefficient value based on variable's initial bounds.
+
+            Returns
+            -------
+                out : numpy.ndarray
+        """
+        init = self.bounds_init()
+        return (init[0]*(self.A>0)*self.A)+(init[1]*(self.A<0)*self.A)
+
     @property
     def b(self) -> numpy.ndarray:
 
@@ -236,82 +303,12 @@ class ge_polyhedron(variable_ndarray):
                 ...     [0,-1, 1, 0, 0],
                 ...     [0, 0,-1, 1, 0],
                 ...     [0, 0, 0,-1, 1]])).b
-                integer_ndarray([0, 0, 0])
+                array([0, 0, 0])
         """
-        return integer_ndarray(self.T[0], index=self.index)
-
-    def boolean_variable_indices(self) -> typing.Set[int]:
-
-        """
-            Variable indices where variable dtype is bool.
-
-            Returns
-            -------
-                out : Set : int
-
-            Examples
-            --------
-                >>> ge_polyhedron(numpy.array([
-                ...     [0,-1, 1, 0, 0],
-                ...     [0, 0,-1, 1, 0],
-                ...     [0, 0, 0,-1, 1]]),
-                ...     [puan.variable("a", 1, False),
-                ...      puan.variable("b", 0, False),
-                ...      puan.variable("c", 1, False),
-                ...      puan.variable("d", 0, False)]).boolean_variable_indices()
-                [1, 3]
-        """
-
-        return sorted(
-            map(
-                operator.itemgetter(0),
-                filter(
-                    maz.compose(
-                        functools.partial(operator.eq, 0),
-                        operator.attrgetter("dtype"),
-                        operator.itemgetter(1)
-                    ),
-                    enumerate(self.variables)
-                )
-            )
-        )
+        return numpy.array(self.T[0])
 
     def construct(self, *variable_values: typing.List[str]) -> "boolean_ndarray":
         return self.A.construct(*variable_values)
-
-    # def evaluate(self: numpy.ndarray, interpretation: "integer_ndarray") -> typing.Tuple[bool, "integer_ndarray"]:
-
-    #     """
-    #         Evaluates interpretation by updating corresponding true row values
-    #         per iteration until either interpretation satisfies polyhedron OR
-    #         no change was made in the iteration.
-
-    #         Notes
-    #         -----
-    #         Super ge-polytope is assumed which assumes that each row index represents a column index (except row 0)
-
-    #         Examples
-    #         --------
-    #             >>> ph = ge_polyhedron([[1,1,1,1,0,0,0,0],[0,-2,0,0,1,0,1,0],[0,0,-2,0,1,1,0,0],[0,0,0,-1,0,0,1,0]],variables=puan.variable.construct(*list("0ABCdefX")),index=puan.variable.construct(*list("XABC")))
-    #             >>> interpretation = ph.A.construct(list(zip(puan.variable.construct(*list("de")), [1,1])))
-    #             >>> ph.evaluate(interpretation)
-
-    #     """
-
-    #     res = self.A.dot(interpretation) >= self.b
-    #     if res.all():
-    #         return True, interpretation
-
-    #     _interpretation = self.A.construct(*zip(self.index,res*1))
-    #     _interpretation += (_interpretation == 0)*interpretation
-    #     _res = self.A.dot(_interpretation) >= self.b
-    #     __interpretation = self.A.construct(*zip(self.index,((~res*_res)+(res*_res) >= 1)*1))
-    #     __interpretation += (__interpretation == 0)*interpretation
-
-    #     if (__interpretation == interpretation).all():
-    #         return False, _interpretation
-
-    #     return self.evaluate(__interpretation)
 
     def to_linalg(self: numpy.ndarray) -> tuple:
         """
@@ -332,7 +329,7 @@ class ge_polyhedron(variable_ndarray):
                 ...     [0, 0, 0,-1, 1]])).to_linalg()
                 (integer_ndarray([[-1,  1,  0,  0],
                                  [ 0, -1,  1,  0],
-                                 [ 0,  0, -1,  1]]), integer_ndarray([0, 0, 0]))
+                                 [ 0,  0, -1,  1]]), array([0, 0, 0]))
         """
         return self.A, self.b
 
@@ -364,39 +361,34 @@ class ge_polyhedron(variable_ndarray):
             All columns could be *assumed not* since picking any of the corresponding variable would violate the inequlity
 
                 >>> ge_polyhedron(numpy.array([[0, -1, -1, -1]])).reducable_columns_approx()
-                integer_ndarray([-2, -2, -2])
+                array([0., 0., 0.])
 
             All columns could be *assumed* since not picking any of the corresponding variable would violate the inequlity
 
                 >>> ge_polyhedron(numpy.array([[3, 1, 1, 1]])).reducable_columns_approx()
-                integer_ndarray([1, 1, 1])
+                array([1., 1., 1.])
 
             Combination of *assume* and *not assume*
 
                 >>> ge_polyhedron(numpy.array([[0, 1, 1, -3]])).reducable_columns_approx()
-                integer_ndarray([ 0,  0, -3])
+                array([nan, nan,  0.])
 
                 >>> ge_polyhedron(numpy.array([[2, 1, 1, -1]])).reducable_columns_approx()
-                integer_ndarray([ 1,  1, -2])
-
-            Combination of rows would give reducable column. Note that zero coulmns are kept.
-
-                >>> ge_polyhedron(numpy.array([
-                ...     [ 0,-1, 1, 0, 0, 0],
-                ...     [ 0, 0,-1, 1, 0, 0],
-                ...     [-1,-1, 0,-1, 0, 0]])).reducable_columns_approx()
-                integer_ndarray([0, 0, 0, 0, 0])
+                array([1., 1., 0.])
 
             Contradicting rules
 
                 >>> ge_polyhedron(numpy.array([[1, 1], [1, -1]])).reducable_columns_approx()
-                integer_ndarray([0])
+                array([nan])
 
         """
         A, b = ge_polyhedron(self, getattr(self, "variables", []), getattr(self, "index", [])).to_linalg()
-        # A = A[(A[:,self.A.integer_variable_indices()]==0).all(axis=1)]
-        r = (A*((A*(A <= 0) + (A*(A > 0)).sum(axis=1).reshape(-1,1)) < b.reshape(-1,1))) + A*((A * (A > 0)).sum(axis=1) == b).reshape(-1,1)
-        return r.sum(axis=0)
+        res = numpy.nan * numpy.zeros(A.shape[1], dtype=float)
+        lb, ub = self.bounds_approx()
+        eq_bounds = lb == ub
+        if eq_bounds.size > 0:
+            res[eq_bounds] = lb[eq_bounds]
+        return res
 
     def reduce_columns(self: numpy.ndarray, columns_vector: numpy.ndarray) -> numpy.ndarray:
 
@@ -428,7 +420,7 @@ class ge_polyhedron(variable_ndarray):
                 ...     [0,-1, 1, 0, 0],
                 ...     [0, 0,-1, 1, 0],
                 ...     [0, 0, 0,-1, 1]]))
-                >>> columns_vector = numpy.array([1, 0,-1, 0]) # meaning assume index 0 and not assume index 2
+                >>> columns_vector = numpy.array([1, numpy.nan, 0, numpy.nan]) # meaning assume index 0 and not assume index 2
                 >>> ge_polyhedron.reduce_columns(columns_vector)
                 ge_polyhedron([[ 1,  1,  0],
                                [ 0, -1,  0],
@@ -437,9 +429,11 @@ class ge_polyhedron(variable_ndarray):
         """
 
         A, b = self.to_linalg()
-        _b = b - (A.T*(columns_vector > 0).reshape(-1,1)).sum(axis=0)
-        _A = numpy.delete(A, numpy.argwhere(columns_vector != 0).T[0], 1)
-        return ge_polyhedron(numpy.append(_b.reshape(-1,1), _A, axis=1), self.variables[[True]+(columns_vector == 0).tolist()], self.index)
+        active_columns = ~numpy.isnan(columns_vector)
+        _b = b-(A[:, active_columns]*columns_vector[active_columns]).sum(axis=1)
+        _A = numpy.delete(A, numpy.argwhere(active_columns).T[0], 1)
+        res = ge_polyhedron(numpy.append(_b.reshape(-1,1), _A, axis=1), self.variables[[True]+numpy.isnan(columns_vector).tolist()], self.index).astype(numpy.int64)
+        return res
 
     def reducable_rows(self: numpy.ndarray) -> numpy.ndarray:
         """
@@ -475,9 +469,7 @@ class ge_polyhedron(variable_ndarray):
                 integer_ndarray([ True])
 
         """
-        A, b = ge_polyhedron(self, getattr(self, "variables", []), getattr(self, "index", [])).to_linalg()
-        # rows_to_keep = (A[:, self.integer_variable_indices()] == 0).all(axis = 1)
-        return (((A * (A < 0)).sum(axis=1) >= b))#*rows_to_keep
+        return self.A_min.sum(axis=1) >= self.b
 
     def reduce_rows(self: numpy.ndarray, rows_vector: numpy.ndarray) -> numpy.ndarray:
 
@@ -535,7 +527,7 @@ class ge_polyhedron(variable_ndarray):
             -------
                 out : tuple
                     out[0] : a vector equal size as ge_polyhedron's row size where 1 represents a removed row and 0 represents a kept row\n
-                    out[1] : a vector with equal size as ge_polyhedron's column size where a positive number represents requireds and a negative number represents forbids
+                    out[1] : a vector with equal size as ge_polyhedron's column size where nan numbers represent a no-choice.
 
             See also
             --------
@@ -548,26 +540,26 @@ class ge_polyhedron(variable_ndarray):
             Examples
             --------
                 >>> ge_polyhedron(numpy.array([
-                ...     [ 0,-1, 1, 0, 0, 0], # 1
-                ...     [ 0, 0,-1, 1, 0, 0], # 2
-                ...     [-1,-1, 0,-1, 0, 0], # 3 1+2+3 -> Force not variable 0
-                ...     [ 1, 0, 0, 0, 1, 0], # Force variable 3
-                ...     [ 0, 0, 0, 0, 0,-1], # Force not variable 4
-                ...     [ 0, 1, 1, 0, 1, 0], # Redundant rule
-                ...     [ 0, 1, 1, 0, 1,-1]  # Redundant when variable 4 forced not
+                ...     [ 0,-1, 1, 0, 0, 0],
+                ...     [ 0, 0,-1, 1, 0, 0],
+                ...     [-1,-1, 0,-1, 0, 0],
+                ...     [ 1, 0, 0, 0, 1, 0],
+                ...     [ 0, 0, 0, 0, 0,-1],
+                ...     [ 0, 1, 1, 0, 1, 0],
+                ...     [ 0, 1, 1, 0, 1,-1] 
                 ... ])).reducable_rows_and_columns()
-                (array([0, 0, 0, 1, 1, 1, 1]), array([ 0,  0,  0,  1, -2]))
+                (array([0, 0, 0, 1, 1, 1, 1]), array([nan, nan, nan,  1.,  0.]))
 
         """
 
         _M = self.copy()
         red_cols = ge_polyhedron.reducable_columns_approx(_M)
         red_rows = ge_polyhedron.reducable_rows(_M) * 1
-        full_cols = numpy.zeros(_M.shape[1]-1, dtype=int)
+        full_cols = numpy.zeros(_M.A.shape[1], dtype=int)*numpy.nan
         full_rows = numpy.zeros(_M.shape[0], dtype=int)
-        while red_cols.any() | red_rows.any():
+        while (~numpy.isnan(red_cols)).any() | red_rows.any():
             _M = ge_polyhedron.reduce_columns(_M, red_cols)
-            full_cols[full_cols == 0] = red_cols
+            full_cols[numpy.isnan(full_cols)] = red_cols
 
             red_rows = ge_polyhedron.reducable_rows(_M) * 1
             _M = ge_polyhedron.reduce_rows(_M, red_rows)
@@ -588,8 +580,7 @@ class ge_polyhedron(variable_ndarray):
                 A vector of 0's and 1's where rows matching index of value 1 are removed.
 
             columns_vector : numpy.ndarray (optional)
-                A vector of positive and negative integers where the positive represents active selections and negative
-                represents active "not" selections. The polyhedron is reduced under those assumptions.
+                A vector of positive, negative and NaN floats. The NaN's represent a no-choice.
 
             Returns
             -------
@@ -611,7 +602,7 @@ class ge_polyhedron(variable_ndarray):
                 ...     [ 0, 0,-1, 1, 0, 0, 0],
                 ...     [-1, 0, 0,-1,-1, 0, 0],
                 ...     [ 1, 0, 0, 0, 0, 1, 1]]))
-                >>> columns_vector = numpy.array([1,0,0,0,0,0])
+                >>> columns_vector = numpy.array([1,numpy.nan,numpy.nan,numpy.nan,numpy.nan,numpy.nan])
                 >>> ge_polyhedron.reduce(columns_vector=columns_vector)
                 ge_polyhedron([[ 1,  1,  0,  0,  0,  0],
                                [ 0, -1,  1,  0,  0,  0],
@@ -927,8 +918,77 @@ class ge_polyhedron(variable_ndarray):
             x[0][x[1][1]] = -1
             return x
         list(map(_priorities_constraints, zip(polyhedron,priority_indices)))
-        variables = list(map(lambda x: (x, int), variables))
+        variables = [puan.variable("0",1,True)] + list(map(maz.pospartial(puan.variable, [(1,1),(2,False)]), variables))
         return ge_polyhedron(numpy.concatenate((polyhedron, lez_constraint), axis=0), variables)
+
+    def bounds_init(self, outer_bounds = (puan.default_min_int, puan.default_max_int)) -> numpy.array:
+
+        """
+            Returns the initial bounds for each variable.
+
+            Returns
+            -------
+                out : numpy.ndarray
+        """
+
+        lb_ib = [0,puan.default_min_int]
+        ub_ib = [1,puan.default_max_int]
+        mn, mx = outer_bounds
+        lb_outer = numpy.ones(self.A.shape[1]) * mn
+        ub_outer = numpy.ones(self.A.shape[1]) * mx
+        lb = numpy.array(list(map(lambda x: lb_ib[x.dtype], self.A.variables)))
+        ub = numpy.array(list(map(lambda x: ub_ib[x.dtype], self.A.variables)))
+        return numpy.array([
+            numpy.max(numpy.array([lb_outer, lb]), axis=0),
+            numpy.min(numpy.array([ub_outer, ub]), axis=0),
+        ])
+
+    def bounds_approx(self, outer_bounds = (puan.default_min_int, puan.default_max_int)) -> numpy.array:
+        
+        """
+            Return an approximate of column/variable lower and upper bounds. There may exist a tighter bound.
+
+            Parameters
+            ----------
+                outer_bounds : (int, int), optional
+                    Sets the outer most integer bound on variables. 
+
+            Notes
+            -----
+            - Array returned has two rows - first is the lower bound on each column and the second is the upper bound.
+            - Lower bound may be larger than upper bound without implying contradiction.
+
+            Examples
+            --------
+                >>> ge_polyhedron([[0,-2,1,1,0],[3,1,0,0,0],[3,0,0,0,1],[-3,0,0,0,-1]]).bounds_approx()
+                array([[3, 0, 0, 3],
+                       [1, 1, 1, 1]])
+
+                >>> ge_polyhedron([[3,1,1,1,0]]).bounds_approx()
+                array([[1, 1, 1, 0],
+                       [1, 1, 1, 1]])
+
+                >>> ge_polyhedron([[0,-1,-1,0,0]]).bounds_approx()
+                array([[0, 0, 0, 0],
+                       [0, 0, 1, 1]])
+
+            Returns
+            -------
+                out : numpy.array
+        """
+        init = self.bounds_init(outer_bounds)
+        A, b = self.A.astype(float), self.b.astype(float)
+        A_max = (init[0]*(A<0)*A)+(init[1]*(A>0)*A)
+        cell_max = b.reshape(-1,1)-(A_max.sum(axis=1).reshape(-1,1)-A_max)
+        cell_bound = numpy.divide(cell_max, A, out=numpy.zeros_like(A, dtype=float), where=A!=0)
+        cell_bound_lb = cell_bound.copy()
+        cell_bound_lb[A <= 0] = numpy.nan
+        column_lb = numpy.nanmax(numpy.append(cell_bound_lb, [init[0]], axis=0), axis=0)
+        cell_bound_ub = cell_bound.copy()
+        cell_bound_ub[A >= 0] = numpy.nan
+        column_ub = numpy.nanmin(numpy.append(cell_bound_ub, [init[1]], axis=0), axis=0)
+        bounds = numpy.array([column_lb, column_ub], dtype=int)
+        return bounds
 
 class integer_ndarray(variable_ndarray):
     """
