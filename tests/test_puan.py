@@ -74,12 +74,15 @@ def test_model_assume_interpretation_hypothesis(model, value, n_vars):
         assumed_polyhedron = assumed.to_polyhedron()
 
         random_interpretation = {v.id: 1 for v in numpy.random.choice(assumed.variables, size=n_vars)}
-        original_interpretation_vector = original_polyhedron.construct(*random_interpretation.items())
-        assumed_interpretation_vector = assumed_polyhedron.construct(*random_interpretation.items())
+        original_interpretation_vector = original_polyhedron.A.construct(*random_interpretation.items())
+        assumed_interpretation_vector = assumed_polyhedron.A.construct(*random_interpretation.items())
 
-        # Now, if interpretation is in the assumed model, then it impies that is should be in original model as well
-        # (Implication x -> y means -x v y)
-        assert (not all(assumed_polyhedron.A.dot(assumed_interpretation_vector) >= assumed_polyhedron.b)) or all(original_polyhedron.A.dot(original_interpretation_vector) >= original_polyhedron.b)
+        # Both propositions must hold:
+        # 1) If assumed_interpretation is in the assumed model, then original_interpretation should be in original model 
+        # 2) If original_interpretation is in the assumed model, then assumed_interpretation should be in original model 
+        aint_in_amodel = all(assumed_polyhedron.A.dot(assumed_interpretation_vector) >= assumed_polyhedron.b)
+        oint_in_omodel = all(original_polyhedron.A.dot(original_interpretation_vector) >= original_polyhedron.b)
+        assert (not aint_in_amodel and not oint_in_omodel) or (aint_in_amodel and oint_in_omodel)
 
     
 @given(proposition_strategy())
