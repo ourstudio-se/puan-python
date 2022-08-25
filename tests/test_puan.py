@@ -2166,3 +2166,9 @@ def test_plog_not_json_should_only_accept_single_proposition():
     })
 
     assert expected_model == actual_model
+
+def test_constructing_empty_array():
+
+    polyhedron = puan.ndarray.ge_polyhedron([[0,-2,1,1,0]], puan.variable.from_strings(*"0abcd"))
+    arr = polyhedron.construct(*{}.items(), default_value=numpy.nan, dtype=float)
+    assert numpy.isnan(arr).all()

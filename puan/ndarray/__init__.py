@@ -137,7 +137,7 @@ class variable_ndarray(numpy.ndarray):
                 out : variable_ndarray
         """
         if len(variable_values) == 0:
-            return numpy.zeros((self.shape[1]), dtype=dtype)
+            return numpy.ones((self.shape[1]), dtype=dtype)*default_value
         elif isinstance(variable_values[0], tuple):
             variable_indices = list(
                 map(
@@ -306,9 +306,6 @@ class ge_polyhedron(variable_ndarray):
                 array([0, 0, 0])
         """
         return numpy.array(self.T[0])
-
-    def construct(self, *variable_values: typing.List[str]) -> "boolean_ndarray":
-        return self.A.construct(*variable_values)
 
     def to_linalg(self: numpy.ndarray) -> tuple:
         """
@@ -1483,21 +1480,6 @@ class boolean_ndarray(variable_ndarray):
             )
 
         return boolean_ndarray(result)
-
-    def construct(self, *variable_values: typing.List[str]) -> "boolean_ndarray":
-
-        if isinstance(variable_values[0], str):
-            return boolean_ndarray(variable_ndarray.construct(self, list(map(lambda x: (x, 1), variable_values))), self.variables)
-        else:
-            return boolean_ndarray(
-                list(
-                    map(
-                        self.construct,
-                        variable_values
-                    )
-                ),
-                self.variables
-            )
 
     def to_list(self, skip_virtual_variables: bool = False) -> typing.List[puan.variable]:
 
