@@ -2172,3 +2172,21 @@ def test_constructing_empty_array():
     polyhedron = puan.ndarray.ge_polyhedron([[0,-2,1,1,0]], puan.variable.from_strings(*"0abcd"))
     arr = polyhedron.construct(*{}.items(), default_value=numpy.nan, dtype=float)
     assert numpy.isnan(arr).all()
+
+def test_id_should_not_be_returned_when_proposition_is_virtual():
+
+    model = pg.Imply(
+        pg.All("a"),
+        pg.Xor(*"xyz")
+    )
+    assumed = model.assume({"a": 1})[0]
+    d = assumed.to_json()
+    assert all(
+        map(
+            maz.compose(
+                operator.not_,
+                maz.pospartial(operator.contains, [(1, "id")])
+            ), 
+            d['propositions']
+        )
+    )

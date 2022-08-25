@@ -920,7 +920,7 @@ class Proposition(puan.variable, list):
         """
 
         d = {}
-        if self._id:
+        if self._id and not self.virtual:
             d["id"] = self._id
         if type(self) != Proposition:
             d["type"] = self.__class__.__name__
