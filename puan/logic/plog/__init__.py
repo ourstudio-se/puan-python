@@ -16,7 +16,7 @@ import maz
 import numpy
 import dictdiffer
 from dataclasses import dataclass, field
-import puan.logic.logicfunc as logicfunc
+#import puan.logic.logicfunc as logicfunc
 
 numpy.set_printoptions(edgeitems=30, linewidth=100000, formatter=dict(float=lambda x: "%.3g" % x))
 
@@ -178,7 +178,7 @@ class Proposition(puan.variable, list):
         list(map(lambda x: object.__setattr__(self, x.id, x), self.propositions))
         object.__setattr__(self, "value", value)
         object.__setattr__(self, "sign", sign)
-        super().__init__(id, dtype, virtual if virtual is not None else len(self.propositions) > 0, 0, 1 if dtype == 0 else numpy.inf)
+        super().__init__(id, dtype, virtual if virtual is not None else len(self.propositions) > 0)
 
     def __check__(self, v):
         if not isinstance(v, Proposition):
@@ -384,7 +384,7 @@ class Proposition(puan.variable, list):
             -------
                 out : puan.variable
         """
-        return puan.variable(id=self.id, dtype=self.dtype, virtual=self.virtual, lb=self.lb, ub=self.ub)
+        return puan.variable(id=self.id, dtype=self.dtype, virtual=self.virtual)
 
     @property
     def variables(self):
@@ -545,7 +545,7 @@ class Proposition(puan.variable, list):
                 [variable(id='0', dtype=1, virtual=True), variable(id='A', dtype=0, virtual=True), variable(id='B', dtype=0, virtual=True), variable(id='C', dtype=0, virtual=True), variable(id='a', dtype=0, virtual=False), variable(id='b', dtype=0, virtual=False), variable(id='c', dtype=0, virtual=False), variable(id='d', dtype=0, virtual=False)]
         """
 
-        ph_vars = [puan.variable(str(support_variable_id),1,True, 0, 1)] + self.variables_full()
+        ph_vars = [puan.variable(str(support_variable_id),1,True)] + self.variables_full()
         compound_constraints = sorted(set(self.to_compound_constraint(ph_vars.index, extend_top=not active)))
         index = set(map(operator.attrgetter("id"),compound_constraints))
         M = numpy.zeros((len(compound_constraints), len(ph_vars)), dtype=dtype)
