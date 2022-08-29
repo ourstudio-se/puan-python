@@ -2301,3 +2301,20 @@ def test_to_polyhedron_with_dublicated_propositions():
     assert (model.A.dot([1,1,0,0]) >= model.b).all()
 
 
+def test_id_should_not_be_returned_when_proposition_is_virtual():
+
+    model = pg.Imply(
+        pg.All("a"),
+        pg.Xor(*"xyz")
+    )
+    assumed = model.assume({"a": 1})[0]
+    d = assumed.to_json()
+    assert all(
+        map(
+            maz.compose(
+                operator.not_,
+                maz.pospartial(operator.contains, [(1, "id")])
+            ), 
+            d['propositions']
+        )
+    )
