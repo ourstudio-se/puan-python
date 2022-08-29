@@ -9,6 +9,15 @@ import puan.ndarray as pnd
 import typing
 import dataclasses
 
+@dataclasses.dataclass(frozen=True)
+class SolutionVariable(puan.variable):
+
+    value: int
+
+    @staticmethod
+    def from_variable(variable: puan.variable, value: int) -> "SolutionVariable":
+        return SolutionVariable(variable.id, variable.dtype, variable.virtual, value)
+
 class Any(pg.Any):
 
     """
@@ -207,7 +216,7 @@ class StingyConfigurator(pg.All):
                         operator.attrgetter("virtual"),
                     ),
                     itertools.starmap(
-                        puan.SolutionVariable.from_variable,
+                        SolutionVariable.from_variable,
                         zip(self.polyhedron.A.variables[v > 0], v[v > 0].tolist())
                     ),
                 )

@@ -106,17 +106,3 @@ class variable(object):
                 )
             )
         )
-
-
-@dataclasses.dataclass(frozen=True)
-class SolutionVariable(variable):
-
-    """
-        A SolutionVariable is a constant `variable`, i.e. a variable fixed with a value.
-    """
-
-    value: int
-
-    @staticmethod
-    def from_variable(variable: variable, value: int) -> "SolutionVariable":
-        return SolutionVariable(variable.id, variable.dtype, variable.virtual, value)
