@@ -443,7 +443,22 @@ class Proposition(puan.variable, list):
         ))
 
     def invert(self) -> "Proposition":
-        return self
+
+        """
+            Inverts (or negates) the proposition.
+
+            Returns
+            -------
+                out : Proposition
+        """
+        return Proposition(
+            *self.propositions,
+            value=1-self.value,
+            sign=-self.sign,
+            id=self._id,
+            dtype=self.dtype,
+            virtual=self.virtual,
+        )
 
     @staticmethod
     def random_boolean(max_sub_propositions: int = 5) -> "Proposition":
@@ -640,7 +655,7 @@ class Proposition(puan.variable, list):
                 
                 >>> model = All(Any("a","b",id="B"), Any("x","y",id="C"), id="A")
                 >>> model.assume({"a": 1})
-                (All(id='A', equation='+C>=1'), {'B': 1, 'C': 1, 'a': 1})
+                (All(id='A', equation='+B+C>=2'), {'B': 1, 'C': 1, 'a': 1})
 
             Returns
             -------
@@ -1103,7 +1118,7 @@ class Imply(Any):
     """
 
     def __init__(cls, condition: Proposition, consequence: Proposition, id: str = None):
-        return super().__init__((Proposition(condition) if isinstance(condition, str) else condition).invert(), consequence, id=id)
+        super().__init__((Proposition(condition) if isinstance(condition, str) else condition).invert(), consequence, id=id)
 
     @staticmethod
     def from_cicJE(data: dict, id_ident: str = "id") -> "Imply":
@@ -1269,23 +1284,24 @@ def delinearize(variables: list, row: numpy.ndarray, index: puan.variable) -> tu
         Examples
         --------
         When delinearizing -3a+x+y+z>=0
-            >>> delinearize(puan.variable.from_strings(*list("0axyz")), numpy.array([0,-3,1,1,1]), puan.variable("a",0,True))
+            >>> delinearize(puan.variable.from_strings(*"0axyz"), numpy.array([0,-3,1,1,1]), puan.variable("a",0,True))
             (1, ['x', 'y', 'z'], 3, 0, 1)
 
         When delinearizing +x+y+z>=1. *Notice no change*.
-            >>> delinearize(puan.variable.from_strings(*list("0axyz")), numpy.array([1,0,1,1,1]), puan.variable("a",0,True))
+            >>> delinearize(puan.variable.from_strings(*"0axyz"), numpy.array([1,0,1,1,1]), puan.variable("a",0,True))
             (1, ['x', 'y', 'z'], 1, 0, 1)
 
         Returns
         -------
             out : tuple
     """
+    _row = row.copy()
     if index in variables:
-        row[0] -= row[variables.index(index)]
-        row[variables.index(index)] = 0
+        _row[0] -= row[variables.index(index)]
+        _row[variables.index(index)] = 0
 
-    b,a = row[0], row[1:]
-    sign = [-1,1][b > 0]
+    b,a = _row[0], _row[1:]
+    sign = [-1,1][int((_row.sum()-b) > 0)]
 
     return (int(sign), list(map(lambda i: variables[1:][i].id, numpy.argwhere(a == sign).T[0])), int(b), index.dtype, index.virtual * 1)
 
@@ -1347,7 +1363,7 @@ def from_tuple(data: typing.Union[list, tuple]) -> Proposition:
     """
     return Proposition(
         *data[2],
-        value=abs(data[3]),
+        value=data[3],
         id=data[0],
         sign=data[1],
         dtype=data[4],

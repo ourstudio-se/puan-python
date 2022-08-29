@@ -307,6 +307,57 @@ class ge_polyhedron(variable_ndarray):
         """
         return numpy.array(self.T[0])
 
+    @property
+    def contradictions(self) -> numpy.ndarray:
+
+        """
+            Returns a boolean array with size equal to row size of polyhedron.
+            If element is true then it implies that the row is contradicting and polyhedron can never be satisfied - polyhedron is invalid.
+
+            Examples
+            --------
+                >>> ge_polyhedron([[1,0,0,0]]).contradictions
+                array([ True])
+
+                >>> ge_polyhedron([[2,1]]).contradictions
+                array([ True])
+
+            Notice in this example that "a" is an integer and the constraint is therefore satisfiable.
+                >>> ge_polyhedron([[2,1]], variables=[puan.variable("0",1,1), puan.variable("a",1,0)]).contradictions
+                array([False])
+
+            Notice in this example that "a" is an integer and the constraint is therefore satisfiable.
+                >>> ge_polyhedron([[2,-1]], variables=[puan.variable("0",1,1), puan.variable("a",1,0)]).contradictions
+                array([False])
+
+            Returns
+            -------
+                out : bool
+        """
+        return numpy.array(self.A_max.sum(axis=1) < self.b)
+
+    @property
+    def is_corrupt_approx(self) -> bool:
+
+        """
+            Returns True if this polyhedron is corrupt. A corrupt polyhedron has no space and thus no valid points.
+
+            Notice
+            ------
+            Since this function relies on `self.bounds_approx()`, which is an approximate function, this may return
+            false positives. 
+
+            Notice in this example that both constraints are by themselves not contradicting but their combination is.
+                >>> ge_polyhedron([[4,-1,-1,-1],[0,0,0,1]], variables=[puan.variable("0",1,1), puan.variable("a",0,0), puan.variable("b",0,0), puan.variable("c",1,0)]).is_corrupt_approx
+                True
+
+            Returns
+            -------
+                out : bool
+        """
+        lb, ub = self.bounds_approx()
+        return any(self.contradictions) or any(lb > ub)
+
     def to_linalg(self: numpy.ndarray) -> tuple:
         """
             Assumes support vector index 0 in polyhedron
@@ -356,6 +407,9 @@ class ge_polyhedron(variable_ndarray):
             Examples
             --------
             All columns could be *assumed not* since picking any of the corresponding variable would violate the inequlity
+
+                >>> ge_polyhedron(numpy.array([[0, 1, 0, 0]])).reducable_columns_approx()
+                array([nan, nan, nan])
 
                 >>> ge_polyhedron(numpy.array([[0, -1, -1, -1]])).reducable_columns_approx()
                 array([0., 0., 0.])
@@ -439,6 +493,10 @@ class ge_polyhedron(variable_ndarray):
 
             Rows with values :math:`\\neq0` for any integer variable are neglected.
 
+            Notes
+            -----
+            Currently, rows with only zeros are reduced. 
+
             Returns
             -------
                 out : numpy.ndarray (vector)
@@ -453,20 +511,17 @@ class ge_polyhedron(variable_ndarray):
 
             Examples
             --------
-            The sum of all negative numbers of the row in :math:`A` is :math:`\\ge b`, i.e.
-            :math:`Ax \\ge b` will always hold, regardless of :math:`x`.
-
                 >>> ge_polyhedron(numpy.array([[-3, -1, -1, 1, 0]])).reducable_rows()
-                integer_ndarray([ True])
-
-            All elements of the row in :math:`A` is :math:`\\ge 0` and :math:`b` is :math:`\\le 0`,
-            again :math:`Ax \\ge b` will always hold, regardless of :math:`x`.
+                array([False])
 
                 >>> ge_polyhedron(numpy.array([[0, 1, 1, 1, 0]])).reducable_rows()
-                integer_ndarray([ True])
+                array([False])
+
+                >>> ge_polyhedron(numpy.array([[0, 0, 0, 0, 0]])).reducable_rows()
+                array([ True])
 
         """
-        return self.A_min.sum(axis=1) >= self.b
+        return numpy.array((self == 0).all(axis=1)) #self.A_min.sum(axis=1) >= self.b
 
     def reduce_rows(self: numpy.ndarray, rows_vector: numpy.ndarray) -> numpy.ndarray:
 
@@ -545,7 +600,7 @@ class ge_polyhedron(variable_ndarray):
                 ...     [ 0, 1, 1, 0, 1, 0],
                 ...     [ 0, 1, 1, 0, 1,-1] 
                 ... ])).reducable_rows_and_columns()
-                (array([0, 0, 0, 1, 1, 1, 1]), array([nan, nan, nan,  1.,  0.]))
+                (array([0, 0, 0, 1, 1, 0, 0]), array([nan, nan, nan,  1.,  0.]))
 
         """
 
@@ -975,7 +1030,7 @@ class ge_polyhedron(variable_ndarray):
         """
         init = self.bounds_init(outer_bounds)
         A, b = self.A.astype(float), self.b.astype(float)
-        A_max = (init[0]*(A<0)*A)+(init[1]*(A>0)*A)
+        A_max = self.A_max
         cell_max = b.reshape(-1,1)-(A_max.sum(axis=1).reshape(-1,1)-A_max)
         cell_bound = numpy.divide(cell_max, A, out=numpy.zeros_like(A, dtype=float), where=A!=0)
         cell_bound_lb = cell_bound.copy()
