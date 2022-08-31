@@ -9,15 +9,6 @@ import puan.ndarray as pnd
 import typing
 import dataclasses
 
-@dataclasses.dataclass(frozen=True)
-class SolutionVariable(puan.variable):
-
-    value: int
-
-    @staticmethod
-    def from_variable(variable: puan.variable, value: int) -> "SolutionVariable":
-        return SolutionVariable(variable.id, variable.dtype, variable.virtual, value)
-
 class Any(pg.Any):
 
     """
@@ -137,56 +128,46 @@ class StingyConfigurator(pg.All):
 
     @property
     @functools.lru_cache
-    def polyhedron(self) -> pnd.ge_polyhedron:
+    def polyhedron(self) -> pnd.ge_polyhedron_config:
 
         """
             This configurator model's polyhedron (see logic.plog.Proposition.to_polyhedron).
         """
-        
-        return self.to_polyhedron(True)
-    
-    @property
-    @functools.lru_cache
-    def default_prio_vector(self) -> np.ndarray:
-
-        """
-            Is the objective vector when nothing is selected.
-        """
-        return np.array(
-            list(
-                map(
-                    lambda p: getattr(p, "prio", 0 if p.virtual else -1),
-                    sorted(
-                        self.flatten(),
-                        key=maz.compose(
-                            self.variables.index, 
-                            operator.attrgetter("id")
-                        )
-                    ),
-                ),
-            ), 
-            dtype=np.int32
+        polyhedron = self.to_polyhedron(True)
+        return pnd.ge_polyhedron_config(
+            polyhedron, 
+            default_prio_vector=polyhedron.A.construct(*self.default_prios.items()),
+            variables=polyhedron.variables, 
+            index=polyhedron.index, 
         )
 
-    def _vectors_from_prios(self, prios: typing.List[typing.Dict[str, int]]) -> np.ndarray:
+    @property
+    def default_prios(self) -> dict:
 
         """
-            Constructs weight vectors from prioritization list.
-        """
+            Default prio dictionary, based on defaults in either Xor's or Any's.
 
-        return pnd.integer_ndarray(
-            np.array(
-                list(
-                    map(
-                        lambda y: [
-                            self.default_prio_vector.tolist(),
-                            list(map(lambda x: dict.get(y, x.id, 0), self.polyhedron.A.variables))
-                        ],
-                        prios
-                    )
+            Returns
+            -------
+                out : dict
+        """
+        flat = sorted(
+            self.flatten(),
+            key=maz.compose(
+                self.variables.index, 
+                operator.attrgetter("id")
+            )
+        )
+        return dict(
+            zip(
+                map(operator.attrgetter("id"), flat),
+                map(
+                    lambda p: getattr(p, "prio", 0 if p.virtual else -1),
+                    flat
                 )
             )
-        ).ndint_compress(method="shadow", axis=0)
+        )
+    
 
     def select(self, *prios: typing.List[typing.Dict[str, int]], solver, include_virtual_vars: bool = False) -> typing.Iterable[typing.List[puan.variable]]:
 
@@ -204,29 +185,10 @@ class StingyConfigurator(pg.All):
             -------
                 out : typing.List[typing.List[puan.variable]]
         """
-        return map(
-            lambda v: list(
-                filter(
-                    maz.compose(
-                        functools.partial(
-                            operator.add,
-                            include_virtual_vars
-                        ),
-                        operator.not_,
-                        operator.attrgetter("virtual"),
-                    ),
-                    itertools.starmap(
-                        SolutionVariable.from_variable,
-                        zip(self.polyhedron.A.variables[v > 0], v[v > 0].tolist())
-                    ),
-                )
-            ), 
-            solver(
-                self.polyhedron.A, 
-                self.polyhedron.b,
-                self.polyhedron.A.integer_variable_indices,
-                self._vectors_from_prios(prios),
-            )
+        return self.polyhedron.select(
+            *prios, 
+            solver=solver, 
+            include_virtual_vars=include_virtual_vars,
         )
 
     def add(self, proposition: pg.Proposition) -> "StingyConfigurator":

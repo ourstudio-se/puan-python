@@ -106,3 +106,13 @@ class variable(object):
                 )
             )
         )
+
+
+@dataclasses.dataclass(frozen=True)
+class SolutionVariable(variable):
+
+    value: int
+
+    @staticmethod
+    def from_variable(variable: variable, value: int) -> "SolutionVariable":
+        return SolutionVariable(variable.id, variable.dtype, variable.virtual, value)
