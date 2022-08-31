@@ -1,3 +1,6 @@
+import base64
+import gzip
+import pickle
 import numpy
 import typing
 import functools
@@ -235,8 +238,8 @@ class ge_polyhedron(variable_ndarray):
 
     """
 
-    def __new__(cls, input_array, variables: typing.List[puan.variable] = [], index: typing.List[typing.Union[int, puan.variable]] = []):
-        return super().__new__(cls, input_array, variables=variables, index=index)
+    def __new__(cls, input_array, variables: typing.List[puan.variable] = [], index: typing.List[typing.Union[int, puan.variable]] = [], dtype=numpy.int64):
+        return super().__new__(cls, input_array, variables=variables, index=index, dtype=dtype)
 
     @property
     def A(self) -> numpy.ndarray:
@@ -1566,6 +1569,141 @@ class boolean_ndarray(variable_ndarray):
             print("Method not recognized")
             return
         return _res[~(_res==self).all(axis=self.ndim-1)]
+
+
+class ge_polyhedron_config(ge_polyhedron):
+
+    def __new__(cls, input_array, default_prio_vector: numpy.ndarray, variables: typing.List[puan.variable] = [], index: typing.List[typing.Union[int, puan.variable]] = [], dtype=numpy.int64):
+        arr = super().__new__(cls, input_array, variables=variables, index=index, dtype=dtype)
+        arr.default_prio_vector = default_prio_vector
+        return arr
+
+    def _vectors_from_prios(self, prios: typing.List[typing.Dict[str, int]]) -> numpy.ndarray:
+
+        """
+            Constructs weight vectors from prioritization list(s).
+        """
+
+        return integer_ndarray(
+            numpy.array(
+                list(
+                    map(
+                        lambda y: [
+                            self.default_prio_vector,
+                            list(
+                                map(
+                                    maz.compose(
+                                        maz.pospartial(
+                                            dict.get,
+                                            [
+                                                (0, y),
+                                                (2, 0)
+                                            ]
+                                        ),
+                                        operator.attrgetter("id")
+                                    ),
+                                    self.A.variables
+                                )
+                            )
+                        ],
+                        prios
+                    )
+                )
+            )
+        ).ndint_compress(method="shadow", axis=0)
+
+    def select(self, *prios: typing.List[typing.Dict[str, int]], solver, default_prio_map: typing.Dict[str, int] = {}, include_virtual_vars: bool = False) -> typing.Iterable[typing.List[puan.variable]]:
+
+        """
+            Select items to prioritize and receive a solution.
+
+            Parameters
+            ----------
+                *prios : typing.List[typing.Dict[str, int]]
+                    a list of dicts where each entry's value is a prio
+
+                solver : a mixed integer linear programming solver
+
+                default_prio_map : typing.Dict[str, int] = {}
+                    a dict mapping id to default prio value
+
+            Returns
+            -------
+                out : typing.List[typing.List[puan.variable]]
+        """
+        return map(
+            lambda v: list(
+                filter(
+                    maz.compose(
+                        functools.partial(
+                            operator.add,
+                            include_virtual_vars
+                        ),
+                        operator.not_,
+                        operator.attrgetter("virtual"),
+                    ),
+                    itertools.starmap(
+                        puan.SolutionVariable.from_variable,
+                        zip(self.A.variables[v > 0], v[v > 0].tolist())
+                    ),
+                )
+            ), 
+            solver(
+                self.A, 
+                self.b,
+                self.A.integer_variable_indices,
+                self._vectors_from_prios(prios),
+            )
+        )
+
+    def to_b64(self, str_decoding: str = 'utf8') -> str:
+
+        """
+            Packs data into a base64 string.
+
+            Parameters
+            ----------
+                str_decoding: str = 'utf8'
+
+            Returns
+            -------
+                out : str
+        """
+        return base64.b64encode(
+            gzip.compress(
+                pickle.dumps(
+                    [self, self.default_prio_vector, self.variables, self.index, self.dtype],
+                    protocol=pickle.HIGHEST_PROTOCOL,
+                ),
+                mtime=0,
+            )
+        ).decode(str_decoding)
+
+    @staticmethod
+    def from_b64(base64_str: str) -> "ge_polyhedron_config":
+
+        """
+            Unpacks base64 string `base64_str` into some data.
+
+            Parameters
+            ----------
+                base64_str: str
+
+            Returns
+            -------
+                out : dict
+        """
+        return ge_polyhedron_config(
+            *pickle.loads(
+                gzip.decompress(
+                    base64.b64decode(
+                        base64_str.encode()
+                    )
+                )
+            )
+        )
+
+
 """
     Function binding to function variables
     that should directly be accessible through

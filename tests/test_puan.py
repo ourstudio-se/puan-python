@@ -74,8 +74,8 @@ def test_model_assume_interpretation_hypothesis(model, value, n_vars):
         assumed_polyhedron = assumed.to_polyhedron()
 
         random_interpretation = {v.id: 1 for v in numpy.random.choice(assumed.variables, size=n_vars)}
-        original_interpretation_vector = original_polyhedron.construct(*random_interpretation.items())
-        assumed_interpretation_vector = assumed_polyhedron.construct(*random_interpretation.items())
+        original_interpretation_vector = original_polyhedron.A.construct(*random_interpretation.items())
+        assumed_interpretation_vector = assumed_polyhedron.A.construct(*random_interpretation.items())
 
         # Now, if interpretation is in the assumed model, then it impies that is should be in original model as well
         # (Implication x -> y means -x v y)
@@ -254,13 +254,13 @@ def test_rules2matrix_with_mixed_condition_rules():
     conj_props = pg.All(*map(pg.Imply.from_cicJE, rules), id="A")
     matrix = conj_props.to_polyhedron(active=True)
 
-    expected_feasible_configurations = matrix.construct(
+    expected_feasible_configurations = matrix.A.construct(
         [("B",1),("D",1),("E",1),("F",1)],
         [("B",1),("C",1),("x",1),("y",1)],
         [("B",1),("C",1),("a",1),("b",1),("x",1),("y",1)],
         [("B",1),("D",1),("E",1),("F",1),("a",1),("c",1)]
     )
-    expected_infeasible_configurations = matrix.construct(
+    expected_infeasible_configurations = matrix.A.construct(
        #"a  b  c  d  x  y"
        [],
        [("B",1),("C",1),("E",1),("F",1),("a",1),("b",1)],
@@ -1746,18 +1746,16 @@ def test_logicfunc():
 def test_json_conversion():
 
     model = pg.All(
-        pg.Any("x","y", id="B"),
-        pg.Any("a","b", id="C"),
-        id="A",
+        pg.Any("x","y"),
+        pg.Any("a","b")
     )
 
     converted = pg.from_json(model.to_json())
     assert model == converted
 
     model = cc.StingyConfigurator(
-        cc.Any("x","y", id="B"),
-        cc.Any("a","b", id="C"),
-        id="A",
+        cc.Any("x","y"),
+        cc.Any("a","b")
     )
 
     converted = cc.StingyConfigurator.from_json(model.to_json())
@@ -1794,7 +1792,6 @@ def test_json_conversions_with_assume():
         "type": "StingyConfigurator",
         "propositions": [
             {
-                "id": "VAR56ed",
                 "type": "AtMost",
                 "propositions": [
                     {
@@ -1810,7 +1807,6 @@ def test_json_conversions_with_assume():
                 "value": 1
             },
             {
-                "id": "VAR5823",
                 "type": "Any",
                 "propositions": [
                     {
@@ -1877,29 +1873,29 @@ def test_proposition_polyhedron_conversions():
         pg.Not("x"),
         id="all_not"
     ).to_polyhedron(True)
-    assert not all(actual.A.dot(actual.construct(*{"x": 1}.items())) >= actual.b)
-    assert all(actual.A.dot(actual.construct(*{"VARc96e": 1}.items())) >= actual.b)
+    assert not all(actual.A.dot(actual.A.construct(*{"x": 1}.items())) >= actual.b)
+    assert all(actual.A.dot(actual.A.construct(*{"VARc96e": 1}.items())) >= actual.b)
 
     actual = pg.Not(
         pg.All("x","y","z", id="all_xyz")
     ).to_polyhedron(True)
-    assert all(actual.A.dot(actual.construct(*{"x": 1}.items())) >= actual.b)
-    assert all(actual.A.dot(actual.construct(*{"x": 1, "y": 1}.items())) >= actual.b)
-    assert not all(actual.A.dot(actual.construct(*{"x": 1, "y": 1, "z": 1}.items())) >= actual.b)
+    assert all(actual.A.dot(actual.A.construct(*{"x": 1}.items())) >= actual.b)
+    assert all(actual.A.dot(actual.A.construct(*{"x": 1, "y": 1}.items())) >= actual.b)
+    assert not all(actual.A.dot(actual.A.construct(*{"x": 1, "y": 1, "z": 1}.items())) >= actual.b)
 
     actual = pg.Not(
         pg.Any("x","y","z")
     ).to_polyhedron(True)
-    assert not all(actual.A.dot(actual.construct(*{"x": 1}.items())) >= actual.b)
-    assert not all(actual.A.dot(actual.construct(*{"y": 1}.items())) >= actual.b)
-    assert not all(actual.A.dot(actual.construct(*{"z": 1}.items())) >= actual.b)
+    assert not all(actual.A.dot(actual.A.construct(*{"x": 1}.items())) >= actual.b)
+    assert not all(actual.A.dot(actual.A.construct(*{"y": 1}.items())) >= actual.b)
+    assert not all(actual.A.dot(actual.A.construct(*{"z": 1}.items())) >= actual.b)
 
     actual = pg.Imply(
         condition=pg.Not("x"),
         consequence=pg.All("a","b","c")
     ).to_polyhedron(True)
-    assert all(actual.A.dot(actual.construct(*{"VARfe37": 1, "x": 1}.items())) >= actual.b)
-    assert all(actual.A.dot(actual.construct(*{"VARa786": 1, "a": 1, "b": 1, "c": 1}.items())) >= actual.b)
+    assert all(actual.A.dot(actual.A.construct(*{"VARfe37": 1, "x": 1}.items())) >= actual.b)
+    assert all(actual.A.dot(actual.A.construct(*{"VARa786": 1, "a": 1, "b": 1, "c": 1}.items())) >= actual.b)
 
     actual = pg.Not(
         pg.Imply(
@@ -1907,30 +1903,30 @@ def test_proposition_polyhedron_conversions():
             consequence=pg.Any("a","b","c")
         ),
     ).to_polyhedron(True)
-    assert all(actual.A.dot(actual.construct(*{"VARb6a0": 1, "VARe391": 1, "x": 1, "y": 1, "z": 1}.items())) >= actual.b)
-    assert not all(actual.A.dot(actual.construct(*{"VARb6a0": 1, "VARe391": 1, "x": 1, "y": 1, "z": 1, "a": 1}.items())) >= actual.b)
-    assert not all(actual.A.dot(actual.construct(*{"VARb6a0": 1, "VARe391": 1, "x": 1, "y": 1, "z": 1, "b": 1}.items())) >= actual.b)
-    assert not all(actual.A.dot(actual.construct(*{"VARb6a0": 1, "VARe391": 1, "x": 1, "y": 1, "z": 1, "c": 1}.items())) >= actual.b)
-    assert not all(actual.A.dot(actual.construct(*{"VARb6a0": 1, "VARe391": 1, "x": 1, "y": 1}.items())) >= actual.b)
+    assert all(actual.A.dot(actual.A.construct(*{"VARb6a0": 1, "VARe391": 1, "x": 1, "y": 1, "z": 1}.items())) >= actual.b)
+    assert not all(actual.A.dot(actual.A.construct(*{"VARb6a0": 1, "VARe391": 1, "x": 1, "y": 1, "z": 1, "a": 1}.items())) >= actual.b)
+    assert not all(actual.A.dot(actual.A.construct(*{"VARb6a0": 1, "VARe391": 1, "x": 1, "y": 1, "z": 1, "b": 1}.items())) >= actual.b)
+    assert not all(actual.A.dot(actual.A.construct(*{"VARb6a0": 1, "VARe391": 1, "x": 1, "y": 1, "z": 1, "c": 1}.items())) >= actual.b)
+    assert not all(actual.A.dot(actual.A.construct(*{"VARb6a0": 1, "VARe391": 1, "x": 1, "y": 1}.items())) >= actual.b)
 
     actual = pg.Not(
         pg.AtLeast("x","y","z", value=2)
     ).to_polyhedron(True)
-    assert not all(actual.A.dot(actual.construct(*{"x": 1, "y": 1, "z": 1}.items())) >= actual.b)
-    assert all(actual.A.dot(actual.construct(*{"x": 1}.items())) >= actual.b)
-    assert all(actual.A.dot(actual.construct(*{"y": 1}.items())) >= actual.b)
-    assert all(actual.A.dot(actual.construct(*{"z": 1}.items())) >= actual.b)
+    assert not all(actual.A.dot(actual.A.construct(*{"x": 1, "y": 1, "z": 1}.items())) >= actual.b)
+    assert all(actual.A.dot(actual.A.construct(*{"x": 1}.items())) >= actual.b)
+    assert all(actual.A.dot(actual.A.construct(*{"y": 1}.items())) >= actual.b)
+    assert all(actual.A.dot(actual.A.construct(*{"z": 1}.items())) >= actual.b)
 
     actual = pg.Not(
         pg.AtMost("x","y","z", value=2)
     ).to_polyhedron(True)
-    assert not all(actual.A.dot(actual.construct(*{"x": 1}.items())) >= actual.b)
-    assert not all(actual.A.dot(actual.construct(*{"y": 1}.items())) >= actual.b)
-    assert not all(actual.A.dot(actual.construct(*{"z": 1}.items())) >= actual.b)
-    assert not all(actual.A.dot(actual.construct(*{"x": 1, "y": 1}.items())) >= actual.b)
-    assert not all(actual.A.dot(actual.construct(*{"x": 1, "z": 1}.items())) >= actual.b)
-    assert not all(actual.A.dot(actual.construct(*{"y": 1, "z": 1}.items())) >= actual.b)
-    assert all(actual.A.dot(actual.construct(*{"x": 1, "y": 1, "z": 1}.items())) >= actual.b)
+    assert not all(actual.A.dot(actual.A.construct(*{"x": 1}.items())) >= actual.b)
+    assert not all(actual.A.dot(actual.A.construct(*{"y": 1}.items())) >= actual.b)
+    assert not all(actual.A.dot(actual.A.construct(*{"z": 1}.items())) >= actual.b)
+    assert not all(actual.A.dot(actual.A.construct(*{"x": 1, "y": 1}.items())) >= actual.b)
+    assert not all(actual.A.dot(actual.A.construct(*{"x": 1, "z": 1}.items())) >= actual.b)
+    assert not all(actual.A.dot(actual.A.construct(*{"y": 1, "z": 1}.items())) >= actual.b)
+    assert all(actual.A.dot(actual.A.construct(*{"x": 1, "y": 1, "z": 1}.items())) >= actual.b)
 
 def test_assuming_integer_variables():
 
@@ -1955,12 +1951,12 @@ def test_assuming_integer_variables():
     )
 
     assumed = model.assume({"x": 1, "y": 1, "z": 1})[0].to_polyhedron(True)
-    assert all(assumed.A.dot(assumed.construct(*{"at-least-10": 1, "at-most-20": 1, "t": 10}.items())) >= assumed.b)
-    assert all(assumed.A.dot(assumed.construct(*{"at-least-10": 1, "at-most-20": 1, "t": 20}.items())) >= assumed.b)
-    assert not all(assumed.A.dot(assumed.construct(*{"t": 1}.items())) >= assumed.b)
-    assert not all(assumed.A.dot(assumed.construct(*{"t": -22}.items())) >= assumed.b)
-    assert not all(assumed.A.dot(assumed.construct(*{"t": 9}.items())) >= assumed.b)
-    assert not all(assumed.A.dot(assumed.construct(*{"t": 21}.items())) >= assumed.b)
+    assert all(assumed.A.dot(assumed.A.construct(*{"at-least-10": 1, "at-most-20": 1, "t": 10}.items())) >= assumed.b)
+    assert all(assumed.A.dot(assumed.A.construct(*{"at-least-10": 1, "at-most-20": 1, "t": 20}.items())) >= assumed.b)
+    assert not all(assumed.A.dot(assumed.A.construct(*{"t": 1}.items())) >= assumed.b)
+    assert not all(assumed.A.dot(assumed.A.construct(*{"t": -22}.items())) >= assumed.b)
+    assert not all(assumed.A.dot(assumed.A.construct(*{"t": 9}.items())) >= assumed.b)
+    assert not all(assumed.A.dot(assumed.A.construct(*{"t": 21}.items())) >= assumed.b)
 
     model = pg.Imply(
         pg.All(
@@ -2190,3 +2186,49 @@ def test_id_should_not_be_returned_when_proposition_is_virtual():
             d['propositions']
         )
     )
+
+def test_configuring_using_ge_polyhedron_config():
+
+    model = cc.StingyConfigurator(
+        pg.Imply(
+            pg.All(*"ab"),
+            cc.Xor(*"xyz", default="z")
+        ),
+        pg.Any(*"pqr")
+    )
+
+    def dummy_solver(A, b, ints, objs):
+        return numpy.ones((objs.shape[0], A.shape[1]))
+
+    expected = [
+        puan.SolutionVariable("a",0,False,1.0),
+        puan.SolutionVariable("b",0,False,1.0),
+        puan.SolutionVariable("p",0,False,1.0),
+        puan.SolutionVariable("q",0,False,1.0),
+        puan.SolutionVariable("r",0,False,1.0),
+        puan.SolutionVariable("x",0,False,1.0),
+        puan.SolutionVariable("y",0,False,1.0),
+        puan.SolutionVariable("z",0,False,1.0),
+    ]
+    actual = list(model.select({"a": 1}, solver=dummy_solver, include_virtual_vars=False))
+    assert actual[0] == expected
+
+def test_dump_load_ge_polyhedron_config():
+
+    model = cc.StingyConfigurator(
+        pg.Imply(
+            pg.All(*"ab"),
+            cc.Xor(*"xyz", default="z")
+        ),
+        pg.Any(*"pqr")
+    )
+
+    def dummy_solver(A, b, ints, objs):
+        return numpy.ones((objs.shape[0], A.shape[1]))
+
+    expected = puan.ndarray.ge_polyhedron_config.from_b64(
+        model.polyhedron.to_b64()
+    ).select({"a": 1}, solver=dummy_solver)
+    actual = model.select({"a": 1}, solver=dummy_solver)
+
+    assert list(actual) == list(expected)
