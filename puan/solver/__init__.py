@@ -239,7 +239,7 @@ class Our_simplex_solver(object):
         while(nodes_to_explore):
             polyhedron, bounds, objective_function = nodes_to_explore.pop()
             self._setup(polyhedron, bounds, objective_function, [])
-            (z, X_B, B_inv, solution_information) = self.run(objective_function)
+            (z, X_B, A_sol, solution_information) = self.run(objective_function)
             if not z:
                 # No feasible solution
                 continue
@@ -249,11 +249,13 @@ class Our_simplex_solver(object):
             first_non_integer = numpy.array([not i%1 for i in X_B]).argmin()
             if X_B[first_non_integer].is_integer():
                 # We've found a best solution in this area
-                if z < z_ub:
+                if z == z_ub:
+                    solution_information = "Solution is not unique"
+                elif z < z_ub:
                     z_ub = z
                     x = X_B
-                    B_inv = self.B_inv
-                    A = self.A
+                    A = A_sol
+                    sol_info = solution_information
                 continue
             else:
                 current_node = (first_non_integer, math.ceil(X_B[first_non_integer]))
@@ -267,6 +269,6 @@ class Our_simplex_solver(object):
                     cond2[0][0] = math.ceil(X_B[first_non_integer])
                     nodes_to_explore.append((puan.ndarray.ge_polyhedron(numpy.append(polyhedron.copy(), cond2, axis=0)), bounds, objective_function))
                     explored_nodes.append(current_node)
-        return (z_ub.astype("int"), x, numpy.dot(B_inv, A), solution_information)
+        return (z_ub.astype("int"), x, A, sol_info)
 
 our_revised_simplex = Our_simplex_solver()

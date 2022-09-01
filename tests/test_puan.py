@@ -2558,6 +2558,75 @@ def test_our_simplex():
                 ]),
                 'Solution is unique'
             )
+        ),
+        (
+
+            (
+                puan.ndarray.ge_polyhedron(numpy.array([[-3, 1, -1], [-4, 0, 1], [-8, -1, -1], [-5, -1, 1], [3, 1, 1], [-12, 1, -4]])),
+                [(0, numpy.inf), (0, numpy.inf)],
+                numpy.array([-1, 1])
+            ),
+            (
+                3,
+                numpy.array([0, 3]),
+                numpy.array([[0, 1, 0.5, 0, 0, 0, -0.5, 0],
+                    [0, 0, 0.5, 1, 0, 0, -0.5, 0],
+                    [0, 0, 0, 0, 1, 0, 1, 0],
+                    [0, 0, 1, 0, 0, 1, 0, 0],
+                    [1, 0, -0.5, 0, 0, 0, -0.5, 0],
+                    [0, 0, -2.5, 0, 0, 0, 1.5, 1]]),
+                'Solution is not unique'
+            )
+        ),
+        (
+            (
+                puan.ndarray.ge_polyhedron(numpy.array([[-6, -2, -2, 1], [-5, -1, -3, 1], [-10, -2, -1, -4]])),
+                [(0, numpy.inf), (0, numpy.inf), (0, numpy.inf)],
+                numpy.array([4, -2, 3])
+            ),
+            (
+                16,
+                numpy.array([17/5, 0, 4/5]),
+                numpy.array([[1, 0.9, 0, 0.4, 0, 0.1],
+                    [5.55e-17, 1.9, 0, -0.6, 1, 0.1],
+                    [0, -0.2, 1, -0.2, 0, 0.2]]),
+                'Solution is unique'
+            )
+        ),
+        (
+            (
+                puan.ndarray.ge_polyhedron(numpy.array([[-8, -4, -2, -1], [-10, -3, -2, -2], [-4, -1, -1, -1]])),
+                [(0, numpy.inf), (0, numpy.inf), (0, numpy.inf)],
+                numpy.array([5, 2, 1])
+            ),
+            (
+                10,
+                numpy.array([2, 0, 0]),
+                numpy.array([[1, 0.5, 0.25, 0.25, 0, 0],
+                    [0, 0.5, 1.25, -0.75, 1, 0],
+                    [0, 0.5, 0.75, -0.25, 0, 1]]),
+                'Solution is unique'
+            )
+        ),
+        (
+            (
+                puan.ndarray.ge_polyhedron(numpy.array([[-9, -2, -3, 1], [4, 0, 2, 1], [6, 1, 0, 1], [-6, -1, 0, -1]])),
+                [(0, numpy.inf), (0, numpy.inf), (0, numpy.inf)],
+                numpy.array([2, 1, 1]),
+                [],
+                True
+            ),
+            (
+                11,
+                numpy.array([1, 4, 5]), # or [0, 5, 6]
+                numpy.array([[ 0,  1,  0,  0.33333333,  0, 0,  0.33333333,  0,  1],
+                             [ 0,  0,  1,  0.        ,  0, 0,  1.        ,  0,  1],
+                             [ 0,  0,  0,  0.66666667,  1, 0,  1.66666667,  0,  3],
+                             [ 0,  0,  0,  0.        ,  0, 1,  1.        ,  0,  0],
+                             [ 0,  0,  0, -0.33333333,  0, 0, -0.33333333,  1, -1],
+                             [ 1,  0,  0,  0.        ,  0, 0,  0.        ,  0, -1]]),
+                'Solution is not unique'
+            )
         )
         
     ]
