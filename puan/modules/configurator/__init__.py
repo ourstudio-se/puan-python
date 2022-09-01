@@ -162,7 +162,7 @@ class StingyConfigurator(pg.All):
             zip(
                 map(operator.attrgetter("id"), flat),
                 map(
-                    lambda p: getattr(p, "prio", 0 if p.virtual else -1),
+                    lambda p: getattr(p, "prio", -1),
                     flat
                 )
             )
