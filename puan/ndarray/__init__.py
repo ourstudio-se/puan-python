@@ -1612,7 +1612,7 @@ class ge_polyhedron_config(ge_polyhedron):
             )
         ).ndint_compress(method="shadow", axis=0)
 
-    def select(self, *prios: typing.List[typing.Dict[str, int]], solver, default_prio_map: typing.Dict[str, int] = {}, include_virtual_vars: bool = False) -> typing.Iterable[typing.List[puan.variable]]:
+    def select(self, *prios: typing.List[typing.Dict[str, int]], solver, include_virtual_vars: bool = False) -> typing.Iterable[typing.List[puan.variable]]:
 
         """
             Select items to prioritize and receive a solution.

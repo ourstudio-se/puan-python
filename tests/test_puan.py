@@ -2232,3 +2232,23 @@ def test_dump_load_ge_polyhedron_config():
     actual = model.select({"a": 1}, solver=dummy_solver)
 
     assert list(actual) == list(expected)
+
+def test_default_prio_vector_weights():
+
+    """
+        Test is here to see that there's exactly one prio with -2,
+        which represent choosing A and x together
+    """
+    
+    model = cc.StingyConfigurator(
+        pg.Imply(
+            pg.All("A"),
+            cc.Xor(*"xy", default="y")
+        ),
+        pg.Imply(
+            pg.All("A"),
+            cc.Xor(*"xz", default="z")
+        ),
+    )
+    
+    assert len(list(filter(functools.partial(operator.eq, -2), model.default_prios.values()))) == 1
