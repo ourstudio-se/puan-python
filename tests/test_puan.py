@@ -271,22 +271,6 @@ def test_rules2matrix_with_mixed_condition_rules():
     assert all(map(eval_fn, expected_feasible_configurations))
     assert not any(map(eval_fn, expected_infeasible_configurations))
 
-def test_extract_value_from_list_when_index_out_of_range():
-    try:
-        puancore.extract_value(
-            from_dict={
-                "m": [
-                    {
-                        "k": 1,
-                    }
-                ]
-            },
-            selector_string="m.1.k"
-        )
-        assert False
-    except:
-        pass
-
 def test_extract_value_from_list_value():
     value = puan.logic.sta.application._extract_value(
         from_dict={
