@@ -297,8 +297,8 @@ class Proposition(puan.variable, list):
         eq = f", equation='{leftside_eq}>={self.value}'" if len(leftside_eq) > 0 else ''
         return f"{self.__class__.__name__}(id='{self.id}'{eq})"
 
-    def _id_generator(propositions, value, sign, n: int = 4, prefix: str = "VAR"):
-        return prefix + hashlib.sha256(str("".join(map(operator.attrgetter("id"), sorted(propositions))) + str(value) + str(sign)).encode()).hexdigest()[:n]
+    def _id_generator(propositions, value, sign, prefix: str = "VAR"):
+        return prefix + hashlib.sha256(str("".join(map(operator.attrgetter("id"), sorted(propositions))) + str(value) + str(sign)).encode()).hexdigest()
 
     def _invert_sub(self) -> typing.Tuple[int, itertools.chain]:
 
