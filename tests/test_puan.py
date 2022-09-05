@@ -1722,10 +1722,11 @@ def test_logicfunc():
             (1, 1, [((0, 0, 0, 0), (4,3,1, 2), (1,1,1,1), 4, 0),], 0)
         )
     ]
-    for i in range(10000):
-        for inpt, expected_output in test_cases:
-            actual_output = lf.transform(*inpt)
-            assert expected_output == actual_output
+    # for i in range(10000):
+    for inpt, expected_output in test_cases:
+        print(inpt)
+        actual_output = lf.transform(*inpt)
+        assert expected_output == actual_output
 
 def test_json_conversion():
 
