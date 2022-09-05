@@ -1723,9 +1723,9 @@ def test_logicfunc():
         )
     ]
     # for i in range(10000):
-    for inpt, expected_output in test_cases:
+    for inpt, expected_output in test_cases[:1]:
         print(inpt)
-        # actual_output = lf.transform(*inpt)
+        actual_output = lf.transform(*inpt)
         # assert expected_output == actual_output
 
 def test_json_conversion():
