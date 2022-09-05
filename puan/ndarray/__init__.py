@@ -37,7 +37,7 @@ class variable_ndarray(numpy.ndarray):
         self.index      = getattr(obj, 'index', None)
 
     def _copy_attrs_to(self, target):
-        target = target.view(ArraySubclass)
+        target = target.view(self.__class__)
         try:
             target.__dict__.update(self.__dict__)
         except AttributeError:
