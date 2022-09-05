@@ -308,9 +308,9 @@ static PyObject* create_new_variable(long b, long sign, PyObject* constraints, P
         return NULL;
     }
     long m;
-    PyObject* var_type_support_constraint;
-    PyObject* ind_support_constraint;
-    PyObject* val_support_constraint;
+    PyObject* var_type_support_constraint = malloc(sizeof(PyObject));
+    PyObject* ind_support_constraint = malloc(sizeof(PyObject));
+    PyObject* val_support_constraint = malloc(sizeof(PyObject));
     for (long i=0; i < N; i++){
         constraint_i = PyList_GetItem(constraints, i);
         N_i = (long) PyTuple_Size(PyTuple_GetItem(constraint_i, 0));
@@ -390,6 +390,9 @@ static PyObject* create_new_variable(long b, long sign, PyObject* constraints, P
     PyList_SetItem(constraint_list, 0, main_constraint);
     PyObject *return_this = build_PyCompoundConstraints(N+1, 1, constraint_list, constr_id);
     Py_DECREF(constraint_list);
+    free(var_type_support_constraint);
+    free(ind_support_constraint);
+    free(val_support_constraint);
     return return_this;
 }
 
