@@ -293,9 +293,11 @@ class Proposition(puan.variable, list):
         return filter(maz.compose(functools.partial(operator.le, 1), len), self.propositions)
 
     def __repr__(self) -> str:
-        leftside_eq="".join(map("".join, zip(itertools.repeat(["-","+"][self.sign > 0], len(self.propositions)), map(operator.attrgetter("id"), self.propositions))))
+        max_id_len = 7
+        leftside_eq="".join(map("".join, zip(itertools.repeat(["-","+"][self.sign > 0], len(self.propositions)), map(lambda x: x.id if len(x.id) < max_id_len else f"{x.id[:max_id_len]}...", self.propositions))))
         eq = f", equation='{leftside_eq}>={self.value}'" if len(leftside_eq) > 0 else ''
-        return f"{self.__class__.__name__}(id='{self.id}'{eq})"
+        _id = self.id
+        return f"{self.__class__.__name__}(id='{_id if len(_id) < max_id_len else _id[:max_id_len]}{'...' if len(_id) >= max_id_len else ''}'{eq})"
 
     def _id_generator(propositions, value, sign, prefix: str = "VAR"):
         return prefix + hashlib.sha256(str("".join(map(operator.attrgetter("id"), sorted(propositions))) + str(value) + str(sign)).encode()).hexdigest()
@@ -482,7 +484,7 @@ class Proposition(puan.variable, list):
             --------
                 >>> model = All(All("a","b"), Any("c","d"))
                 >>> sorted(model.to_compound_constraint(model.variables_full().index))
-                [_Constraint(dtypes=(0, 0, 0), index=(3, 4, 0), values=(1, 1, -2), b=0, id=0), _Constraint(dtypes=(0, 0, 0), index=(0, 2, 1), values=(1, 1, -2), b=0, id=1), _Constraint(dtypes=(0, 0, 0), index=(5, 6, 2), values=(1, 1, -1), b=0, id=2)]
+                [_Constraint(dtypes=(0, 0, 0), index=(3, 4, 0), values=(1, 1, -2), b=0, id=0), _Constraint(dtypes=(0, 0, 0), index=(5, 6, 1), values=(1, 1, -1), b=0, id=1), _Constraint(dtypes=(0, 0, 0), index=(0, 1, 2), values=(1, 1, -2), b=0, id=2)]
 
             Returns
             -------
@@ -1143,7 +1145,7 @@ class Imply(Any):
                 ...         ]
                 ...     }
                 ... })
-                Imply(id='someId', equation='+VAR1805+VARb6a0>=1')
+                Imply(id='someId', equation='+VAR1805...+VARb6a0...>=1')
 
             Returns
             -------
@@ -1397,7 +1399,7 @@ def from_dict(d: dict, id: str = None) -> Proposition:
         Examples
         --------
             >>> from_dict({'a': [1, ['b','c'], 1, 0, 0], 'b': [1, ['x','y'], 1, 0, 0], 'c': [1, ['p','q'], 1, 0, 0]})
-            All(id='VARea1f', equation='+a>=1')
+            All(id='VARea1f...', equation='+a>=1')
 
         Returns
         -------

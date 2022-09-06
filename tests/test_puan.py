@@ -1772,46 +1772,16 @@ def test_json_conversions_with_assume():
             }
         ]
     }
-    actual, consequence = cc.StingyConfigurator.from_json(data).assume({"a": 1})
+    _, actual = cc.StingyConfigurator.from_json(data).assume({"a": 1})
     expected = {
-        "type": "StingyConfigurator",
-        "propositions": [
-            {
-                "type": "AtMost",
-                "propositions": [
-                    {
-                        "id": "x"
-                    },
-                    {
-                        "id": "y"
-                    },
-                    {
-                        "id": "z"
-                    }
-                ],
-                "value": 1
-            },
-            {
-                "type": "Any",
-                "propositions": [
-                    {
-                        "id": "x"
-                    },
-                    {
-                        "id": "y"
-                    },
-                    {
-                        "id": "z"
-                    }
-                ],
-                "default": [
-                    "z"
-                ]
-            }
-        ]
+        'a': 1,
+        'VAR065d624e3550b8dff7e18ad457d19a628fb05e77b6c8762f04a7858ec5b77484':1,
+        'VAR1ac38f14258627b4813573deb4795cfc22545c07f69d00fd713da9755ce76811':0,
+        'VAR56ed3c3d0f7773268a7aaebc95964ef976f28809a4e9a7b4f0e5a831ae3ac9c7':1,
+        'VAR9a9c96dd78e211a880ee2dbf7728d697001b54c7db0a6d20a460c1ea82bae29e':1,
+        'VARc4a183aab2c8ed78438a42ff8a3321f15c2f312d2a3a347b4906e302f64bc769':1,
     }
-    assert consequence['a'] == 1
-    assert actual.to_json() == expected
+    assert actual == expected
 
 def test_assume_should_keep_full_tree():
 
@@ -1838,16 +1808,74 @@ def test_xnor_proposition():
     )
 
     expected_dict = {
-        'VARe546': (1, ['VAR3d36', 'VARc034'], 2, 0, 1),
-        'VAR3d36': (1, ['VAR28eb'], 1, 0, 1),
-        'VAR28eb': (1, ['VAR41ae', 'x'], 2, 0, 1),
-        'VAR41ae': (1, ['VAR077e', 'VARbed7'], 2, 0, 1),
-        'VAR077e': (1, ['y', 'z'], 1, 0, 1),
-        'y': (1, [], 1, 0, 0),
-        'z': (1, [], 1, 0, 0),
-        'VARbed7': (-1, ['y', 'z'], -1, 0, 1),
-        'x': (1, [], 1, 0, 0),
-        'VARc034': (-1, ['VAR28eb'], -1, 0, 1)
+        "VARa060e265bd4909b52363fbdb8d8568848c901d6997442dcb4f9ead8f8f60cd5c": (
+            1,
+            [
+                "VAR1e4bb26b642521f5a43305536694f4e93ca99fa29761f29773c80e70c40fc72a",
+                "VAR2ea7bec55a9805ff47ffd3dda7652d801851f657f1052fac6b3322e90193597e"
+            ],
+            2,
+            0,
+            1
+        ),
+        "VAR1e4bb26b642521f5a43305536694f4e93ca99fa29761f29773c80e70c40fc72a": (
+            -1,
+            [
+                "VAR0ef6d9242bb5e856fbfd6aef974e00cea8ff805b4cab302a20afaa5452354d17"
+            ],
+            -1,
+            0,
+            1
+        ),
+        "VAR0ef6d9242bb5e856fbfd6aef974e00cea8ff805b4cab302a20afaa5452354d17": (
+            1,
+            [
+                "VARd61375cf2826250cd27eb8fa6025c5ac42a64ea84ac5eacbc07703f7b19c9c7a",
+                "x"
+            ],
+            2,
+            0,
+            1
+        ),
+        "VARd61375cf2826250cd27eb8fa6025c5ac42a64ea84ac5eacbc07703f7b19c9c7a": (
+            1,
+            [
+                "VAR077e3a5a7175fc147a042f0d32e6ac4a5119fc14731e8602fb077a155f77b68b",
+                "VARbed7381cd125603a77b3534b72c910e4ba98d0c9ad052cdd27ab9518eac055ea"
+            ],
+            2,
+            0,
+            1
+        ),
+        "VAR077e3a5a7175fc147a042f0d32e6ac4a5119fc14731e8602fb077a155f77b68b": (
+            1,
+            [
+                "y",
+                "z"
+            ],
+            1,
+            0,
+            1
+        ),
+        "y": (1,[],1,0,0),
+        "z": (1,[],1,0,0),
+        "VARbed7381cd125603a77b3534b72c910e4ba98d0c9ad052cdd27ab9518eac055ea": (
+            -1,
+            ["y","z"],
+            -1,
+            0,
+            1
+        ),
+        "x": (1,[],1,0,0),
+        "VAR2ea7bec55a9805ff47ffd3dda7652d801851f657f1052fac6b3322e90193597e": (
+            1,
+            [
+                "VAR0ef6d9242bb5e856fbfd6aef974e00cea8ff805b4cab302a20afaa5452354d17"
+            ],
+            1,
+            0,
+            1
+        )
     }
 
     assert actual_model.to_dict() == expected_dict
@@ -1859,7 +1887,7 @@ def test_proposition_polyhedron_conversions():
         id="all_not"
     ).to_polyhedron(True)
     assert not all(actual.A.dot(actual.A.construct(*{"x": 1}.items())) >= actual.b)
-    assert all(actual.A.dot(actual.A.construct(*{"VARc96e": 1}.items())) >= actual.b)
+    assert all(actual.A.dot(actual.A.construct(*{"VARc96efc8ea4acc75f6dbddd0acac8f189b4c566f77b76b6299161a14e4eeb2caf": 1}.items())) >= actual.b)
 
     actual = pg.Not(
         pg.All("x","y","z", id="all_xyz")
@@ -1879,8 +1907,8 @@ def test_proposition_polyhedron_conversions():
         condition=pg.Not("x"),
         consequence=pg.All("a","b","c")
     ).to_polyhedron(True)
-    assert all(actual.A.dot(actual.A.construct(*{"VARfe37": 1, "x": 1}.items())) >= actual.b)
-    assert all(actual.A.dot(actual.A.construct(*{"VARa786": 1, "a": 1, "b": 1, "c": 1}.items())) >= actual.b)
+    assert all(actual.A.dot(actual.A.construct(*{"VARfe372293ac6fc8767d248278e9ceacbb53aa57de8d3b30ef20813933935d1332": 1, "x": 1}.items())) >= actual.b)
+    assert all(actual.A.dot(actual.A.construct(*{"VARa786dc00ea76fe754d21e63ec49ef338cc4771c44ed9562a0fb0bd52d305ae1e": 1, "a": 1, "b": 1, "c": 1}.items())) >= actual.b)
 
     actual = pg.Not(
         pg.Imply(
@@ -1888,11 +1916,11 @@ def test_proposition_polyhedron_conversions():
             consequence=pg.Any("a","b","c")
         ),
     ).to_polyhedron(True)
-    assert all(actual.A.dot(actual.A.construct(*{"VARb6a0": 1, "VARe391": 1, "x": 1, "y": 1, "z": 1}.items())) >= actual.b)
-    assert not all(actual.A.dot(actual.A.construct(*{"VARb6a0": 1, "VARe391": 1, "x": 1, "y": 1, "z": 1, "a": 1}.items())) >= actual.b)
-    assert not all(actual.A.dot(actual.A.construct(*{"VARb6a0": 1, "VARe391": 1, "x": 1, "y": 1, "z": 1, "b": 1}.items())) >= actual.b)
-    assert not all(actual.A.dot(actual.A.construct(*{"VARb6a0": 1, "VARe391": 1, "x": 1, "y": 1, "z": 1, "c": 1}.items())) >= actual.b)
-    assert not all(actual.A.dot(actual.A.construct(*{"VARb6a0": 1, "VARe391": 1, "x": 1, "y": 1}.items())) >= actual.b)
+    assert all(actual.A.dot(actual.A.construct(*{"VARb6a05d7d91efc84e49117524cffa01cba8dcb1f14479be025342b909c9ab0cc2": 1, "VARe3918cdbd4ac804be32d2b5a3f2890d6ae5f6d3fb9246b429be1bb973edd157a": 1, "x": 1, "y": 1, "z": 1}.items())) >= actual.b)
+    assert not all(actual.A.dot(actual.A.construct(*{"VARb6a05d7d91efc84e49117524cffa01cba8dcb1f14479be025342b909c9ab0cc2": 1, "VARe3918cdbd4ac804be32d2b5a3f2890d6ae5f6d3fb9246b429be1bb973edd157a": 1, "x": 1, "y": 1, "z": 1, "a": 1}.items())) >= actual.b)
+    assert not all(actual.A.dot(actual.A.construct(*{"VARb6a05d7d91efc84e49117524cffa01cba8dcb1f14479be025342b909c9ab0cc2": 1, "VARe3918cdbd4ac804be32d2b5a3f2890d6ae5f6d3fb9246b429be1bb973edd157a": 1, "x": 1, "y": 1, "z": 1, "b": 1}.items())) >= actual.b)
+    assert not all(actual.A.dot(actual.A.construct(*{"VARb6a05d7d91efc84e49117524cffa01cba8dcb1f14479be025342b909c9ab0cc2": 1, "VARe3918cdbd4ac804be32d2b5a3f2890d6ae5f6d3fb9246b429be1bb973edd157a": 1, "x": 1, "y": 1, "z": 1, "c": 1}.items())) >= actual.b)
+    assert not all(actual.A.dot(actual.A.construct(*{"VARb6a05d7d91efc84e49117524cffa01cba8dcb1f14479be025342b909c9ab0cc2": 1, "VARe3918cdbd4ac804be32d2b5a3f2890d6ae5f6d3fb9246b429be1bb973edd157a": 1, "x": 1, "y": 1}.items())) >= actual.b)
 
     actual = pg.Not(
         pg.AtLeast("x","y","z", value=2)
