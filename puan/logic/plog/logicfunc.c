@@ -813,11 +813,11 @@ static PyObject* ctransform(PyObject* compound_constraint, bool allow_mc){
 static PyObject* transform(PyObject* self, PyObject* args)
 {
     PyObject* compound_constraint;
-    bool allow_mc;
-    if (!PyArg_ParseTuple(args, "Op", &compound_constraint, &allow_mc)){
+    int allow_mc_int;
+    if (!PyArg_ParseTuple(args, "Oi", &compound_constraint, &allow_mc_int)){
         return NULL;
     }
-    return ctransform(compound_constraint, allow_mc);
+    return ctransform(compound_constraint, allow_mc_int == 1);
 }
 
 

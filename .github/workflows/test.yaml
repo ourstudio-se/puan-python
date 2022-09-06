@@ -32,4 +32,4 @@ jobs:
           python setup.py install
           mv build/lib.linux-x86_64-3.9/puan/logic/*.so puan/logic
           mv build/lib.linux-x86_64-3.9/puan/*.so puan
-          pytest -s
+          pytest
