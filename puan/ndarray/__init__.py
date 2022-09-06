@@ -361,20 +361,20 @@ class ge_polyhedron(variable_ndarray):
             All columns could be *assumed not* since picking any of the corresponding variable would violate the inequlity
 
                 >>> ge_polyhedron(numpy.array([[0, -1, -1, -1]])).reducable_columns_approx()
-                array([0., 0., 0.])
+                array([0, 0, 0])
 
             All columns could be *assumed* since not picking any of the corresponding variable would violate the inequlity
 
                 >>> ge_polyhedron(numpy.array([[3, 1, 1, 1]])).reducable_columns_approx()
-                array([1., 1., 1.])
+                array([1, 1, 1])
 
             Combination of *assume* and *not assume*
 
                 >>> ge_polyhedron(numpy.array([[0, 1, 1, -3]])).reducable_columns_approx()
-                array([nan, nan,  0.])
+                array([nan, nan, 0])
 
                 >>> ge_polyhedron(numpy.array([[2, 1, 1, -1]])).reducable_columns_approx()
-                array([1., 1., 0.])
+                array([1, 1, 0])
 
             Contradicting rules
 
@@ -548,7 +548,7 @@ class ge_polyhedron(variable_ndarray):
                 ...     [ 0, 1, 1, 0, 1, 0],
                 ...     [ 0, 1, 1, 0, 1,-1] 
                 ... ])).reducable_rows_and_columns()
-                (array([0, 0, 0, 1, 1, 1, 1]), array([nan, nan, nan,  1.,  0.]))
+                (array([0, 0, 0, 1, 1, 1, 1]), array([nan, nan, nan, 1, 0]))
 
         """
 
