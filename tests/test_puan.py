@@ -8,6 +8,7 @@ import puan.logic
 import puan.logic.logicfunc as lf
 import puan.logic.plog as pg
 import puan.modules.configurator as cc
+import puan.solver
 import numpy
 import operator
 import maz
@@ -2498,20 +2499,20 @@ def test_our_simplex():
                 puan.ndarray.ge_polyhedron(numpy.array([[-30, -2, -1]])),
                 [(0, 10), (0, 15)],
                 None,
-                [numpy.array([1, 1]), numpy.array([3, 1])]
+                [numpy.array([3, 1]), numpy.array([1, 1])]
             ),
             (
                 [
                     (
-                        22.5,
-                        numpy.array([ 7.5, 15. ]),
-                        numpy.array([[ 1. ,  0.5, -0.5]]),
+                        40.0,
+                        numpy.array([10., 10.]),
+                        numpy.array([[ -2.,  1., 1.]]),
                         'Solution is unique'
                     ),
                     (
-                        40.0,
-                        numpy.array([10., 10.]),
-                        numpy.array([[ 2.,  1., -1.]]),
+                        22.5,
+                        numpy.array([ 7.5, 15. ]),
+                        numpy.array([[ 1. ,  0.5, -0.5]]),
                         'Solution is unique'
                     )
                 ]
@@ -2520,10 +2521,8 @@ def test_our_simplex():
         (
             (
                 puan.ndarray.ge_polyhedron(numpy.array([[-100, -2, -1], [-80, -1, -1], [-40, -1, 0]])),
-                [(0, numpy.inf), (0, numpy.inf)],
+                [(0, numpy.inf, int), (0, numpy.inf, int)],
                 numpy.array([30, 20]),
-                [],
-                True
             ),
             (
                 1800,
@@ -2539,23 +2538,14 @@ def test_our_simplex():
         (
             (
                 puan.ndarray.ge_polyhedron(numpy.array([[-22, -11, 8], [0, 11, -12]])),
-                [(0, numpy.inf), (0, numpy.inf)],
+                [(0, numpy.inf, int), (0, numpy.inf, int)],
                 numpy.array([1, 1]),
-                [],
-                True
             ),
             (
                 7,
                 numpy.array([4, 3]),
-                numpy.array([
-                    [  1.,   0.,   0.,   0.,   0.,   0.,   0.,   1.,   0.],
-                    [  0.,   0.,   0.,   1.,   0.,   0.,   0.,  11., -12.],
-                    [  0.,   0.,   0.,   0.,   1.,   0.,   0.,   0.,  -1.],
-                    [  0.,   0.,   0.,   0.,   0.,   1.,   0.,  -1.,   0.],
-                    [  0.,   0.,   0.,   0.,   0.,   0.,   1.,   0.,  -1.],
-                    [  0.,   1.,   0.,   0.,   0.,   0.,   0.,   0.,   1.],
-                    [  0.,   0.,   1.,   0.,   0.,   0.,   0., -11.,   8.]
-                ]),
+                numpy.array([[-11, 8, 1, 0],
+                             [11, -12, 0, 1]]),
                 'Solution is unique'
             )
         ),
@@ -2569,12 +2559,12 @@ def test_our_simplex():
             (
                 3,
                 numpy.array([0, 3]),
-                numpy.array([[0, 1, 0.5, 0, 0, 0, -0.5, 0],
-                    [0, 0, 0.5, 1, 0, 0, -0.5, 0],
-                    [0, 0, 0, 0, 1, 0, 1, 0],
-                    [0, 0, 1, 0, 0, 1, 0, 0],
-                    [1, 0, -0.5, 0, 0, 0, -0.5, 0],
-                    [0, 0, -2.5, 0, 0, 0, 1.5, 1]]),
+                numpy.array([[-2, 0, 1, 0, 0, 0, 1, 0],
+                             [-1, 0, 1, 1, 0, 0, 0, 0],
+                             [2, 0, -1, 0, 1, 0, 0, 0],
+                             [0, 0, 1, 0, 0, 1, 0, 0],
+                             [-1, 1, 1, 0, 0, 0, 0, 0],
+                             [3, 0, -4, 0, 0, 0, 0, 1]]),
                 'Solution is not unique'
             )
         ),
@@ -2605,30 +2595,310 @@ def test_our_simplex():
                 numpy.array([[1, 0.5, 0.25, 0.25, 0, 0],
                     [0, 0.5, 1.25, -0.75, 1, 0],
                     [0, 0.5, 0.75, -0.25, 0, 1]]),
-                'Solution is unique'
+                'Solution is unique' 
             )
         ),
         (
             (
                 puan.ndarray.ge_polyhedron(numpy.array([[-9, -2, -3, 1], [4, 0, 2, 1], [6, 1, 0, 1], [-6, -1, 0, -1]])),
-                [(0, numpy.inf), (0, numpy.inf), (0, numpy.inf)],
+                [(0, numpy.inf, int), (0, numpy.inf, int), (0, numpy.inf, int)],
                 numpy.array([2, 1, 1]),
-                [],
-                True
             ),
             (
                 11,
-                numpy.array([1, 4, 5]), # or [0, 5, 6]
-                numpy.array([[ 0,  1,  0,  0.33333333,  0, 0,  0.33333333,  0,  1],
-                             [ 0,  0,  1,  0.        ,  0, 0,  1.        ,  0,  1],
-                             [ 0,  0,  0,  0.66666667,  1, 0,  1.66666667,  0,  3],
-                             [ 0,  0,  0,  0.        ,  0, 1,  1.        ,  0,  0],
-                             [ 0,  0,  0, -0.33333333,  0, 0, -0.33333333,  1, -1],
-                             [ 1,  0,  0,  0.        ,  0, 0,  0.        ,  0, -1]]),
+                numpy.array([0, 5, 6]), # or [1, 4, 5]
+                numpy.array([[1, -1, 5.55e-17, 0.333, 0, 0, 0.333],
+                             [0, 3, -2.22e-16, -0.333, 1, 0, 0.667],
+                             [0, 1, 1, -0.333, 0, 0, 0.667],
+                             [0, 0, 0, 0, 0, 1, 1]]),
                 'Solution is not unique'
             )
+        ),
+        (
+            (
+                puan.ndarray.ge_polyhedron(numpy.array([[-10, -2, -2, -1], [5, 1, 0, 2]])),
+                [(0, numpy.inf), (0, numpy.inf), (0, numpy.inf)],
+                numpy.array([-1 , 1, -1])
+            ),
+            (
+                1.25,
+                numpy.array([0, 3.75, 2.5]),
+                numpy.array([[0.75, 1, 0, 0.5, 0.25],
+                             [0.5, 0, 1, 0, -0.5]]),
+                'Solution is unique'
+            )
+        ),
+        (
+            (
+                puan.ndarray.ge_polyhedron(numpy.array([[-4, -4, 1, -1, 0], [-1, -1, -1, 0, 1], [-4, 0, -1, -1, -1]])),
+                [(0, numpy.inf), (0, numpy.inf), (0, numpy.inf), (0, numpy.inf)],
+                numpy.array([4, 2, 3, 1])
+            ),
+            (
+                12.666666666666668,
+                numpy.array([1/3, 2/3, 10/3, 0]),
+                numpy.array([[1, 0, 0, -1/2, 1/6, 1/3, -1/6], [0, 1, 0, -1/2, -1/6, 2/3, 1/6], [0, 0, 1, 3/2, 1/6, -2/3, 5/6]]),
+                'Solution is unique' 
+            )
+        ),
+        (
+            (
+                puan.ndarray.ge_polyhedron(numpy.array([[-21, -5, -4]])),
+                [(0, numpy.inf, int), (0, numpy.inf, int)],
+                numpy.array([5, 2]),
+            ),
+            (
+                20,
+                numpy.array([4, 0]),
+                numpy.array([[-5, -4, 1]]),
+                'Solution is unique'
+            )
+        ),
+        (
+            (
+                puan.ndarray.ge_polyhedron(numpy.array([[-7, -4, -2, -2, -3]])),
+                [(0, 1, int), (0, 1, int), (0, 1, int), (0, 1, int)],
+                numpy.array([7, 3, 2, 2]),
+            ),
+            (
+                10,
+                numpy.array([1,1,0,0]),
+                numpy.array([[-4, -2, -2, -3, 1]]),
+                'Solution is unique'
+            )
+        ),
+        (
+            (
+                puan.ndarray.ge_polyhedron(numpy.array([[4, 1, 4], [6, 3, 2]])),
+                [(0, numpy.inf, int), (0, numpy.inf, int)],
+                numpy.array([-4, -5]),
+            ),
+            (
+                -13,
+                numpy.array([2,1]),
+                numpy.array([[0, 1, 0, 0, 0, -1],
+                             [1, 0, 0, 0, -1, 0],
+                             [0, 0, 0, 1, -3, -2],
+                             [0, 0, 1, 0, -1, -4]]),
+                'Solution is unique'
+            )
+        ),
+        (
+            (
+                puan.ndarray.ge_polyhedron(numpy.array([[-6, 4, -3], [-18, -3, -2]])),
+                [(0, numpy.inf, int), (0, numpy.inf, int)],
+                numpy.array([1, 5]),
+            ),
+            (
+                23,
+                numpy.array([3, 4]),
+                numpy.array([[4, -3, 1, 0, 0],
+                             [-3, -2, 0, 1, 0],
+                             [1, 0, 0, 0, 1]]),
+                'Solution is unique'
+            )
+        ),
+        (
+            (
+                puan.ndarray.ge_polyhedron(numpy.array([[-35, -5, -7], [-3, -1, 0], [-4, 0, -1]])),
+                [(0, numpy.inf, int), (0, numpy.inf, int)],
+                numpy.array([5, 6]),
+            ),
+            (
+                29,
+                numpy.array([1, 4]),
+                numpy.array([[-5, 0, 1, 0, -7, 0],
+                             [-1, 0, 0, 1, 0, 0],
+                             [0, 0, 0, 0, 1, 1],
+                             [0, 1, 0, 0, 1, 0]]),
+                'Solution is unique'
+            )
+        ),
+        (
+            (
+                puan.ndarray.ge_polyhedron(numpy.array([[-7, -4, -2, -3, -1]])),
+                [(0, numpy.inf, int), (0, numpy.inf, int), (0, numpy.inf, int), (0, numpy.inf, int)],
+                numpy.array([18, 8, 4, 2]),
+            ),
+            (
+                28,
+                numpy.array([1,1,0,1]),
+                numpy.array([[-4, -2, 3, 1, 1]]),
+                'Solution is unique'
+
+            )
+        ),
+        (
+            (
+                puan.ndarray.ge_polyhedron(numpy.array([[-8, 1, -1, -3], [-10, -3, -2, 1]])),
+                [(0, numpy.inf, int), (0, numpy.inf, int), (0, numpy.inf, int)],
+                numpy.array([-2, 3, 4]),
+            ),
+            (
+                19,
+                numpy.array([0, 5, 1]),
+                numpy.array([[-0.333, -0.333, 1, 0.333, 0],
+                             [2.67, -2.33, 0, 0.333, 1]]),
+                'Solution is unique'
+            )
+        ),
+        (
+            (
+                puan.ndarray.ge_polyhedron(numpy.array([[-36, -6, -10, -15, -10]])),
+                [(0, numpy.inf, int), (0, numpy.inf, int), (0, numpy.inf, int), (0, numpy.inf, int)],
+                numpy.array([5, 10, 10, 16]),
+            ),
+            (
+                53,
+                numpy.array([1, 0, 0, 3]),
+                numpy.array([[1, -1.67, 2.5, -1.67, 0.167]]),
+                'Solution is unique'
+            )
+        ),
+        (
+            (
+                puan.ndarray.ge_polyhedron(numpy.array([[-9, -2, -3, -3]])),
+                [(0, 2, int), (0, 2, int), (0, 2, int)],
+                numpy.array([5, 6, 7]),
+            ),
+            (
+                20,
+                numpy.array([0, 1, 2]),
+                numpy.array([[1, 0, 0, 0.5, 1.5, 1.5],
+                             [0, 1, 0, 0, -1, 0],
+                             [0, 0, 1, 0, 0, -1]]),
+                'Solution is unique'
+            )
+        ),
+        (
+            (
+                puan.ndarray.ge_polyhedron(numpy.array([[-8, -2, -4, -2, -3, 0], [4, 2, 0, -1, 1, 3], [-6, -2, -3, 0, -1, 1], [-6, -3, -4, 0, -3, -1]])),
+                [(0, 1, int), (0, 1, int), (0, 1, int), (0, 1, float), (0, 1, float)],
+                numpy.array([4, 10, 2, 6, 1]),
+            ),
+            (
+                11.25,
+                numpy.array([1, 0, 1, 0.75, 0.75]),
+                numpy. array([[ 0.,  0.5, -1.625, 0.,  0.,  1., -0.375,  0., -1.125, -0.625],
+                              [ 0.,  0.5,  0.375, 0.,  1.,  0., -0.375,  0., -0.125, 0.375],
+                              [ 0., -1.,  0.5, 0.,  0.,  0., -0.5,  1., -0.5, 1.5],
+                              [ 0., -1.5, -0.125, 1.,  0.,  0., 0.125,  0.,  0.375, 0.875],
+                              [ 1.,  0.,  0., 0.,  0.,  0., 0.,  0.,  0., -1.]]),
+                'Solution is unique'
+            )
+        ),
+        (
+            (
+                puan.ndarray.ge_polyhedron(numpy.array([[-2, -1, -2, -1, 0, 0], [-13, -2, -4, -3, -7, -3]])),
+                [(0, 1, int), (0, 1, int), (0, 1, int), (0, 1, int), (0, 1, int)],
+                numpy.array([5, 7, 6, 4, 5]),
+            ),
+            (
+                16,
+                numpy.array([1, 0, 1, 0, 1]),
+                numpy.array([[1, 2, -1, 0, 0, 1, 0],
+                             [0, 0, -1, -7, -3, -2, 1]]),
+                'Solution is unique'
+            )
+        ),
+        (
+            (
+                puan.ndarray.ge_polyhedron(numpy.array([[-4, -2, -1, -2, -1]])),
+                [(0, 1, int), (0, 1, int), (0, 1, int), (0, 1, int)],
+                numpy.array([5, 8, 4, 6]),
+            ),
+            (
+                19,
+                numpy.array([1, 1, 0, 1]),
+                numpy.array([[1, -0.5, 1, -0.5, 0.5]]),
+                'Solution is unique'
+            )
+        ),
+        (
+            (
+                puan.ndarray.ge_polyhedron([[-6, -1, -1, -1, -2], [-6, -3, -1, 0, 0], [-2, 1, -1, 0, 0], [-2, 0, 0, -1, 1], [-3, 0, 0, -1, -1]]),
+                [(0, numpy.inf), (0, numpy.inf), (0, numpy.inf), (0, numpy.inf)],
+                numpy.array([1, 4, 1, 2])
+            ),
+            (
+                15,
+                numpy.array([1, 3, 0, 1]),
+                numpy.array([[0, 0, 0.5, 1, 0.5, -0.25, -0.25, 0, 0],
+                             [1, 0, 0, 0, 0, 0.25, -0.25, 0, 0],
+                             [0, 1, 0, 0, 0, 0.25, 0.75, 0, 0],
+                             [0, 0, 1.5, 0, 0.5, -0.25, -0.25, 1, 0],
+                             [0, 0, 0.5, 0, -0.5, 0.25, 0.25, 0, 1]]),
+                'Solution is not unique'
+            )
+        ),
+        (
+            (
+                puan.ndarray.ge_polyhedron([[-8, -1, -3, -2], [5, 1, 2, 1], [-4, -1, -1, 0]]),
+                [(0, 1, int), (0, 2, int), (0, 2, int)],
+                numpy.array([-2, -3, -3]),
+            ),
+            (
+                -8,
+                numpy.array([1, 2, 0]),
+                numpy.array([[0, -1, 1, 1, 1, 0],
+                             [1, -2, 1, 0, -1, 0],
+                             [0, 1, -1, 0, 1, 1]]),
+                'Solution is unique' 
+            )
+        ),
+        (
+            (
+                puan.ndarray.ge_polyhedron([[5, 3, 1, -2, 2], [8, -1, 3, 2, 2], [-4, -1, 0, 0, -1], [-1, 0, -1, 0, 0], [-2, 0, 0, -1, 0]]),
+                [(0, numpy.inf, int), (0, numpy.inf, int), (0, numpy.inf, int), (0, numpy.inf, int)],
+                numpy.array([-1, -2, 1, -2]),
+            ),
+            (
+                -5,
+                numpy.array([1, 0, 2, 3]),
+                numpy.array([[-1.5,  0.5,  0. ,  1. , -0.5,  0. ,  0. ,  0. ,  0. , -1. ],
+                             [ 0. ,  0. ,  1. ,  0. ,  0. ,  0. ,  0. ,  0. ,  0. , -1. ],
+                             [ 0.5, -0.5,  0. ,  0. ,  0.5,  0. ,  1. ,  0. ,  0. ,  1. ],
+                             [ 0. ,  1. ,  0. ,  0. ,  0. ,  0. ,  0. ,  1. ,  0. ,  0. ],
+                             [ 0. ,  0. ,  0. ,  0. ,  0. ,  0. ,  0. ,  0. ,  1. ,  1. ],
+                             [-4. , -2. ,  0. ,  0. , -1. ,  1. ,  0. ,  0. ,  0. , -4. ]]),
+                'Solution is unique'  
+            )
+        ),
+        (
+            (
+                #                                    X11  X12, x21, x22, x31, x32, y1, y2, I1, I2,  L
+                puan.ndarray.ge_polyhedron([[-1800,  -8,   0, -10,   0,  -9,   0,  0,  0,  0,  0,  0],
+                                             [-1800,   0,  -8,   0, -10,   0,  -9,  0,  0,  0,  0,  0],
+                                             [-2400,  -7,   0,  -9,   0,  -8,   0,  0,  0,  0,  0,  0],
+                                             [-2400,   0,  -7,   0,  -9,   0,  -8,  0,  0,  0,  0,  0],
+                                             [-2100, -10,   0,  -8,   0, -11,   0,  0,  0,  0,  0,  0],
+                                             [-2100,   0, -10,   0,  -8,   0, -11,  0,  0,  0,  0,  0],
+                                             [    0,  75,  75, -25, -25, -25, -25,  0,  0,  0,  0,  0],
+                                             [  -40,  -3,   0,  -6,   0,  -4,   0,  1,  0, -1,  0, -1],
+                                             [   40,   3,   0,   6,   0,   4,   0, -1,  0,  1,  0,  1],
+                                             [    0,   0,  -3,   0,  -6,   0,  -4,  0,  1,  1, -1,  0],
+                                             [    0,   0,   3,   0,   6,   0,   4,  0, -1, -1,  1,  0]]),
+                [(0, numpy.inf), (0, numpy.inf), (0, numpy.inf), (0, numpy.inf), (0, numpy.inf), (0, numpy.inf), (0, numpy.inf), (0, 400), (0, 200), (0, 200), (0, numpy.inf)],
+                numpy.array([190, 190, 240, 240, 210, 210, -5, -8, -2, -2, -4])
+            ),
+            (
+                72683.33333333336,
+                numpy.array([183.333, 200, 33.3333, 0, 0, 0, 910, 400, 200, 0, 0]),
+                numpy.array([[ 0., 0.,  1., 0.,  5.55555556e-02, 0., 0., 0., 0., 0.,  0.,  2.77777778e-01, 0.,  0.,  0., -2.22222222e-01,  0.,  0, 0.,  0., 0., 0.],
+                             [ 0., 0.,  0., -6.,  0., -1.66666667, 0., -2.66666667, -2.66666667, -2.66666667,  0.,  0., 1.,  0.,  0., 0.,  0.,  0., 0.,  0., -2.66666667, 0.],
+                             [ 0., 0.,  0., 0.,  1.11111111e-01, 0., 0., 0., 0., 0.,  0., -9.44444444e-01, 0.,  1.,  0., 5.55555556e-02,  0.,  0., 0.,  0., 0., 0.],
+                             [ 0., 0.,  0., -5.,  0., -1.33333333, 0., -2.33333333, -2.33333333, -2.33333333,  0.,  0., 0.,  0.,  1., 0.,  0.,  0., 0.,  0., -2.33333333, 0.],
+                             [ 0., 0.,  0., 0., -5.00000000e-01, 0., 1., 0.,  1., 0., -1.,  1., 0.,  0.,  0., -5.00000000e-01,  0.,  0., -1.,  0., 0., 0.],
+                             [ 0.,  0.,  0., -1.20000000e+01,  0., -2.33333333, 0., -3.33333333, -3.33333333, -3.33333333,  0.,  0., 0.,  0.,  0., 0.,  1.,  0., 0.,  0., -3.33333333, 0.],
+                             [ 1., 0.,  0., 0.,  1.05555556, 0., 0., 0., 0., 0.,  0., -2.22222222e-01, 0.,  0.,  0., 2.77777778e-01,  0.,  0., 0.,  0., 0.,0.],
+                             [ 0.,  0.,  0., 0.,  0.,  0., 0.,  0.,  0., 0.,  0.,  0., 0.,  0.,  0., 0.,  0.,  0., 1.,  1.,  0., 0.],
+                             [ 0.,  1.,  0., 2.,  0.,  1.33333333, 0.,  3.33333333e-01,  3.33333333e-01, 3.33333333e-01,  0.,  0., 0.,  0.,  0., 0.,  0.,  0., 0.,  0.,  3.33333333e-01, 0.],
+                             [ 0.,  0.,  0., 1.75e+02,  1.02777778e+02,  1.25e+02, 0.,  2.5e+01,  2.5e+01, 2.5e+01,  0., -2.36111111e+01, 0.,  0.,  0., 2.63888889e+01,  0.,  1., 0.,  0.,  2.5e+01, 0.],
+                             [ 0.,  0.,  0., 0.,  0.,  0., 0.,  0.,  0., 0.,  0.,  0., 0.,  0.,  0., 0.,  0.,  0., 0.,  0.,  1., 1.]]),
+                'Solution is unique'
+            )
         )
-        
+
     ]
 
     for (input, expected_output) in test_cases:
@@ -2642,7 +2912,7 @@ def test_our_simplex():
         else:
             assert actual[0] == expected_output[0]
             assert numpy.allclose(actual[1], expected_output[1])
-            assert numpy.allclose(actual[2], expected_output[2])
+            assert numpy.allclose(actual[2], expected_output[2], rtol=0.000001, atol=0.01)
             assert actual[3] == expected_output[3]
     
     # Unbounded problem

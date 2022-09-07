@@ -1,18 +1,16 @@
-from cmath import phase
 import itertools
 import math
-from timeit import repeat
 import numpy
-import puan.ndarray
+
 class Our_simplex_solver(object):
     """
-    Solves the linear program given by the polyhedron and the objective function
+    Solves the linear program given by the polyhedron, variable bounds (lower limit, upper limit, float or int) and the objective function
     using a revised simplex algorithm.
 
     Parameters
     ----------
         polyhedron : puan.ndarray.ge_polyhedron
-        bounds : list of tuples [(lower_bound, upper_bound)]
+        bounds : list of tuples [(lower_bound, upper_bound, type: float or int)]
         objective_function : numpy.ndarray
         objective_functions : list
         integer_solution : bool
@@ -29,8 +27,9 @@ class Our_simplex_solver(object):
 
     Examples
     --------
+        >>> import puan.ndarray
         >>> polyhedron = puan.ndarray.ge_polyhedron(numpy.array([[-100, -2, -1], [-80, -1, -1], [-40, -1, 0]]))
-        >>> bounds = [(0, numpy.inf), (0, numpy.inf)]
+        >>> bounds = [(0, numpy.inf, float), (0, numpy.inf, int)]
         >>> objective_function = numpy.array([30, 20])
         >>> our_revised_simplex(polyhedron, bounds, objective_function)
         (1800.0, array([20, 60]), array([[0, 1, -1, 2, 0],
@@ -43,10 +42,7 @@ class Our_simplex_solver(object):
         self.prio_list = prio_list
         self.objectives, self.A, self.b, self.bounds_lower, self.bounds_upper, self.B_vars, self.B_inv, self.bfs, self.C_phaseI, self.N_vars, self.ORIG_VARS, self.solution_information, self.substituted_vars = itertools.repeat(None, 13)
         self._setup(polyhedron, bounds, objective_function, objective_functions)
-        if integer_solution:
-            solutions = [self.run_ldd(polyhedron, bounds, objective) for objective in self.objectives]
-        else:
-            solutions = [self.run(objective) for objective in self.objectives]
+        solutions = [self.run(polyhedron, bounds, objective) for objective in self.objectives]
         if len(objective_functions)<1:
             return solutions[0]
         return solutions
@@ -54,19 +50,18 @@ class Our_simplex_solver(object):
     def _setup(self, polyhedron, bounds, objective_function, objective_functions):
         self.bounds_lower = numpy.array([x[0] for x in bounds])
         self.bounds_upper = numpy.array([x[1] for x in bounds])
+        self.variable_types = numpy.array([x[2] if len(x) >2 else float for x in bounds])
         self.A, self.b = polyhedron.to_linalg()
         if self.A.shape[1] != len(bounds):
             raise ValueError(f"The shapes of polyhedron.A and bounds must match, {self.A.shape[1]}!={len(bounds)}")
-        #if objective_function.any() and len(objective_functions)>0 or (not objective_function.any() and len(objective_functions<1)):
-        #    raise ValueError("One and only one of objective_function and objective_functions must be given")
         self.objectives = objective_functions or [objective_function]
         # Pre-processing
         #    Constructing lower bound constraints
-        self.b = numpy.append(self.b, numpy.array(self.bounds_lower[self.bounds_lower>0]), axis=0)
-        _lb_constraint = numpy.zeros(self.A.shape[1])
-        _lb_constraint[self.bounds_lower>0] = 1
+        _lb_constraint = numpy.eye(self.A.shape[1])
+        _lb_constraint = _lb_constraint[self.bounds_lower>0,:]
         if ((_lb_constraint>0).any()):
-            self.A = numpy.append(self.A, _lb_constraint[self.bounds_lower>0], axis=0)
+            self.b = numpy.append(self.b, numpy.array(self.bounds_lower[self.bounds_lower>0]), axis=0)
+            self.A = numpy.append(self.A, _lb_constraint, axis=0)
         self.ORIG_VARS = self.A.shape[1]
         if ((self.bounds_lower<0).any()):
             self.A = numpy.append(self.A, -self.A[:, self.bounds_lower<0], axis=1)
@@ -135,8 +130,8 @@ class Our_simplex_solver(object):
                 self.B_vars, self.N_vars = _update_basis(self.B_vars, self.N_vars, incoming_variable_index, 0)
                 return
             if (t3 < t1 and t3 < t2):
-                outgoing_variable_index = _t3.argmin()
-                outgoing_variable = self.B_vars[outgoing_variable_index]
+                outgoing_variable = numpy.min(self.B_vars[_t3==t3])
+                outgoing_variable_index = numpy.argwhere(self.B_vars==outgoing_variable)[0][0]
                 self.A, self.b, C, self.substituted_vars = _perform_ub_substitution(self.A, self.b, C, outgoing_variable, self.bounds_upper[outgoing_variable], self.substituted_vars)
                 B_inv_tilde = _update_constraint_column(B_inv_N_j, outgoing_variable_index, self.B_inv)
                 self.B_vars, self.N_vars = _update_basis(self.B_vars, self.N_vars, incoming_variable_index, outgoing_variable_index)
@@ -144,8 +139,8 @@ class Our_simplex_solver(object):
                 self.A, self.b, C, self.substituted_vars = _perform_ub_substitution(self.A, self.b, C, incoming_variable, self.bounds_upper[incoming_variable], self.substituted_vars)
                 B_inv_tilde = self.B_inv
             else: # t1 is smallest
-                outgoing_variable_index = _t1.argmin()
-                outgoing_variable = self.B_vars[outgoing_variable_index]
+                outgoing_variable = numpy.min(self.B_vars[_t1==t1])
+                outgoing_variable_index = numpy.argwhere(self.B_vars==outgoing_variable)[0][0]
                 B_inv_tilde = _update_constraint_column(B_inv_N_j, outgoing_variable_index, self.B_inv)
                 self.B_vars, self.N_vars = _update_basis(self.B_vars, self.N_vars, incoming_variable_index, outgoing_variable_index)
             self.B_inv = B_inv_tilde
@@ -173,7 +168,7 @@ class Our_simplex_solver(object):
             self.C_phaseI = numpy.zeros(n_orig_and_slack_vars)
             self.A = numpy.append(numpy.eye(self.A.shape[0])[:,~valid_constraints_at_origo], self.A, axis=1)
             n_artificial_vars = self.A.shape[1] - n_orig_and_slack_vars
-            self.B_vars = self.B_vars + n_artificial_vars
+            self.B_vars = n_artificial_vars + self.B_vars
             self.bounds_lower = numpy.append(numpy.repeat(0, n_artificial_vars), self.bounds_lower)
             self.bounds_upper = numpy.append(numpy.repeat(numpy.inf, n_artificial_vars), self.bounds_upper)
             self.C_phaseI = numpy.append(-numpy.ones(n_artificial_vars), self.C_phaseI)
@@ -191,17 +186,16 @@ class Our_simplex_solver(object):
                 self.B_vars = self.B_vars - n_artificial_vars
                 self.bounds_lower = self.bounds_lower[n_artificial_vars:]
                 self.bounds_upper = self.bounds_upper[n_artificial_vars:]
-                self.substituted_vars = numpy.array(self.substituted_vars)-n_artificial_vars
+                self.substituted_vars = list(numpy.array(self.substituted_vars)-n_artificial_vars)
                 self.bfs = True
     
     def _phaseII(self, objective_function):
         self.C = numpy.append(objective_function, numpy.zeros(self.A.shape[0]))
         if len(self.substituted_vars)>0:
-                self.C[self.substituted_vars] = -self.C[self.substituted_vars]
+            self.C[self.substituted_vars] = -self.C[self.substituted_vars]
         self._revised_simplex_method(phaseI=False)
 
-    #def revised_simplex(A, b, c, bounds):
-    def run(self, objective_function):
+    def _run(self, objective_function):
         if not self.bfs:
             # PhaseI
             self._phaseI()
@@ -229,46 +223,48 @@ class Our_simplex_solver(object):
         z = numpy.dot(objective_function[:self.ORIG_VARS], sol)
         return (z, sol, numpy.dot(self.B_inv, self.A), self.solution_information)
     
-    def run_ldd(self, polyhedron, bounds, objective_function):
-        z_ub = numpy.inf
+
+    def run(self, polyhedron, bounds, objective_function):
+        z_lb = -numpy.inf
         x = None
-        solution_information = "No feasible solution exists"
+        A = None
+        sol_info = "No feasible solution exists"
         nodes_to_explore = [(polyhedron, bounds, objective_function)]
         explored_nodes = []
-        n_vars = polyhedron.shape[1]
         while(nodes_to_explore):
             polyhedron, bounds, objective_function = nodes_to_explore.pop()
             self._setup(polyhedron, bounds, objective_function, [])
-            (z, X_B, A_sol, solution_information) = self.run(objective_function)
+            (z, X_B, A_sol, solution_information) = self._run(objective_function)
             if not z:
                 # No feasible solution
                 continue
-            if z > z_ub:
+            if z < z_lb:
                 # Not  possible to find better solution in this area
                 continue
-            first_non_integer = numpy.array([not i%1 for i in X_B]).argmin()
-            if X_B[first_non_integer].is_integer():
+            if numpy.argwhere(numpy.nan_to_num(X_B*[self.variable_types==int]%1)).size < 1:
                 # We've found a best solution in this area
-                if z == z_ub:
-                    solution_information = "Solution is not unique"
-                elif z < z_ub:
-                    z_ub = z
+                if z == z_lb:
+                    sol_info = "Solution is not unique"
+                elif z > z_lb:
+                    z_lb = z
                     x = X_B
                     A = A_sol
                     sol_info = solution_information
                 continue
             else:
-                current_node = (first_non_integer, math.ceil(X_B[first_non_integer]))
-                if current_node not in explored_nodes:
-                    cond1 = numpy.zeros((1,n_vars))
-                    cond1[0,first_non_integer+1]=-1
-                    cond1[0][0] = -math.floor(X_B[first_non_integer])
-                    nodes_to_explore.append((puan.ndarray.ge_polyhedron(numpy.append(polyhedron.copy(), cond1, axis=0)), bounds, objective_function))
-                    cond2 = numpy.zeros((1,n_vars))
-                    cond2[0,first_non_integer+1]=1
-                    cond2[0][0] = math.ceil(X_B[first_non_integer])
-                    nodes_to_explore.append((puan.ndarray.ge_polyhedron(numpy.append(polyhedron.copy(), cond2, axis=0)), bounds, objective_function))
-                    explored_nodes.append(current_node)
-        return (z_ub.astype("int"), x, A, sol_info)
+                first_non_integer = numpy.argwhere(numpy.nan_to_num(X_B*[self.variable_types==int]%1))[0][1]
+                if bounds not in explored_nodes:
+                    bounds_1 = bounds.copy()
+                    bounds_1[first_non_integer] = (bounds[first_non_integer][0], math.floor(X_B[first_non_integer]), int)
+                    nodes_to_explore.append((polyhedron.copy(), bounds_1, objective_function))
+                    bounds_2 = bounds.copy()
+                    bounds_2[first_non_integer] = (math.ceil(X_B[first_non_integer]), bounds[first_non_integer][1], int)
+                    nodes_to_explore.append((polyhedron.copy(), bounds_2, objective_function))
+                    explored_nodes.append(bounds)
+        if (self.variable_types==int).all():
+            z_lb = int(z_lb)
+        if sol_info == "No feasible solution exists":
+            z_lb = None
+        return (z_lb, x, A, sol_info)
 
 our_revised_simplex = Our_simplex_solver()
