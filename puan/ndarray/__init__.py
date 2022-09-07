@@ -9,7 +9,7 @@ import operator
 import maz
 import math
 import puan
-import puan.npufunc as npufunc
+#import puan.ndarray.npufunc as npufunc
 import sys
 
 
@@ -1242,7 +1242,7 @@ class integer_ndarray(variable_ndarray):
                 # Sort values of each row and omit zero values
                 ufunc_inp = ufunc_inp[numpy.arange(self_reduced_abs.shape[0]).reshape(-1,1), ufunc_inp_sorted_args]
                 ufunc_inp = ufunc_inp[ufunc_inp != 0].flatten()
-                values = npufunc.optimized_bit_allocation_64(ufunc_inp.astype(numpy.int64))
+                values = []#npufunc.optimized_bit_allocation_64(ufunc_inp.astype(numpy.int64))
                 # Update values with optimized bit allocation values
                 self_reduced_abs_sorted[self_reduced_abs_sorted != 0] = values
                 # Get reversed sorting
@@ -1725,3 +1725,5 @@ neglect_columns =               ge_polyhedron.neglect_columns
 separable =                     ge_polyhedron.separable
 ineq_separate_points =          ge_polyhedron.ineq_separate_points
 ndint_compress =                integer_ndarray.ndint_compress
+
+def test(): return 1

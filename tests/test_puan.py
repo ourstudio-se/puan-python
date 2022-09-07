@@ -2346,3 +2346,215 @@ def test_logicfunc_with_truth_table():
             b = puan.logic.plog._CompoundConstraint(*puan.logic.plog.logicfunc.transform(*constraint)).satisfied(state)
             assert a==b
 
+
+    assumed = model.assume({"t": 12})[0].to_polyhedron(True)
+    assert all(assumed.A.dot(assumed.construct(*{"x": 1, "y": 1, "z": 1}.items())) >= assumed.b)
+    assert not all(assumed.A.dot(assumed.construct(*{"x": 1, "y": 1}.items())) >= assumed.b)
+    assert not all(assumed.A.dot(assumed.construct(*{"x": 1, "z": 1}.items())) >= assumed.b)
+    assert not all(assumed.A.dot(assumed.construct(*{"z": 1, "y": 1}.items())) >= assumed.b)
+    assert not all(assumed.A.dot(assumed.construct(*{"x": 1}.items())) >= assumed.b)
+    assert not all(assumed.A.dot(assumed.construct(*{"y": 1}.items())) >= assumed.b)
+    assert not all(assumed.A.dot(assumed.construct(*{"z": 1}.items())) >= assumed.b)
+
+def test_our_simplex():
+    test_cases = [
+        #(
+        #   input    
+        #   (
+        #       polyhedron,
+        #       objective_function
+        #   ),
+        #   expected_output
+        #   (
+        #       z*, value of objective function at optimum solution
+        #       x*, value of variables at optimum solution
+        #       A*, pivoted matrix A at optimum solution
+        #       solution_information
+        #   )
+        # ),
+        (
+            # Input
+            (
+                puan.ndarray.ge_polyhedron(numpy.array([[-3600, -7, -10], [-5400, -16, -12]]), variables=[puan.variable("x1", int, False, 0, numpy.inf), puan.variable("x2", int, False, 0, numpy.inf)]),
+                numpy.array([20, 18])
+            ),
+            # Solution with fractional numbers
+            (   
+                7531.57894736842,
+                numpy.array([142.10526316, 260.52631579]),
+                numpy.array([
+                    [ 0.00000000e+00,  1.00000000e+00,  2.10526316e-01, -9.21052632e-02],
+                    [ 1.00000000e+00, -1.11022302e-16, -1.57894737e-01, 1.31578947e-01]
+                ]),
+                'Solution is unique'
+            )
+        ),
+        (
+            # Input
+            (
+                puan.ndarray.ge_polyhedron(numpy.array([[-80000, -30, -30, -30], [-80000, -25, -50, -45], [-57000, -30, 0, 0], [-84000, 0, -60, -50]]), variables=[puan.variable("x1", int, False, 0, numpy.inf), puan.variable("x2", int, False, 0, numpy.inf)]),
+                numpy.array([12000, 19000, 18000])
+            ),
+            # Expected output
+            (
+                35800000.0,
+                numpy.array([1900, 0, 722.22]),
+                numpy.array([
+                    [ 1.22124533e-15, -3.33333333e+00, -4.24351912e-15, 1.00000000e+00, -6.66666667e-01, -4.44444444e-01, -1.82570008e-17],
+                    [ 1.00000000e+00,  2.40548322e-18,  1.15648232e-17, 0.00000000e+00,  2.86807615e-18,  3.33333333e-02, -2.34997207e-18],
+                    [-4.44089210e-16,  4.44444444e+00,  7.10542736e-15, 0.00000000e+00, -1.11111111e+00,  9.25925926e-01, 1.00000000e+00],
+                    [-5.55111512e-17,  1.11111111e+00,  1.00000000e+00, 0.00000000e+00,  2.22222222e-02, -1.85185185e-02, 0.00000000e+00]
+                ]),
+                'Solution is unique'
+            )
+        ),
+        (
+            # Origo is not a BFS, phase I and II required to find a solution
+            (
+                puan.ndarray.ge_polyhedron(numpy.array([[1, 2, -1, -1], [-5, -2, -1, 0], [1, 0, -1, 1], [-1, 0, 1, -1]]), variables=[puan.variable("b", int, True, -numpy.inf, numpy.inf), puan.variable("x1", int, False, 0, numpy.inf), puan.variable("x2", int, False, 0, numpy.inf ), puan.variable("x3", int, False, 0, numpy.inf )]),
+                numpy.array([-2, 1, 1])
+            ),
+            (
+                -3,
+                numpy.array([1, 0, 1]),
+                numpy.array([
+                    [ 1. , -1. ,  0. , -0.5,  0. , -0.5,  0. ,  0.5,  0.5],
+                    [ 0. ,  3. ,  0. ,  1. ,  1. ,  1. ,  0. , -1. , -1. ],
+                    [ 0. , -1. ,  1. ,  0. ,  0. , -1. ,  0. ,  0. ,  1. ],
+                    [ 0. ,  0. ,  0. ,  0. ,  0. ,  1. ,  1. ,  0. , -1. ]
+                ]),
+                'Solution is unique'
+            )
+        ),
+        (
+            # Problem with degenerate solutions along the solving path
+            (
+                puan.ndarray.ge_polyhedron(numpy.array([[-2, -1, 1], [-4, -2, 1], [-2, 0, -1]]), variables=[puan.variable("b", int, True, -numpy.inf, numpy.inf), puan.variable("x1", int, False, 0, numpy.inf), puan.variable("x2", int, False, 0, numpy.inf )]),
+                numpy.array([1, 1])
+            ),
+            (
+                5,
+                numpy.array([3, 2]),
+                numpy.array([
+                    [ 1. ,  0. ,  0. ,  0.5,  0.5],
+                    [ 0. ,  1. ,  0. ,  0. ,  1. ],
+                    [ 0. ,  0. ,  1. , -0.5,  0.5]
+                ]),
+                'Solution is unique'
+            )
+        ),
+        (
+            # Another problem with degenerate solutions along the solving path
+            (
+                puan.ndarray.ge_polyhedron(numpy.array([[-8, -1, -1, 0], [0, 0, 1, -1]]), variables=[puan.variable("b", int, True, -numpy.inf, numpy.inf), puan.variable("x1", int, False, 0, numpy.inf), puan.variable("x2", int, False, 0, numpy.inf ), puan.variable("x3", int, False, 0, numpy.inf )]),
+                numpy.array([1, 1, 1])
+            ),
+            (
+                16,
+                numpy.array([0, 8, 8]),
+                numpy.array([
+                    [1., 1., 0., 1., 0.],
+                    [1., 0., 1., 1., 1.]
+                ]),
+                'Solution is unique'
+            )
+        ),
+        (
+            (
+                puan.ndarray.ge_polyhedron(numpy.array([[-1, -1, -1]]), variables=[puan.variable("b", int, True, -numpy.inf, numpy.inf), puan.variable("x1", int, False, 0, numpy.inf), puan.variable("x2", int, False, 0, numpy.inf )]),
+                numpy.array([1, 1])
+            ),
+            (
+                1,
+                numpy.array([1, 0]),
+                puan.ndarray.integer_ndarray([[1., 1., 1.]]),
+                'Solution is not unique'
+            )
+        ),
+        (
+            (
+                puan.ndarray.ge_polyhedron(numpy.array([[-100, -2, -1], [-80, -1, -1]]), variables=[puan.variable("b", int, True, -numpy.inf, numpy.inf), puan.variable("x1", int, False, 0, 40), puan.variable("x2", int, False, 0, numpy.inf )]), 
+                numpy.array([30, 20])
+            ),
+            (
+                1800,
+                numpy.array([20, 60]),
+                numpy.array([
+                    [ 0.,  1., -1.,  2.],
+                    [ -1.,  0., -1.,  1.]
+                ]),
+                'Solution is unique'
+            )
+        )
+        
+    ]
+
+    for (input, expected_output) in test_cases:
+        actual = puan.solver.our_revised_simplex(*input)
+        assert actual[0] == expected_output[0]
+        assert numpy.allclose(actual[1], expected_output[1])
+        assert numpy.allclose(actual[2], expected_output[2])
+        assert actual[3] == expected_output[3]
+
+    # Unbounded problem
+    objective_function = numpy.array([1, 1])
+    polyhedron = puan.ndarray.ge_polyhedron(numpy.array([[-3, 0, -1]]), variables=[puan.variable("b", int, True, -numpy.inf, numpy.inf), puan.variable("x1", int, False, 0, numpy.inf), puan.variable("x2", int, False, 0, numpy.inf )])
+    expected = (numpy.inf, numpy.array([numpy.inf, 0]), 'Solution is unique')
+    actual = puan.solver.our_revised_simplex(polyhedron, objective_function)
+    assert actual[0] == expected[0]
+    assert numpy.allclose(actual[1], expected[1])
+    assert actual[3] == expected[2]
+
+    # No feasible solution
+    objective_function = numpy.array([1, 1])
+    polyhedron = puan.ndarray.ge_polyhedron(numpy.array([[-1, -1, -1], [0, 1, -1], [2, 0, 1]]), variables=[puan.variable("b", int, True, -numpy.inf, numpy.inf), puan.variable("x1", int, False, 0, numpy.inf), puan.variable("x2", int, False, 0, numpy.inf )])
+    expected = (None, None, None, "No feasible solution exists")
+    actual = puan.solver.our_revised_simplex(polyhedron, objective_function)
+    assert actual == expected
+
+def test_our_land_doig_dankins():
+    test_cases = [
+        (
+            (
+                puan.ndarray.ge_polyhedron(numpy.array([[-100, -2, -1], [-80, -1, -1], [-40, -1, 0]]), variables=[puan.variable("b", int, True, -numpy.inf, numpy.inf), puan.variable("x1", int, False, 0, numpy.inf), puan.variable("x2", int, False, 0, numpy.inf )]),
+                numpy.array([30, 20])
+            ),
+            (
+                1800,
+                numpy.array([20, 60]),
+                numpy.array([
+                    [ 0.,  1., -1.,  2.,  0.],
+                    [ 0.,  0., -1.,  1.,  1.],
+                    [ 1.,  0.,  1., -1.,  0.]
+                ]),
+                'Solution is unique'
+            )
+        ),
+        (
+            (
+                puan.ndarray.ge_polyhedron(numpy.array([[-22, -11, 8], [0, 11, -12]]), variables=[puan.variable("b", int, True, -numpy.inf, numpy.inf), puan.variable("x1", int, False, 0, numpy.inf), puan.variable("x2", int, False, 0, numpy.inf )]),
+                numpy.array([1, 1])
+            ),
+            (
+                7,
+                numpy.array([4, 3]),
+                numpy.array([
+                    [  1.,   0.,   0.,   0.,   0.,   0.,   0.,   1.,   0.],
+                    [  0.,   0.,   0.,   1.,   0.,   0.,   0.,  11., -12.],
+                    [  0.,   0.,   0.,   0.,   1.,   0.,   0.,   0.,  -1.],
+                    [  0.,   0.,   0.,   0.,   0.,   1.,   0.,  -1.,   0.],
+                    [  0.,   0.,   0.,   0.,   0.,   0.,   1.,   0.,  -1.],
+                    [  0.,   1.,   0.,   0.,   0.,   0.,   0.,   0.,   1.],
+                    [  0.,   0.,   1.,   0.,   0.,   0.,   0., -11.,   8.]
+                ]),
+                'Solution is unique'
+            )
+        )
+    ]
+
+    for (input, expected_output) in test_cases:
+        actual = puan.solver.our_land_doig_dankins(*input)
+        assert actual[0] == expected_output[0]
+        assert numpy.allclose(actual[1], expected_output[1])
+        assert numpy.allclose(actual[2], expected_output[2])
+        assert actual[3] == expected_output[3]

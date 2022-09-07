@@ -26,6 +26,8 @@ class variable(object):
     id: str
     dtype: typing.Union[bool, int]
     virtual: bool
+    lb: int
+    ub: int
 
     def __hash__(self):
         return hash(self.id)
@@ -40,7 +42,7 @@ class variable(object):
         return dataclasses.asdict(self)
 
     @staticmethod
-    def from_strings(*variables: typing.List[str], dtype_default: typing.Union[bool, int] = 0, virtual_default: bool = False) -> typing.List["variable"]:
+    def from_strings(*variables: typing.List[str], dtype_default: typing.Union[bool, int] = 0, virtual_default: bool = False, lower_bound_default = 0, upper_bound_default = 1) -> typing.List["variable"]:
 
         """
             Returns a list of puan.variable from a list of strings (id's)
@@ -62,10 +64,10 @@ class variable(object):
                 out : typing.List[variable]
         """
 
-        return sorted(map(lambda v: variable(v, dtype_default, virtual_default), variables))
+        return sorted(map(lambda v: variable(v, dtype_default, virtual_default, lower_bound_default, upper_bound_default), variables))
 
     @staticmethod
-    def from_mixed(*variables: typing.List[typing.Union[str, int, tuple, list, "variable"]], dtype_default : typing.Union[bool, int] = 0, virtual_default: bool = False) -> typing.List["variable"]:
+    def from_mixed(*variables: typing.List[typing.Union[str, int, tuple, list, "variable"]], dtype_default : typing.Union[bool, int] = 0, virtual_default: bool = False, lower_bound_default = 0, upper_bound_default = 1) -> typing.List["variable"]:
         
         """
             Returns a list of puan.variable from a list of mixed data type.
@@ -98,6 +100,8 @@ class variable(object):
                         str(v), 
                         dtype=dtype_default, 
                         virtual=virtual_default,
+                        lb=lower_bound_default,
+                        ub=upper_bound_default
                     ),
                     filter(
                         lambda v: not isinstance(v, variable),
