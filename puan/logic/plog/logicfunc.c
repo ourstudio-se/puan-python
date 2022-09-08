@@ -157,7 +157,7 @@ static PyObject* compress_two_disjunctions(PyObject* constraint1, PyObject* cons
         if (ctype2 == 1){
             return generate_result(build_PyConstraintTuple(PyTuple_GetItem(constraint1, 0), PyTuple_GetItem(constraint1, 1), 1, PyTuple_GetItem(constraint2, 0), PyTuple_GetItem(constraint2, 1), 1, 1, constr_id), 1L, 1L, constr_id);
         } else if (ctype2 == 2 ){
-            return generate_result(build_PyConstraintTuple(PyTuple_GetItem(constraint1, 0), PyTuple_GetItem(constraint1, 1), n2, PyTuple_GetItem(constraint2, 0), PyTuple_GetItem(constraint2, 1), -1, 0, constr_id), 1L, 1L, constr_id);
+            return generate_result(build_PyConstraintTuple(PyTuple_GetItem(constraint1, 0), PyTuple_GetItem(constraint1, 1), 1, PyTuple_GetItem(constraint2, 0), PyTuple_GetItem(constraint2, 1), -1, PyLong_AsLong(PyTuple_GetItem(constraint2, 3)), constr_id), 1L, 1L, constr_id);
         } else if (ctype2 == 3 || ctype2 == 6){
             return generate_result(build_PyConstraintTuple(PyTuple_GetItem(constraint1, 0), PyTuple_GetItem(constraint1, 1),  n2, PyTuple_GetItem(constraint2, 0), PyTuple_GetItem(constraint2, 1), -1, PyLong_AsLong(PyTuple_GetItem(constraint2, 3)), constr_id), 1L, 1L, constr_id);
         } else if (ctype2 == 4 || ctype2 == 5){
@@ -176,7 +176,7 @@ static PyObject* compress_two_disjunctions(PyObject* constraint1, PyObject* cons
         if (ctype2 == 2){
             return generate_result(build_PyConstraintTuple(PyTuple_GetItem(constraint1, 0), PyTuple_GetItem(constraint1, 1), -n2, PyTuple_GetItem(constraint2, 0), PyTuple_GetItem(constraint2, 1), -1, -n2*(labs(PyLong_AsLong(PyTuple_GetItem(constraint1, 3)))+1)-labs(PyLong_AsLong(PyTuple_GetItem(constraint2, 3))), constr_id), 1L, 1L, constr_id);
         } else if (ctype2 == 3){
-            return generate_result(build_PyConstraintTuple(PyTuple_GetItem(constraint1, 0), PyTuple_GetItem(constraint1, 1), -1, PyTuple_GetItem(constraint2, 0), PyTuple_GetItem(constraint2, 1), -n1, -n1*n2, constr_id), 1L, 1L, constr_id);
+            return generate_result(build_PyConstraintTuple(PyTuple_GetItem(constraint1, 0), PyTuple_GetItem(constraint1, 1), -n2, PyTuple_GetItem(constraint2, 0), PyTuple_GetItem(constraint2, 1), -1, -n1*n2, constr_id), 1L, 1L, constr_id);
         } else if (ctype2 == 4 || ctype2 == 5){
             return generate_result(build_PyConstraintTuple(PyTuple_GetItem(constraint1, 0), PyTuple_GetItem(constraint1, 1), -n2, PyTuple_GetItem(constraint2, 0), PyTuple_GetItem(constraint2, 1), 1, -n2*(labs(PyLong_AsLong(PyTuple_GetItem(constraint1, 3)))+1)+PyLong_AsLong(PyTuple_GetItem(constraint2, 3)), constr_id), 1L, 1L, constr_id);
         } else if (ctype2 == 6){
@@ -565,7 +565,7 @@ static PyObject* compress_two_conjunctions(PyObject* constraint1, PyObject* cons
                 return return_this;
             }
         } else if (ctype2 == 3){
-            return generate_result(build_PyConstraintTuple(PyTuple_GetItem(constraint1, 0), PyTuple_GetItem(constraint1, 1), 1, PyTuple_GetItem(constraint2, 0), PyTuple_GetItem(constraint2, 1), n1, PyLong_AsLong(PyTuple_GetItem(constraint1, 3)), constr_id), 1L, 1L, constr_id);
+            return generate_result(build_PyConstraintTuple(PyTuple_GetItem(constraint1, 0), PyTuple_GetItem(constraint1, 1), 1, PyTuple_GetItem(constraint2, 0), PyTuple_GetItem(constraint2, 1), -n1, PyLong_AsLong(PyTuple_GetItem(constraint1, 3)), constr_id), 1L, 1L, constr_id);
         } else if (ctype2 == 4 ){
             return generate_result(build_PyConstraintTuple(PyTuple_GetItem(constraint1, 0), PyTuple_GetItem(constraint1, 1), 1, PyTuple_GetItem(constraint2, 0), PyTuple_GetItem(constraint2, 1), n1, n1*n2 + PyLong_AsLong(PyTuple_GetItem(constraint1, 3)), constr_id), 1L, 1L, constr_id);
         } else {
@@ -701,7 +701,7 @@ static PyObject * transform_two_conjunctions(PyObject* constraint1, PyObject* co
 
     if (ctype1 > ctype2)
         return transform_two_conjunctions(constraint2, constraint1, constr_id, allow_mc);
-    else if (ctype1 == 3 || ctype1 == 4 || ctype2 == 3 || ctype2 == 4 || (ctype1 == 5 && ctype2 == 6))
+    else if (ctype1 == 3 || ctype1 == 4 || ctype2 == 3 || ctype2 == 4)
         return compress_two_conjunctions(constraint1, constraint2, constr_id);
     else if (ctype1 == 1){
         if (allow_mc){
