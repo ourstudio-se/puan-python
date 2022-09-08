@@ -1248,13 +1248,16 @@ def from_b64(base64_str: str) -> typing.Any:
         -------
             out : dict
     """
-    return pickle.loads(
-        gzip.decompress(
-            base64.b64decode(
-                base64_str.encode()
+    try:
+        return pickle.loads(
+            gzip.decompress(
+                base64.b64decode(
+                    base64_str.encode()
+                )
             )
         )
-    )
+    except:
+        raise Exception("could not decompress and load polyhedron from string: version mismatch.")
 
 def delinearize(variables: list, row: numpy.ndarray, index: puan.variable) -> tuple:
     """

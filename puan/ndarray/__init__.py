@@ -1693,15 +1693,18 @@ class ge_polyhedron_config(ge_polyhedron):
             -------
                 out : dict
         """
-        return ge_polyhedron_config(
-            *pickle.loads(
-                gzip.decompress(
-                    base64.b64decode(
-                        base64_str.encode()
+        try:
+            return ge_polyhedron_config(
+                *pickle.loads(
+                    gzip.decompress(
+                        base64.b64decode(
+                            base64_str.encode()
+                        )
                     )
                 )
             )
-        )
+        except:
+            raise Exception("could not decompress and load polyhedron from string: version mismatch.")
 
 
 """
