@@ -2275,6 +2275,8 @@ def test_default_prio_vector_weights():
 def test_logicfunc_with_truth_table():
     constraints = [
             ((2, 1, [((0, 0, 0), (1, 2, 3), (1, 1, 1), 3, 6), ((0, 0, 0), (1, 0, 4), (1, 1, 1), 3, 7)], 0), True),
+            ((1, 1, [((0, 0, 0), (1, 2, 3), (1, 1, 1), 1, 4), ((0, 0), (1, 6), (1, 1), 1, 7)], 0), True),
+            ((1, 1, [((0, 0, 0), (1, 2, 3), (-1, -1, -1), -2, 4), ((0, 0, 0, 0), (1, 2, 3, 8), (-1, -1, -1, -1), 0, 9)], 0), True),
             ((1, 1, [((0, 0, 0), (1, 2, 3), (1, 1, 1), 1, 4), ((0, 0), (5, 6), (1, 1), 1, 7)], 0), True),
             ((1, 1, [((0, 0, 0), (1, 2, 3), (1, 1, 1), 1, 4), ((0, 0, 0, 0), (5, 6, 7, 8), (-1, -1, -1, -1), -3, 9)], 0), True),
             ((1, 1, [((0, 0, 0), (1, 2, 3), (1, 1, 1), 1, 4), ((0, 0, 0, 0), (5, 6, 7, 8), (-1, -1, -1, -1), 0, 9)], 0), True),
@@ -2330,7 +2332,7 @@ def test_logicfunc_with_truth_table():
                 ((0,), (4,), (1,), 1, 8)], 0), True),
         
     ]
-    #constraints = [((1, 1, [((0, 0, 0), (1, 2, 3), (-1, -1, -1), 0, 4), ((0, 0), (5, 6), (1, 1), 2, 9)], 0), False)]
+
     for constraint in constraints:
         original_cc = puan.logic.plog._CompoundConstraint(*constraint[0])
         indices = tuple(set(itertools.chain.from_iterable(map(lambda x: x.index, original_cc.constraints))))

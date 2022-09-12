@@ -63,33 +63,61 @@ static PyObject* build_PyConstraintTuple(PyObject* var_type1, PyObject* indices1
         return NULL;
     long n1 = (long)PyTuple_Size(indices1);
     long n2 = (long)PyTuple_Size(indices2);
-    PyObject* var_types = PyTuple_New(n1+n2);
+    long n = n1+n2;
+    long equal_elements[2*n2];
+    long equal_elements_counter = 0;
+    for (long i=0; i<n1; i++){
+        for (long j=0; j<n2; j++){
+            if (PyTuple_GetItem(indices1, i) == PyTuple_GetItem(indices2, j)){
+                n--;
+                equal_elements[equal_elements_counter] = i;
+                equal_elements_counter++;
+                equal_elements[equal_elements_counter] = j;
+                equal_elements_counter++;
+            }
+        } 
+    }
+    PyObject* var_types = PyTuple_New(n);
     if (var_types == NULL){
         Py_DECREF(constraint_tuple);
         return NULL;
     }
-    PyObject* indices = PyTuple_New(n1+n2);
+    PyObject* indices = PyTuple_New(n);
     if (indices == NULL){
         Py_DECREF(constraint_tuple);
         Py_DECREF(var_types);
         return NULL;
     }
-    PyObject* values = PyTuple_New(n1+n2);
+    PyObject* values = PyTuple_New(n);
     if (values == NULL){
         Py_DECREF(constraint_tuple);
         Py_DECREF(var_types);
         Py_DECREF(indices);
         return NULL;
     }
+    long equal_elements_counter2 = 0;
+
     for (long i = 0; i < n1; i++){
         PyTuple_SetItem(var_types, i, Py_NewRef(PyTuple_GetItem(var_type1, i)));
         PyTuple_SetItem(indices, i, Py_NewRef(PyTuple_GetItem(indices1, i)));
-        PyTuple_SetItem(values, i, PyLong_FromLong(constant1));
+        if (equal_elements_counter > equal_elements_counter2 && i == equal_elements[equal_elements_counter2]){
+            PyTuple_SetItem(values, i, PyLong_FromLong(constant1 + constant2));
+            equal_elements_counter2 = equal_elements_counter2+2;
+        } else {
+            PyTuple_SetItem(values, i, PyLong_FromLong(constant1));
+        }
     }
+    equal_elements_counter2 = 1;
+    long corrector = 0;
     for (long i=0; i < n2; i++){
-        PyTuple_SetItem(var_types, n1+i, Py_NewRef(PyTuple_GetItem(var_type2, i)));
-        PyTuple_SetItem(indices, n1+i, Py_NewRef(PyTuple_GetItem(indices2, i)));
-        PyTuple_SetItem(values, n1+i, PyLong_FromLong(constant2));
+        if (equal_elements_counter == 0 || equal_elements[equal_elements_counter2] != i) {
+            PyTuple_SetItem(var_types, n1+i+corrector, Py_NewRef(PyTuple_GetItem(var_type2, i)));
+            PyTuple_SetItem(indices, n1+i+corrector, Py_NewRef(PyTuple_GetItem(indices2, i)));
+            PyTuple_SetItem(values, n1+i+corrector, PyLong_FromLong(constant2));
+        } else {
+            equal_elements_counter2 = equal_elements_counter2+2;
+            corrector--;
+        }
     }
     PyTuple_SetItem(constraint_tuple, 0, var_types);
     PyTuple_SetItem(constraint_tuple, 1, indices);
