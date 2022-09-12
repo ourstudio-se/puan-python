@@ -78,9 +78,9 @@ class _Constraint(tuple):
                     self.id
                 )
 
-    def satisfied(self, state):
-        indx = [state[0].index(x) for x in self.index if x in state[0]]
-        return sum(map(lambda x: self.values[x]*state[1][indx[x]], range(len(indx)))) >= self.b
+    def satisfied(self, configuration: tuple) -> bool:
+        indx = [configuration[0].index(x) for x in self.index if x in configuration[0]]
+        return sum(map(lambda x: self.values[x]*configuration[1][indx[x]], range(len(indx)))) >= self.b
 
 class _CompoundConstraint(tuple):
 
@@ -140,8 +140,8 @@ class _CompoundConstraint(tuple):
     def compose(*constraints, b: int, sign: int, id: int):
         return _CompoundConstraint(b, sign, map(maz.compose(operator.itemgetter(0), operator.attrgetter("constraints")), constraints), id)
 
-    def satisfied(self, state: tuple) -> bool:
-        return sum(map(lambda x: x.satisfied(state), self.constraints)) >= self.b
+    def satisfied(self, configuration: tuple) -> bool:
+        return sum(map(lambda x: x.satisfied(configuration), self.constraints)) >= self.b
 
 @dataclass(frozen=True, repr=False)
 class Proposition(puan.variable, list):
