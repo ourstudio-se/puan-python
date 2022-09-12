@@ -2344,7 +2344,7 @@ def test_logicfunc_with_truth_table():
         states = list(zip(itertools.repeat(indices, len(values)), map(tuple,values)))
         for state in states:
             a = original_cc.satisfied(state)
-            b = puan.logic.plog._CompoundConstraint(*puan.logic.plog.logicfunc.transform(*constraint)).satisfied(state)
+            b = puan.logic.plog._CompoundConstraint(*lf.transform(*constraint)).satisfied(state)
             assert a==b
 
 
