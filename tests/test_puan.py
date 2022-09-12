@@ -2348,14 +2348,6 @@ def test_logicfunc_with_truth_table():
             assert a==b
 
 
-    assumed = model.assume({"t": 12})[0].to_polyhedron(True)
-    assert all(assumed.A.dot(assumed.construct(*{"x": 1, "y": 1, "z": 1}.items())) >= assumed.b)
-    assert not all(assumed.A.dot(assumed.construct(*{"x": 1, "y": 1}.items())) >= assumed.b)
-    assert not all(assumed.A.dot(assumed.construct(*{"x": 1, "z": 1}.items())) >= assumed.b)
-    assert not all(assumed.A.dot(assumed.construct(*{"z": 1, "y": 1}.items())) >= assumed.b)
-    assert not all(assumed.A.dot(assumed.construct(*{"x": 1}.items())) >= assumed.b)
-    assert not all(assumed.A.dot(assumed.construct(*{"y": 1}.items())) >= assumed.b)
-    assert not all(assumed.A.dot(assumed.construct(*{"z": 1}.items())) >= assumed.b)
 
 def test_our_simplex():
     test_cases = [
