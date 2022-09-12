@@ -2902,7 +2902,7 @@ def test_our_simplex():
                 assert numpy.allclose(ao[2], eo[2])
                 assert ao[3] == eo[3]
         else:
-            assert actual[0] == expected_output[0]
+            assert abs(actual[0] - expected_output[0]) < 0.01
             assert numpy.allclose(actual[1], expected_output[1])
             assert numpy.allclose(actual[2], expected_output[2], rtol=0.000001, atol=0.01)
             assert actual[3] == expected_output[3]
