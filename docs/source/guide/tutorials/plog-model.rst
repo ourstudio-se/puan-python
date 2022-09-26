@@ -1,31 +1,32 @@
+.. _plog-model:
+
 Learn the PLog modelling system
 ===============================
-In this tutorial we're going to learn about the Propositional Logic (PLog for short) modelling system 
-to be able to create propositional logical expressions and use different tools on. We will briefly go through
-the fundamental classes while given some intuitive examples.
+In this tutorial we're going to learn about the Propositional Logic (PLog for short) modelling system. 
+After this tutorial you will know how to create propositional logical expressions and how to apply different tools to them. We will briefly go through
+the fundamental classes and given some intuitive examples.
 
 
 The Fridge Example
 ------------------
-Let say I knew some logical system and wanted to model it quickly and test if an interpretation of that model
-is satisfied or not. For example, my partner and I had created some instructions regarding what to buy given the containments
-of our fridge. This was the instructions
+A logical system can be constructed or applied in a vast variety of fields. In this example we create a logical system
+for what to buy in the grocery store given the containments of our fridge. Those are the instructions
 
 - if the milk is less than half full, then buy new pack of milk
-- always buy a small bag of chips (we eat much chips)
-- if tomatos are less or equal to 3, then buy more
+- always buy a small bag of chips (we eat a lot of chips)
+- if tomatos are less than or equal to 3, then buy more
 - if no cucumber, then buy more
-- tomatoes and cucumbers should not be more than 5 each
+- the amount of tomatoes and cucumbers should not be more than 5 each
 
-To model this, we need first to recognize our variables and what type they should be.
+To model this, we need first to recognize our variables and their type (boolean or integer).
 
-- **milk_half**     : boolean   - since saying if it is half full (in fridge) is a yes or no question
+- **milk_half**     : boolean   - since saying if it is less than half full (in fridge) is a yes or no question
 - **milk_bought**   : boolean   - since saying if it is milk was bought is a yes or no question
 - **chips**         : boolean   - just says bag of chips, no quantity
-- **tomatoes**      : int       - the are restricted in a range between 4-5
-- **cucumbers**     : int       - the are restricted in a range between 1-5
+- **tomatoes**      : int       - they are restricted in a range between 4-5
+- **cucumbers**     : int       - they are restricted in a range between 1-5
 
-So let's set these variables up in code
+Let's see what those definitions looks like in code
 
 .. code:: python
 
@@ -37,7 +38,7 @@ So let's set these variables up in code
     tomatoes    = puan.variable(id="tomatoes",   dtype="int")
     cucumbers   = puan.variable(id="cucumbers",  dtype="int")
 
-Now we need to set up their logical relationships between one another. We start by taking a look at the **milk**. 
+Now we need to define the logical relationships between the items. We start by taking a look at the **milk**. 
 We were waying that if the milk in the fridge is half full, i.e milk_home is True, then it is implied that also the milk is bought, i.e milk_bought is True. 
 This is called an implication:
 
@@ -45,11 +46,11 @@ This is called an implication:
 
    \text{milk_done_right} = \text{milk_home} \rightarrow \text{milk_bought} 
    
-There is a proposition class for this expression called `:class: puan.logic.plog.Imply` and it exist to model an implication. 
-The `Imply` proposition is another essential class in the plog system and it has two properties; a condition and a consequence. 
-The operator says the relationship between the condition and the consequence. For instance, it can say *if milk is half* (condition), then buy more milk (consequence). 
+There is a proposition class for this expression called :class:`puan.logic.plog.Imply` which models an implication. 
+The implication-proposition has two properties; a condition and a consequence where imply is the relation between the condition and the consequence. 
+For instance, we can define *if milk is half* (condition), then buy more milk (consequence). 
 
-So now, let's put it into code.
+Let's put it into code.
 
 .. code:: python
 
@@ -61,10 +62,11 @@ So now, let's put it into code.
         variable="milk_done_right"
     )
 
-*Note that the `id` here is optional and not necessarily used.*
+*Note that the `id` is optional and could be left empty.*
 
-The tomatoes and cucumbers are limited by some integers. Both the number of tomatoes and cucumbers must not be larger than 5.
-And the number of tomatoes should not be less than 2. To model this we do the following
+The number of tomatoes and cucumbers must not be larger than 5 each, and the number of tomatoes should not be less than 2.
+We model this using the proposition classes :class:`puan.logic.plog.AtLeast` and :class:`puan.logic.plog.AtMost`.
+Those classes takes ``proposition`` as input together with a ``value`` defining the upper and lower bound of the propostion respectively.  
 
 .. code:: python
 
@@ -78,12 +80,13 @@ And the number of tomatoes should not be less than 2. To model this we do the fo
     # cucumbers more or equal to 1 
     cucumbers_ge_one = pg.AtLeast(propositions=[cucumbers], value=1, variable="cucumbers_ge_one")
     
-Now if all of these variables are true, then it means that number of tomatoes are between 4-5 and number of cucumbers between 1-5.
-To tie these two expressions we need to plug them into an `Imply` proposition.
+Now if all of these variables are true, then it means that number of tomatoes is between 4-5 and number of cucumbers is between 1-5.
+To tie these two expressions we need to plug them into a so called All-proposition.
+*Note that the All-proposition is a special case of the AtLeast-proposition*.
 
 .. code:: python
 
-    vegestables_ok = pg.All(
+    vegetables_ok = pg.All(
         tomatoes_ge_four,
         tomatoes_le_five,
         cucumbers_le_five,
@@ -102,12 +105,14 @@ Now we can put it all together in a single plog-model
         variable="fridge"
     )
 
-And imagine now that we are going to the store and notice what we have in the fridge:
+*Note how we can create propositions by combining booleans like chips_is_true with more advanced propositions, such as the vegetables_ok, to create a logical system*.
+
+Now it's time to see what we have in the fridge:
 
 - milk is less than half full
 - we have two tomatoes and no cucumbers
 
-we go to the store and check our model with the current shopping cart after we added two tomatoes and one cucumber:
+We head to the store and check our model with the current shopping cart after we added two tomatoes:
 
 .. code:: python
 
@@ -123,7 +128,7 @@ we go to the store and check our model with the current shopping cart after we a
     # >>> False
 
 As expected, the current cart is not valid (we don't have *chips* nor *cucumbers*). Let's pick them from the store and
-check again if we're now ok
+check again if we're ok
 
 .. code:: python
 
@@ -140,4 +145,4 @@ check again if we're now ok
     print(fridge_model.evaluate(new_cart))
     # >>> True
 
-And now we are ready to checkout and go home.
+The model is satisfied and we are ready to checkout and go home.

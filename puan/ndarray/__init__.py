@@ -884,6 +884,54 @@ class ge_polyhedron(variable_ndarray):
             )
         elif points.ndim == 1:
             return ge_polyhedron.ineq_separate_points(numpy.array([points]), self)
+    
+    def ineqs_satisfied(self: numpy.ndarray, points: numpy.ndarray) -> numpy.ndarray:
+        """
+            Checks if the linear inequalities in the polyhedron are satisfied given the points, i.e. :math:`A \\cdot p \\ge b`, given :math:`p` in points.
+
+            Parameters
+            ----------
+                points : numpy.ndarray
+
+            Returns
+            -------
+                out : numpy.ndarray
+                    boolean vector indicating T if linear inequality is satisfied given the point
+
+            Examples
+            --------
+            >>> points = numpy.array([[1, 1], [4, 2]])
+            >>> ge_polyhedron(numpy.array([
+            ...     [ 0, 1, 0],
+            ...     [ 0, 1,-1],
+            ...     [-1,-1, 1]])).ineqs_satisfied(points)
+            boolean_ndarray([1, 0])
+
+            Points in 3-d
+
+            >>> points = numpy.array([
+            ...     [[1, 1, 1],
+            ...      [4, 2, 1]],
+            ...     [[0, 1, 0],
+            ...      [1, 2, 1]]])
+            >>> ge_polyhedron(numpy.array([
+            ...     [ 0, 1, 0,-1],
+            ...     [ 0, 1,-1, 0],
+            ...     [-1,-1, 1,-1]])).ineqs_satisfied(points)
+            array([[1, 0],
+                   [0, 0]])
+
+        """
+        if points.ndim > 2:
+            return numpy.array(
+                list(
+                    map(self.ineqs_satisfied, points)
+                )
+            )
+        elif points.ndim == 2:
+            return boolean_ndarray((numpy.dot(self.A, points.T) >= self.b[:,None]).all(axis=0))
+        elif points.ndim == 1:
+            return ge_polyhedron.ineqs_satisfied(self, numpy.array([points]))[0]
 
     def construct_boolean_ndarray(self: numpy.ndarray, variables: typing.List[str]) -> "boolean_ndarray":
 

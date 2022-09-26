@@ -1,27 +1,34 @@
-Building a Wardrobe Wizard
-==========================
-In this tutorial we are going to use STA-modelling to create a part of a backend for a app called Wardrobe Wizard. The app is for creating 
-outfits based on certain criterias. An outfit ends up in a vast number of combinations and are a perfect example of
-illustrating how to use Puan.
+.. _sta-model:
+
+Learn the STA modelling system
+==============================
+In this tutorial we are going to learn the source-target application or STA modelling. After this tutorial you will know how to
+define an STA model and deduce if it is satisfied given a combination of items.
+
+The Wardrobe Wizard example
+---------------------------
+To demonstrate the STA modelling system we're going to create a part of a backend for an app called Wardrobe Wizard. The purpose of the app is to create 
+outfits from several items based on certain criterias. With a reasonable amout of items the number of outfits ends up in a vast number of combinations and
+therefore this is a perfect example of illustrating how to use Puan.
 
 .. image:: images/release-1.jpg
    :alt: alternate text
    :align: center
 
-Creating an STA-model
+Creating an STA model
 ---------------------
 
-An **outfit** we say must have: 
+An **outfit** must have: 
     - exactly one pair of **shoes**
     - exactly one pair of **bottoms**
     - one or more **top** (s)
     - at most one **hat**
 
-Now we also add some more specific rules to our model:
-    - a **top** is either a **shirt** (exclusive) or a **t-shirt**
-    - **bottoms** are either **shorts** (exclusive) or **trousers**
+Now we add some more specific rules to our model:
+    - a **top** is either a **shirt**, **blouse** or a **t-shirt** (exclusive, i.e. it cannot be both a blouse and a t-shirt)
+    - **bottoms** are either **shorts**, **trousers** or **skirts** (exclusive) 
 
-Now we would like to create an :ref:`STA -model <puan.logic.sta>`. First we create all category items:
+Based on those rules we will create an :ref:`STA model <puan.logic.sta>`. First we define all category items:
 
 .. code:: python
 
@@ -48,32 +55,16 @@ Now we would like to create an :ref:`STA -model <puan.logic.sta>`. First we crea
             }
         },
         {
-            "id": "shirt",
-            "name": "Shirt",
-            "virtual": True,
-            "category": {
-                "id": "outfit"
-            }
-        },
-        {
-            "id": "hat",
-            "name": "Hat",
-            "virtual": True,
-            "category": {
-                "id": "outfit"
-            }
-        },
-        {
-            "id": "t-shirt",
-            "name": "T-Shrit",
-            "virtual": True,
-            "category": {
-                "id": "outfit"
-            }
-        },
-        {
             "id": "shorts",
             "name": "Shorts",
+            "virtual": True,
+            "category": {
+                "id": "bottoms"
+            }
+        },
+        {
+            "id": "skirts",
+            "name": "Skirts",
             "virtual": True,
             "category": {
                 "id": "bottoms"
@@ -87,13 +78,53 @@ Now we would like to create an :ref:`STA -model <puan.logic.sta>`. First we crea
                 "id": "bottoms"
             }
         }
+        {
+            "id": "top",
+            "name": "Top",
+            "virtual": True,
+            "category": {
+                "id": "outfit"
+            }
+        },
+        {
+            "id": "shirt",
+            "name": "Shirt",
+            "virtual": True,
+            "category": {
+                "id": "top"
+            }
+        },
+        {
+            "id": "blouse",
+            "name": "Blouse",
+            "virtual": True,
+            "category": {
+                "id": "top"
+            }
+        },
+        {
+            "id": "t-shirt",
+            "name": "T-Shrit",
+            "virtual": True,
+            "category": {
+                "id": "top"
+            }
+        },
+        {
+            "id": "hat",
+            "name": "Hat",
+            "virtual": True,
+            "category": {
+                "id": "outfit"
+            }
+        },
     ]
 
 
-Notice the "virtual"-property on all these items. We do this to later keep control of what belongs as supporting variables in the model
-and what items we actually care about later when doing different computations.
+Notice the "virtual"-property on all these items. We have this to keep track of the so called supporting variables in the model.
+Typically, supporting variables are not of interest to the end-user, e.g. in this example the end-user is not interested in knowing that **top** is selected but rather which particular top was.
 
-Now we create STA-rules that bound logic relations. The first rule we add will bound a requires-exclusively (xor) relation between an item and its 
+Next we create STA rules for logic relations between the variables in the model. The first rule we add will bound a requires-exclusively (xor) relation between an item and its 
 category item. In other words it says, if the category is selected then select exactly one of the items having that category.
 
 .. code:: python
@@ -122,7 +153,15 @@ category item. In other words it says, if the category is selected then select e
             },
             {
                 "key": "variable",
+                "value": "skirts"
+            },
+            {
+                "key": "variable",
                 "value": "shirt"
+            },
+            {
+                "key": "variable",
+                "value": "blouse"
             },
             {
                 "key": "variable",
@@ -198,7 +237,15 @@ The second rule binds back from the items to their category item.
             },
             {
                 "key": "variable",
+                "value": "skirt"
+            },
+            {
+                "key": "variable",
                 "value": "shirt"
+            },
+            {
+                "key": "variable",
+                "value": "blouse"
             },
             {
                 "key": "variable",
@@ -258,15 +305,16 @@ The second rule binds back from the items to their category item.
         }
     }
 
-Now we can compile into propositions and/or a polyhedron undependent on new items.
+Given those rules it is possible to compile into propositions and/or a polyhedron which is used to compute valid combinations.
+Yet the model is independent on items, which makes it very convenient to update the supply of items.
 
 .. code:: python
 
     import puan.logic.sta as sta
     import puan.logic.cic as cc
 
-    # We assume items come from some other source...
-    # but hardcode some items here
+    # In the real application items come from some other source...
+    # but for this example we hardcode a subset of the items here
     non_virtual_items = [
         {
             "id": "black_trousers",
@@ -319,24 +367,21 @@ Now we can compile into propositions and/or a polyhedron undependent on new item
         },
     ]
     
-    # Add together all items
+    # Join the virtual and non-virtual items
     items = virtual_items + non_virtual_items
     sta_rules = [rule1, rule2]
 
     # Compile into a conjunctional proposition
     conj_prop = sta.application.to_conjunctional_implication_proposition(sta_rules, items)
 
-    # Check if some combination is valid
+    # Check if a particular combination is valid
     polyhedron = conj_prop.to_polyhedron()
-
-    # Combination is not separable meaning it is inside the polyhedron
-    assert not polyhedron.separable(
+    assert polyhedron.ineqs_satisfied(
         polyhedron.construct_boolean_ndarray([
             "converse",
             "black_trousers",
             "white_t_shirt",
             "black_hat_with_cool_label",
-            
             "hat",
             "bottoms",
             "outfit",
@@ -347,7 +392,7 @@ Now we can compile into propositions and/or a polyhedron undependent on new item
         ])
     )
 
-We check at the end if my outfit of Converse shoes, a pair of black trousers, a white t-shirt and a cool black hat is considered to be an
+In the last step we check if my outfit of Converse shoes, a pair of black trousers, a white t-shirt and a cool black hat is considered to be a valid
 outfit in this model.
 
 Finding specific solution (with a solver)
@@ -355,10 +400,11 @@ Finding specific solution (with a solver)
 
 .. _npycvx: https://github.com/ourstudio-se/puan-npycvx
 
-It is easy to check if a model satisfies a specific combination. But since the combination space tends to be very large, finding a specific one is hard. 
-To find one in this context, we use a mixed integer linear programming solver and for this specific example we use `NpyCVX <npycvx>`.
+It is easy to check if a given combination is satisfied for a given model. But finding a specific combination is hard since the combination space tends to be very large.
+Puan converts the logic model into a mixed integer linear program to which a solver can be applied in order to find specific combinations.  
+For this specific example we use the `NpyCVX <npycvx>` solver.
 
-Using the same model, we now want to try and find the outfit with as much clothes on as possible. 
+Using the same model as previously defined, we now want to find the outfit with as much clothes as possible. 
 
 .. code:: python
 
@@ -368,7 +414,7 @@ Using the same model, we now want to try and find the outfit with as much clothe
     # We convert our polyhedron into cvxopt's constraints format 
     problem = npycvx.convert_numpy(*polyhedron.to_linalg())
 
-    # Here we compute the search and tries to find an outfit with as much clothes as possible (maximizing positive one-vector)
+    # Here we solve the linear program to find an outfit with as much clothes as possible (maximizing positive one-vector)
     status, solution = npycvx.solve_lp(*problem, False, numpy.ones(len(polyhedron.A.variables)))
 
     if status == "optimal":
