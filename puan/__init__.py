@@ -23,9 +23,9 @@ class variable(object):
         A virtual variable is a variable that has been created along some reduction and is not (necessary) interesting for the user.
     """
 
-    id: str
-    dtype: typing.Union[bool, int]
-    virtual: bool
+    id: str = None
+    bounds: typing.Tuple[int, int] = (0, 1)
+    virtual: bool = False
 
     def __hash__(self):
         return hash(self.id)
