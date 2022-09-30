@@ -548,7 +548,7 @@ class application(dict):
             ...         }
             ...     }
             ... ])
-            All(id='VARea34...', equation='+VAR0aad...+VAR639a...+VARdc40...>=3')
+            VARc0c57da36fa89c0a63e29a0799e9784d0c4e14808d4fd7eff31504db16bdbe58: +(VAR72bdbb0fcce67b453ee7f6dcc3ae4650d8866abdf06304d896897d9e5387f98d,VAR9483070ee5135b4561fff001c86b8d5f63ec3cf365b647db7742fb5bff20994f,VARb4cbd329edd6bade659ddd0852a5133e9ccb884145600231bb9366d0639656ba)>=3
     """
         n_ge_one = functools.partial(filter, maz.compose(maz.pospartial(operator.ge, [(1,1)]), len))
         return pg.All(
@@ -594,7 +594,7 @@ class application(dict):
                     application._explode_from_variables(self)
                 )
             ),
-            id=model_id,
+            variable=model_id,
         )
 
     # @staticmethod

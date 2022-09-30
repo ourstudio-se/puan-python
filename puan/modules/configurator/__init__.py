@@ -20,7 +20,7 @@ class Any(pg.Any):
         and prio is set to c > A'.
     """
 
-    def __init__(self, *propositions, default: str = None, id: str = None):
+    def __init__(self, *propositions, default: str = None, variable: typing.Union[puan.variable, str] = None):
         self.default = default
         if default is not None:
             inner = pg.Any(
@@ -30,33 +30,32 @@ class Any(pg.Any):
             super().__init__(
                 *filter(lambda x: x == default, propositions),
                 inner,
-                id=id,
+                variable=variable,
             )
         else:
-            super().__init__(*propositions, id=id)
+            super().__init__(*propositions, variable=variable)
 
     def to_json(self) -> dict:
         d = super().to_json()
         # currently we only care about first element since no implementation
         # to handle list of defaults (like a prio list). But since future may include list of 
         # defaults, we keep interface as list
-        if any(map(operator.attrgetter("virtual"), self.propositions)):
-            defaults = list(filter(maz.compose(operator.not_, operator.attrgetter("virtual")), self.propositions))
-            if defaults:
-                default_prop = defaults[0]
-                non_default_prop = next(filter(operator.attrgetter("virtual"), self.propositions))
-                d['propositions'] = list(
-                    itertools.chain(
-                        map(operator.methodcaller("to_json"), non_default_prop.propositions),
-                        [default_prop.to_json()]
-                    )
+        defaults = list(filter(lambda x: hasattr(x, "prio"), self.propositions))
+        if defaults:
+            non_default_prop = next(filter(operator.attrgetter("virtual"), self.propositions))
+            d['propositions'] = list(
+                itertools.chain(
+                    map(operator.methodcaller("to_json"), non_default_prop.propositions),
+                    [default_prop.to_json()]
                 )
-                d['default'] = [default_prop.id]
+            )
+            
+            d['default'] = [default_prop.id]
 
         return d
 
     @staticmethod
-    def from_json(data: dict, class_map: list) -> pg.Proposition:
+    def from_json(data: dict, class_map: list) -> pg.AtLeast:
         
         """"""
         default = data.get("default", [])
@@ -65,10 +64,10 @@ class Any(pg.Any):
         return Any(
             *map(functools.partial(pg.from_json, class_map=class_map), data.get('propositions', [])),
             default=default_item,
-            id=data.get("id", None)
+            variable=data.get("id", None)
         )
 
-class Xor(pg.All):
+class Xor(pg.Xor):
 
     """
         Overriding plog.Xor proposition with default -attribute indicating which solution
@@ -78,20 +77,18 @@ class Xor(pg.All):
         and prio is set to c > A'.
     """
 
-    def __init__(self, *propositions, default: str = None, id: str = None):
-        propositions = list(propositions)
+    def __init__(self, *propositions, default: str = None, variable: typing.Union[puan.variable, str] = None):
+        super().__init__(*propositions, variable=variable)
+        
+        # From init, there should be exactly one Any constraint
         if default is not None:
-            super().__init__(
-                Any(*propositions, default=default, id=f"{id}_LB" if not id is None else None),
-                pg.AtMost(*propositions, value=1, id=f"{id}_UB" if not id is None else None),
-                id=id
+            i, any_proposition = next(filter(lambda x: x[1].value == 1, enumerate(self.propositions)))
+            self.propositions[i] = Any(
+                *any_proposition.propositions, 
+                default=default, 
+                variable=any_proposition.variable
             )
-        else:
-            super().__init__(
-                pg.Any(*propositions, id=f"{id}_LB" if not id is None else None),
-                pg.AtMost(*propositions, value=1, id=f"{id}_UB" if not id is None else None),
-                id=id
-            )
+            
 
     def to_json(self):
         d = super().to_json()
@@ -101,7 +98,7 @@ class Xor(pg.All):
         return d
 
     @staticmethod
-    def from_json(data: dict, class_map: list) -> pg.Proposition:
+    def from_json(data: dict, class_map: list) -> pg.AtLeast:
 
         """"""
         default = data.get("default", [])
@@ -123,8 +120,8 @@ class StingyConfigurator(pg.All):
         of selections, then a default may be added to avoid ambivalence.
     """
 
-    def __init__(self, *propositions: typing.List[typing.Union[pg.Proposition, str]], id: str = None):
-        super().__init__(*propositions, id=id)
+    def __init__(self, *propositions: typing.List[typing.Union[pg.AtLeast, str]], id: str = None):
+        super().__init__(*propositions, variable=id)
 
     @property
     @functools.lru_cache
@@ -151,13 +148,7 @@ class StingyConfigurator(pg.All):
             -------
                 out : dict
         """
-        flat = sorted(
-            self.flatten(),
-            key=maz.compose(
-                self.variables.index, 
-                operator.attrgetter("id")
-            )
-        )
+        flat = self.flatten()
         return dict(
             zip(
                 map(operator.attrgetter("id"), flat),
@@ -167,9 +158,31 @@ class StingyConfigurator(pg.All):
                 )
             )
         )
+
+    @functools.lru_cache
+    def leafs(self) -> typing.List[puan.variable]:
+
+        """
+            Return propositions that are of type puan.variable.
+
+            Returns
+            -------
+                out : typing.List[puan.variable]
+        """
+        flatten = self.flatten()
+        return sorted(
+            set(
+                itertools.chain(
+                    filter(
+                        lambda x: type(x) == puan.variable,
+                        flatten
+                    ),
+                ),
+            )
+        )
     
 
-    def select(self, *prios: typing.List[typing.Dict[str, int]], solver, include_virtual_vars: bool = False) -> typing.Iterable[typing.List[puan.variable]]:
+    def select(self, *prios: typing.List[typing.Dict[str, int]], solver, only_leafs: bool = False) -> typing.Iterable[typing.List[puan.variable]]:
 
         """
             Select items to prioritize and receive a solution.
@@ -185,13 +198,29 @@ class StingyConfigurator(pg.All):
             -------
                 out : typing.List[typing.List[puan.variable]]
         """
-        return self.polyhedron.select(
+        res = self.polyhedron.select(
             *prios, 
             solver=solver, 
-            include_virtual_vars=include_virtual_vars,
         )
+        if only_leafs:
+            leafs = list(
+                map(
+                    operator.attrgetter("id"),
+                    self.leafs()
+                )
+            )
+            res = map(
+                lambda config: list(
+                    filter(
+                        lambda x: x.id in leafs,
+                        config
+                    )
+                ),
+                res
+            )
+        return res
 
-    def add(self, proposition: pg.Proposition) -> "StingyConfigurator":
+    def add(self, proposition: pg.AtLeast) -> "StingyConfigurator":
 
         """
             Add a new proposition to the model.
@@ -246,7 +275,8 @@ class StingyConfigurator(pg.All):
 
         """"""
         classes = [
-            pg.Proposition,
+            puan.variable,
+            pg.AtLeast,
             pg.AtLeast,
             pg.AtMost,
             pg.All,
