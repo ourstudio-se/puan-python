@@ -20,15 +20,16 @@ class Any(pg.Any):
         and prio is set to c > A'.
     """
 
-    def __init__(self, *propositions, default: str = None, variable: typing.Union[puan.variable, str] = None):
-        self.default = default
+    def __init__(self, *propositions, default: typing.List[typing.Union[puan.variable, str]] = None, variable: typing.Union[puan.variable, str] = None):
+        self.default = list(map(lambda x: puan.variable(x) if type(x) == str else x, default if default is not None else []))
         if default is not None:
+            _default = self.default[0].id
             inner = pg.Any(
-                *filter(lambda x: not x == default, propositions)
+                *filter(lambda x: not x == _default, propositions)
             )
             inner.prio = getattr(inner, 'prio', -1)-1 
             super().__init__(
-                *filter(lambda x: x == default, propositions),
+                *filter(lambda x: x == _default, propositions),
                 inner,
                 variable=variable,
             )
@@ -36,21 +37,25 @@ class Any(pg.Any):
             super().__init__(*propositions, variable=variable)
 
     def to_json(self) -> dict:
-        d = super().to_json()
         # currently we only care about first element since no implementation
         # to handle list of defaults (like a prio list). But since future may include list of 
         # defaults, we keep interface as list
-        defaults = list(filter(lambda x: hasattr(x, "prio"), self.propositions))
-        if defaults:
-            non_default_prop = next(filter(operator.attrgetter("virtual"), self.propositions))
-            d['propositions'] = list(
-                itertools.chain(
-                    map(operator.methodcaller("to_json"), non_default_prop.propositions),
-                    [default_prop.to_json()]
-                )
-            )
-            
-            d['default'] = [default_prop.id]
+        if self.default:
+            d = {
+                "id": self.id,
+                "type": "Any",
+                "propositions": [
+                    self.propositions[0].to_json()
+                ] + list(
+                    map(
+                        operator.methodcaller('to_json'),
+                        self.propositions[1].propositions
+                    )
+                ),
+                'default': list(map(lambda x: x.to_json(), self.default))
+            }
+        else:
+            d = super().to_json()
 
         return d
 
@@ -59,7 +64,7 @@ class Any(pg.Any):
         
         """"""
         default = data.get("default", [])
-        default_item = None if len(default) == 0 else default[0]
+        default_item = None if len(default) == 0 else list(map(lambda x: puan.variable.from_json(x, [puan.variable]), default))
         _class_map = dict(zip(map(lambda x: x.__name__, class_map), class_map))
         return Any(
             *map(functools.partial(pg.from_json, class_map=class_map), data.get('propositions', [])),
@@ -77,11 +82,12 @@ class Xor(pg.Xor):
         and prio is set to c > A'.
     """
 
-    def __init__(self, *propositions, default: str = None, variable: typing.Union[puan.variable, str] = None):
+    def __init__(self, *propositions, default: typing.List[typing.Union[str, puan.variable]] = None, variable: typing.Union[puan.variable, str] = None):
         super().__init__(*propositions, variable=variable)
         
         # From init, there should be exactly one Any constraint
-        if default is not None:
+        self.default = list(map(lambda x: puan.variable(x) if type(x) == str else x, default if default is not None else []))
+        if self.default:
             i, any_proposition = next(filter(lambda x: x[1].value == 1, enumerate(self.propositions)))
             self.propositions[i] = Any(
                 *any_proposition.propositions, 
@@ -91,10 +97,21 @@ class Xor(pg.Xor):
             
 
     def to_json(self):
-        d = super().to_json()
-        ls, rs = d['propositions']
-        d['propositions'] = rs['propositions']
-        d['default'] = ls['default']
+        if self.default:
+            d = {
+                "id": self.id,
+                "type": "Xor",
+                "propositions": list(
+                    map(
+                        operator.methodcaller('to_json'),
+                        self.propositions[1].propositions
+                    )
+                ),
+                "default": list(map(lambda x: x.to_json(), self.default))
+            }
+        else:
+            d = super().to_json()
+
         return d
 
     @staticmethod
@@ -102,12 +119,12 @@ class Xor(pg.Xor):
 
         """"""
         default = data.get("default", [])
-        default_item = None if len(default) == 0 else default[0]
+        default_item = None if len(default) == 0 else list(map(lambda x: puan.variable.from_json(x, [puan.variable]), default))
         _class_map = dict(zip(map(lambda x: x.__name__, class_map), class_map))
         return Xor(
             *map(functools.partial(pg.from_json, class_map=class_map), data.get('propositions', [])),
             default=default_item,
-            id=data.get("id", None)
+            variable=data.get("id", None)
         )
 
 class StingyConfigurator(pg.All):

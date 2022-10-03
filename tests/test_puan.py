@@ -2181,3 +2181,53 @@ def test_proposition_negation():
     assert len(negated.propositions[0].propositions[1:]) == 3
     assert negated.propositions[1].sign == -1
     assert negated.propositions[1].value == 0
+
+def test_configurator_to_json():
+
+    expected = {
+        'propositions': [
+            {
+                "type": "Xor",
+                "propositions": [
+                    {"id": "z"},
+                    {"id": "x"},
+                    {"id": "y"},
+                ],
+                "default": [
+                    {"id": "x"}
+                ]
+            },
+            {
+                "type": "Any",
+                "propositions": [
+                    {"id": "b"},
+                    {"id": "a"},
+                    {"id": "c"},
+                ],
+                "default": [
+                    {"id": "a"}
+                ]
+            },
+            {
+                "type": "Xor",
+                "propositions": [
+                    {"id": "p"},
+                    {"id": "q"},
+                ],
+            },
+            {
+                "type": "Any",
+                "propositions": [
+                    {"id": "r"},
+                    {"id": "s"},
+                ],
+            }
+        ]
+    }
+
+    actual = cc.StingyConfigurator.from_json(expected).to_json()
+    assert len(actual['propositions']) == len(expected['propositions'])
+    for a,b in zip(actual['propositions'], expected['propositions']):
+        assert a['type'] == b['type']
+        assert len(a['propositions']) == len(b['propositions'])
+        assert a.get('default', []) == b.get('default', [])

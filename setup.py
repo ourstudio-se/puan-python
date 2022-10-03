@@ -15,7 +15,8 @@ if __name__ == "__main__":
             "more-itertools",
             "maz>=0.0.1",
             "dictdiffer==0.9.0",
-            "puan-rspy==0.1.0"
+            "puan-rspy==0.1.0",
+            "toposort==1.7"
         ],
         packages=[
             'puan',

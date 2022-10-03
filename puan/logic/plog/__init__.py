@@ -11,6 +11,9 @@ import numpy as np
 import puan
 import puan.ndarray as pnd
 import puan_rspy as pst
+import dictdiffer
+import more_itertools
+from toposort import toposort
 from dataclasses import dataclass
 
 class AtLeast(puan.StatementInterface):
@@ -312,7 +315,7 @@ class AtLeast(puan.StatementInterface):
 
             Returns
             -------
-                out : Proposition
+                out : AtLeast
         """
         return from_dict(dictdiffer.patch(diff, self.to_dict()))
 
@@ -565,7 +568,7 @@ class AtLeast(puan.StatementInterface):
 
             Returns
             -------
-                out : Proposition
+                out : AtLeast
         """
         propositions = data.get('propositions', [])
         return AtLeast(
@@ -608,7 +611,7 @@ class AtMost(AtLeast):
 
             Returns
             -------
-                out : Proposition
+                out : AtMost
         """
         propositions = data.get('propositions', [])
         return AtMost(
@@ -650,7 +653,7 @@ class All(AtLeast):
 
             Returns
             -------
-                out : Proposition
+                out : All
         """
         propositions = data.get('propositions', [])
         return All(
@@ -690,7 +693,7 @@ class Any(AtLeast):
 
             Returns
             -------
-                out : Proposition
+                out : Any
         """
         propositions = data.get('propositions', [])
         return Any(
@@ -731,7 +734,7 @@ class Imply(Any):
 
             Returns
             -------
-                out : Proposition
+                out : Imply
         """
         if not 'consequence' in data:
             raise Exception("type `Imply` must have a `consequence` proposition")
@@ -853,7 +856,7 @@ class Xor(All):
 
             Returns
             -------
-                out : Proposition
+                out : Xor
         """
         propositions = data.get('propositions', [])
         return Xor(
@@ -887,13 +890,13 @@ class Not():
         return (All(proposition) if type(proposition) == str else proposition).negate()
 
     @staticmethod
-    def from_json(data: dict, class_map) -> "Xor":
+    def from_json(data: dict, class_map) -> "AtLeast":
         """
             Convert from json data to a Proposition.
 
             Returns
             -------
-                out : Proposition
+                out : AtLeast
         """
         if not 'proposition' in data:
             raise Exception("type `Not` expects field `proposition` to have a proposition set")
@@ -919,7 +922,7 @@ class XNor():
 
             Returns
             -------
-                out : Proposition
+                out : AtLeast
         """
         propositions = data.get('propositions', [])
         return XNor(
@@ -934,7 +937,7 @@ def from_json(data: dict, class_map: list = [puan.variable,AtLeast,AtMost,All,An
 
         Returns
         -------
-            out : Proposition
+            out : typing.Any
     """
     _class_map = dict(zip(map(lambda x: x.__name__, class_map), class_map))
     if 'type' not in data or data['type'] in ["Proposition", "Variable"]:
@@ -967,3 +970,68 @@ def from_b64(base64_str: str) -> typing.Any:
         )
     except:
         raise Exception("could not decompress and load polyhedron from string: version mismatch.")
+
+def from_dict(d: dict, id: str = None) -> AtLeast:
+
+    """
+        Transform from dictionary to a compound proposition.
+        Values data type is following:
+        [int, [str...], int] where 0 is the sign value,
+        1 contains the variable names and 2 is the support vector value.
+        
+        Examples
+        --------
+            >>> from_dict({'a': [1, ['b','c'], 1, [0,1]], 'b': [1, ['x','y'], 1, [0,1]], 'c': [1, ['p','q'], 1, [0,1]]})
+            a: +(b,c)>=-1
+        
+        Returns
+        -------
+            out : AtLeast
+    """
+    d_conv = dict(
+        zip(
+            d.keys(),
+            map(
+                AtLeast.from_short,
+                itertools.starmap(
+                    maz.compose(
+                        tuple,
+                        more_itertools.prepend
+                    ),
+                    d.items()
+                ),
+            )
+        )
+    )
+
+    # Find top sort order
+    try:
+        sort_order = list(
+            toposort(
+                dict(
+                    zip(
+                        d.keys(),
+                        map(
+                            lambda x: set(x[1]),
+                            d.values()
+                        )
+                    )
+                )
+            )
+        )
+    except Exception as e:
+        raise Exception(f"could not create topological sort order from dict: {e}")
+
+    if not len(sort_order[-1]) == 1:
+        raise Exception(f"dict has multiple top nodes ({sort_order[-1]}) but exactly one is required")
+
+    for level in sort_order:
+        for i in filter(lambda x: x in d_conv, level):
+            d_conv[i].propositions = list(
+                map(
+                    lambda j: d_conv[j] if j in d_conv else j,
+                    d_conv[i].propositions
+                )
+            )
+
+    return d_conv[list(sort_order[-1])[0]]
