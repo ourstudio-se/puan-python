@@ -69,7 +69,7 @@ class AtLeast(puan.StatementInterface):
     def __hash__(self):
         return hash(self.variable.id)
 
-    def _id_generator(propositions, value: int, prefix: str = "VAR"):
+    def _id_generator(propositions, value: int, sign: int, prefix: str = "VAR"):
         return prefix + hashlib.sha256(
             str(
                 "".join(
