@@ -83,7 +83,7 @@ class AtLeast(puan.StatementInterface):
                             filter(lambda x: type(x) != puan.variable, propositions)
                         )
                     )
-                ) + str(value)
+                ) + str(value) + str(sign)
             ).encode()
         ).hexdigest()
 
