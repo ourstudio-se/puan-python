@@ -48,7 +48,7 @@ class AtLeast(puan.StatementInterface):
         if variable is None and propositions is None:
             raise Exception("Proposition must have variable and/or sub propositions, not none")
         elif variable is None:
-            self.variable = puan.variable(id=AtLeast._id_generator(self.propositions, value))
+            self.variable = puan.variable(id=AtLeast._id_generator(self.propositions, value, sign))
         elif type(variable) == str:
             self.variable = puan.variable(id=variable, bounds=(0,1))
         else:
