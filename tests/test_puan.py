@@ -1396,6 +1396,55 @@ def test_proposition_polyhedron_conversions():
     assert not all(actual.A.dot(actual.A.construct(*{"y": 1, "z": 1}.items())) >= actual.b)
     assert all(actual.A.dot(actual.A.construct(*{"x": 1, "y": 1, "z": 1}.items())) >= actual.b)
 
+    # Example from tutorial
+    actual = cc.StingyConfigurator(
+        pg.Xor(
+            puan.variable(id="t-thirt-blue"),
+            puan.variable(id="t-thirt-black"),
+            variable="t-shirts"
+        ),
+        pg.AtMost(
+            propositions=[
+                puan.variable(id="sweater-green"),
+                puan.variable(id="sweater-black"),
+            ],
+            value=1,
+            variable="sweaters"
+        ),
+        pg.Xor(
+            puan.variable(id="jeans-blue"),
+            puan.variable(id="jeans-black"),
+            variable="jeans"
+        ),
+        pg.Xor(
+            puan.variable(id="shoes-white"),
+            puan.variable(id="shoes-black"),
+            variable="shoes"
+        ),
+        id="outfit"
+    ).to_polyhedron(True)
+    assert all(
+        actual.A.dot(
+            actual.A.construct(
+                *{
+                    "VAR6fae5889da53aadfe57f53370395637e6a7ae1109dd4bc0180504716a57f0a2e": 1,
+                    "VARebc35dc8fd85f21b82cd5fa86fd251fdb93c3e16eb7d458566b2ab11a222eee0": 1,
+                    "VAR54b93113181fabf3d141bc7defbf98d03c49b797101fa02d7b355c468557c270": 1,
+                    "VARb661ed11e7501b130227325ce74f27864afb6ca3f9d0b421d63345eefba37444": 1,
+                    "VAR6f04068f5f83b4c193b77ab88d5e43d0c4e0238105260929ad39a344d3ce0303": 1,
+                    "VARb8ec1d97114306b67935580a74d769593876e88ed6b771e5077d04e14d660208": 1,
+                    "t-shirts": 1,
+                    "sweaters": 1,
+                    "jeans": 1,
+                    "shoes": 1,
+                    "t-thirt-blue": 1,
+                    "jeans-blue": 1,
+                    "shoes-white": 1,
+                }.items()
+            )
+        ) >= actual.b
+    )
+
 # def test_assuming_integer_variables():
 
 #     """

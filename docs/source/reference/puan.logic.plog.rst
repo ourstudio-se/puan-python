@@ -8,11 +8,10 @@ Propositional Logic (plog) system is an abstract data type defining logical rela
 
 Data types
 ----------
-   :class:`puan.logic.plog.Proposition` : A Proposition is an abstract class and an extension of the puan.variable class with the intention of being the atomic version of a compound proposition. When evaluated, the Proposition will take on a value and is later at some point evaluated to either true or false.
 
-   :class:`puan.logic.plog.AtLeast` : AtLeast is a compound proposition which takes propositions and represents a lower bound on the result of those propositions. For example, select at least one of x, y and z would be defined as AtLeast("x","y","z", value=1) and represented as x+y+z >= 1.
+   :class:`puan.logic.plog.AtLeast` : AtLeast is a compound proposition which takes propositions and represents a lower bound on the result of those propositions. For example, select at least one of x, y and z would be defined as AtLeast(propositions=["x","y","z"], value=1) and represented as x+y+z >= 1.
 
-   :class:`puan.logic.plog.AtMost` : AtMost is a compound proposition which takes propositions and represents a lower bound on the result of those propositions. For example, select at least one of x, y and z would be defined as AtMost("x","y","z", value=2) and represented as -x-y-z >= -2.
+   :class:`puan.logic.plog.AtMost` : AtMost is a compound proposition which takes propositions and represents a lower bound on the result of those propositions. For example, select at least one of x, y and z would be defined as AtMost(propositions=["x","y","z"], value=2) and represented as -x-y-z >= -2.
    
    :class:`puan.logic.plog.All` : 'All' is a compound proposition representing a conjunction of all given propositions. 'All' is represented by an AtLeast -proposition with value set to the number of given propositions. For example, x = All("x","y","z") is the same as y = AtLeast("x","y","z",value=3) 
    

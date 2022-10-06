@@ -179,36 +179,28 @@ class AtLeast(puan.StatementInterface):
                 )
             )
         )
-        variable_id_map_rev = dict(variable_id_map.values())
-        lineqs = list(
-            filter(
-                lambda x: len(variable_id_map_rev[x[0]].propositions) > 0, 
-                enumerate(
-                    pst.TheoryPy(
-                        list(
-                            map(
-                                lambda x: pst.StatementPy(
-                                    variable_id_map[x.id][0],
-                                    variable_id_map[x.id][1].bounds,
-                                    pst.AtLeastPy(
-                                        list(
-                                            map(
-                                                lambda y: variable_id_map[y.id][0], 
-                                                x.propositions
-                                            )
-                                        ),
-                                        bias=-1*x.value,
-                                    ) if type(x) != puan.variable else None,
-                                ),
-                                flatten_dict.values()
-                            )
-                        )
-                    ).to_lineqs()
+        lineqs = pst.TheoryPy(
+            list(
+                map(
+                    lambda x: pst.StatementPy(
+                        variable_id_map[x.id][0],
+                        variable_id_map[x.id][1].bounds,
+                        pst.AtLeastPy(
+                            list(
+                                map(
+                                    lambda y: variable_id_map[y.id][0], 
+                                    x.propositions
+                                )
+                            ),
+                            bias=-1*x.value,
+                        ) if type(x) != puan.variable else None,
+                    ),
+                    flatten_dict.values()
                 )
             )
-        )
+        ).to_lineqs()
         M = np.zeros((len(lineqs), 1+len(variable_id_map)))
-        for i, lineq in lineqs:
+        for i, lineq in enumerate(lineqs):
             M[i, list(map(lambda x: x+1, lineq.indices))] = lineq.coeffs
             M[i, 0] = -1*lineq.bias
 
