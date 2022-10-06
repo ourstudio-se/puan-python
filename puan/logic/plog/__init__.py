@@ -565,6 +565,7 @@ class AtLeast(puan.StatementInterface):
             1. sign of coeffs (e.g. sign=1 means a+b+c, sign=-1 means -a-b-c)
             2. sub propositions / variables (e.g. a,b,c)
             3. value of support vector (e.g. 3 as in a+b+c>=3)
+
             Examples
             --------
                 >>> All(All("a","b", variable="B"), Any("c","d", variable="C"), variable="A").to_dict()
