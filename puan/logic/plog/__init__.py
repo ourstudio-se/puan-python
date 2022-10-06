@@ -51,23 +51,21 @@ class AtLeast(puan.StatementInterface):
         if propositions is None or len(list(propositions)) == 0:
             raise Exception("Proposition must have variable and/or sub propositions, not none")
 
-        self.propositions = propositions
-        if self.propositions is not None:
-            self.propositions = list(
-                itertools.chain(
+        self.propositions = list(
+            itertools.chain(
+                filter(
+                    lambda x: type(x) != str, 
+                    propositions
+                ),
+                map(
+                    puan.variable,
                     filter(
-                        lambda x: type(x) != str, 
-                        self.propositions
-                    ),
-                    map(
-                        puan.variable,
-                        filter(
-                            lambda x: type(x) == str,
-                            self.propositions
-                        )
+                        lambda x: type(x) == str,
+                        propositions
                     )
                 )
             )
+        )
 
         if variable is None:
             self.variable = puan.variable(id=AtLeast._id_generator(self.propositions, value, sign))
@@ -460,6 +458,42 @@ class AtLeast(puan.StatementInterface):
         """
         # When the highest sum from equation still not satisfied inequality, this is a contradition
         return self.equation_bounds[1] < self.value
+
+    def evaluate(self, interpretation: typing.List[puan.SolutionVariable]) -> bool:
+
+        """"""
+
+        interpretation_map = dict(
+            zip(
+                map(
+                    operator.attrgetter("id"),
+                    interpretation
+                ),
+                map(
+                    operator.attrgetter("value"),
+                    interpretation
+                ),
+            )
+        )
+
+        return (
+            sum(
+                map(
+                    lambda x: interpretation_map.get(x.id, 0)*self.sign if not type(x) == bool else x*1,
+                    itertools.chain(
+                        self.atomic_propositions,
+                        map(
+                            operator.methodcaller(
+                                "evaluate", 
+                                interpretation=interpretation,
+                            ),
+                            self.compound_propositions
+                        )
+                    )
+                )
+            )-self.value
+        ) >= 0
+
 
     def to_short(self) -> tuple:
 
@@ -984,7 +1018,7 @@ class Not():
     """
 
     def __new__(self, proposition):
-        return (All(proposition) if type(proposition) == str else proposition).negate()
+        return (All(proposition) if type(proposition) in [str, puan.variable] else proposition).negate()
 
     @staticmethod
     def from_json(data: dict, class_map) -> "AtLeast":

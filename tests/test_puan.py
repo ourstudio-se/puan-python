@@ -1445,6 +1445,11 @@ def test_proposition_polyhedron_conversions():
         ) >= actual.b
     )
 
+def test_not_when_single_str_or_variable():
+
+    for entity in ["a", puan.variable("a")]:
+        assert type(pg.Not(entity)) in [pg.All, pg.AtLeast]
+
 # def test_assuming_integer_variables():
 
 #     """
@@ -1973,3 +1978,49 @@ def test_at_leasts():
 
     with pytest.raises(Exception):
         pg.AtLeast(propositions=[], value=1, variable="A")
+
+def test_plog_evaluate_method():
+
+    """From tutorial example"""
+    
+    milk_home   = puan.variable(id="milk_home")
+    milk_bought = puan.variable(id="milk_bought")
+    chips       = puan.variable(id="chips")
+    tomatoes    = puan.variable(id="tomatoes",   dtype="int")
+    cucumbers   = puan.variable(id="cucumbers",  dtype="int")
+
+    fridge_model = pg.All(
+        chips,
+        pg.Imply(
+            condition=pg.Not(milk_home),
+            consequence=milk_bought,
+            variable="milk_done_right"
+        ),
+        pg.All(
+            pg.AtLeast(propositions=[tomatoes], value=4, variable="tomatoes_ge_four"),
+            pg.AtMost(propositions=[tomatoes], value=5, variable="tomatoes_le_five"),
+            pg.AtMost(propositions=[cucumbers], value=5, variable="cucumbers_le_five"),
+            pg.AtLeast(propositions=[cucumbers], value=1, variable="cucumbers_ge_one"),
+            variable="vegestables"
+        ),
+        variable="fridge"
+    )
+
+    cart = [
+        puan.SolutionVariable.from_variable(milk_home, 1),
+        puan.SolutionVariable.from_variable(milk_bought, 0),
+        puan.SolutionVariable.from_variable(tomatoes, 2+2),
+        puan.SolutionVariable.from_variable(cucumbers, 0),
+    ]
+
+    assert not fridge_model.evaluate(cart)
+
+    new_cart = [
+        puan.SolutionVariable.from_variable(chips, 1),
+        puan.SolutionVariable.from_variable(milk_home, 1),
+        puan.SolutionVariable.from_variable(milk_bought, 0),
+        puan.SolutionVariable.from_variable(tomatoes, 2+2),
+        puan.SolutionVariable.from_variable(cucumbers, 1),
+    ]
+
+    assert fridge_model.evaluate(new_cart)

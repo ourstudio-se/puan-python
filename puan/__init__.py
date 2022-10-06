@@ -4,16 +4,13 @@ import typing
 import maz
 import itertools
 import dataclasses
-from json import JSONEncoder
 
-default_min_int: int = numpy.iinfo(numpy.int16).min
-default_max_int: int = numpy.iinfo(numpy.int16).max
+default_min_int     : int        = numpy.iinfo(numpy.int16).min
+default_max_int     : int        = numpy.iinfo(numpy.int16).max
+default_int_bounds  : (int, int) = (default_min_int, default_max_int)
 
 def _default(self, obj):
     return getattr(obj.__class__, "to_json", _default.default)(obj)
-
-_default.default = JSONEncoder().default
-JSONEncoder.default = _default
 
 class StatementInterface:
 
@@ -38,7 +35,7 @@ class StatementInterface:
         """Convert from json into class object. Class map is a list of other classes maybe related to this class"""
         raise NotImplementedError()
 
-@dataclasses.dataclass(frozen=True, eq=False)
+@dataclasses.dataclass
 class variable(StatementInterface):
 
     """
@@ -46,8 +43,14 @@ class variable(StatementInterface):
         A virtual variable is a variable that has been created along some reduction and is not (necessary) interesting for the user.
     """
 
-    id: str = None
+    id: str
     bounds: typing.Tuple[int, int] = (0, 1)
+
+    def __init__(self, id: str, bounds: typing.Tuple[int, int] = (0, 1), dtype: str = None):
+        self.id = id
+        self.bounds = bounds
+        if dtype is not None and dtype == "int":
+            self.bounds = default_int_bounds
 
     def __hash__(self):
         return hash(self.id)
@@ -72,10 +75,7 @@ class variable(StatementInterface):
 
     @staticmethod
     def support_vector_variable():
-        return variable(
-            0, 
-            (default_min_int, default_max_int),
-        )
+        return variable(0, dtype="int")
 
     @staticmethod
     def from_strings(*variables: typing.List[str], default_bounds: typing.Union[bool, int] = (0,1)) -> typing.List["variable"]:
@@ -153,14 +153,16 @@ class variable(StatementInterface):
         )
 
 
-@dataclasses.dataclass(frozen=True)
 class SolutionVariable(variable):
 
     value: int = None
+    def __init__(self, id: str, bounds: typing.Tuple[int, int] = (0, 1), dtype: str = None, value: int = None):
+        super().__init__(id, bounds, dtype)
+        self.value = value
 
     def __eq__(self, other):
         return self.id == other.id and self.value == other.value
 
     @staticmethod
     def from_variable(variable: variable, value: int) -> "SolutionVariable":
-        return SolutionVariable(variable.id, variable.bounds, value)
+        return SolutionVariable(variable.id, variable.bounds, value=value)

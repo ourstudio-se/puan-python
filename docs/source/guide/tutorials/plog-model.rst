@@ -29,13 +29,13 @@ So let's set these variables up in code
 
 .. code:: python
 
-    import puan.logic.plog as pg
+    import puan
 
-    milk_home   = pg.Proposition(id="milk_home",   dtype=bool, virtual=False)
-    milk_bought = pg.Proposition(id="milk_bought", dtype=bool, virtual=False)
-    chips       = pg.Proposition(id="chips",       dtype=bool, virtual=False)
-    tomatoes    = pg.Proposition(id="tomatoes",    dtype=int,  virtual=False)
-    cucumbers   = pg.Proposition(id="cucumbers",   dtype=int,  virtual=False)
+    milk_home   = puan.variable(id="milk_home")
+    milk_bought = puan.variable(id="milk_bought")
+    chips       = puan.variable(id="chips")
+    tomatoes    = puan.variable(id="tomatoes",   dtype="int")
+    cucumbers   = puan.variable(id="cucumbers",  dtype="int")
 
 Now we need to set up their logical relationships between one another. We start by taking a look at the **milk**. 
 We were waying that if the milk in the fridge is half full, i.e milk_home is True, then it is implied that also the milk is bought, i.e milk_bought is True. 
@@ -53,10 +53,12 @@ So now, let's put it into code.
 
 .. code:: python
 
+    import puan.logic.plog as pg
+
     milk_done_right = pg.Imply(
-        condition=Not(milk_home),
+        condition=pg.Not(milk_home),
         consequence=milk_bought,
-        id="milk_done_right"
+        variable="milk_done_right"
     )
 
 *Note that the `id` here is optional and not necessarily used.*
@@ -67,14 +69,14 @@ And the number of tomatoes should not be less than 2. To model this we do the fo
 .. code:: python
 
     # tomatoes more or equal to 4
-    tomatoes_ge_four = pg.AtLeast(tomatoes, value=4, id="tomatoes_ge_four")
+    tomatoes_ge_four = pg.AtLeast(propositions=[tomatoes], value=4, variable="tomatoes_ge_four")
 
     # tomatoes and cucumbers less or equal to 5
-    tomatoes_le_five = pg.AtMost(tomatoes, value=5, id="tomatoes_le_five")
-    cucumbers_le_five = pg.AtMost(cucumbers, value=5, id="cucumbers_le_five")
+    tomatoes_le_five = pg.AtMost(propositions=[tomatoes], value=5, variable="tomatoes_le_five")
+    cucumbers_le_five = pg.AtMost(propositions=[cucumbers], value=5, variable="cucumbers_le_five")
 
     # cucumbers more or equal to 1 
-    cucumbers_ge_one = pg.AtLeast(cucumbers, value=1, id="cucumbers_ge_one")
+    cucumbers_ge_one = pg.AtLeast(propositions=[cucumbers], value=1, variable="cucumbers_ge_one")
     
 Now if all of these variables are true, then it means that number of tomatoes are between 4-5 and number of cucumbers between 1-5.
 To tie these two expressions we need to plug them into an implication proposition.
@@ -86,7 +88,7 @@ To tie these two expressions we need to plug them into an implication propositio
         tomatoes_le_five,
         cucumbers_le_five,
         cucumbers_ge_one,
-        id="vegestables"
+        variable="vegestables"
     )
 
 Now we can put it all together in a single plog-model
@@ -94,10 +96,10 @@ Now we can put it all together in a single plog-model
 .. code:: python
 
     fridge_model = pg.All(
-        chips_is_true,
+        chips,
         milk_done_right,
         vegestables_ok,
-        id="fridge"
+        variable="fridge"
     )
 
 And imagine now that we are going to the store and notice what we have in the fridge:
@@ -109,20 +111,16 @@ we go to the store and check our model with the current shopping cart after we a
 
 .. code:: python
 
-    # Convert fridge model to a polyhedron that we can use to calculate on
-    ph = fridge_model.to_polyhedron(active=True)
-
-    # Construct a cart numpy array instance from variables ...
-    cart = ph.construct([
-        (milk_home, 1), 
-        (milk_bought, 0), 
-        (tomatoes, 2+2), 
-        (cucumbers, 0)
-    ])
+    cart = [
+        puan.SolutionVariable.from_variable(milk_home, 1),
+        puan.SolutionVariable.from_variable(milk_bought, 0),
+        puan.SolutionVariable.from_variable(tomatoes, 2+2),
+        puan.SolutionVariable.from_variable(cucumbers, 0),
+    ]
 
     # ... and evaluate if it satisfies the model
-    print(ph.evaluate(cart))
-    # >>> (False, integer_ndarray([1, 1, 1, 1, 0, 1, 1, 1, 1, 0, 0, 0, 1, 4]))
+    print(fridge_model.evaluate(cart))
+    # >>> False
 
 As expected, the current cart is not valid (we don't have *chips* nor *cucumbers*). Let's pick them from the store and
 check again if we're now ok
@@ -130,16 +128,16 @@ check again if we're now ok
 .. code:: python
 
     # Construct a cart numpy array instance from variables ...
-    new_cart = ph.construct([
-        (chips,       1),
-        (milk_home,   1), 
-        (milk_bought, 0), 
-        (tomatoes,    2+2), 
-        (cucumbers,   1)
-    ])
+    new_cart = [
+        puan.SolutionVariable.from_variable(chips, 1),
+        puan.SolutionVariable.from_variable(milk_home, 1),
+        puan.SolutionVariable.from_variable(milk_bought, 0),
+        puan.SolutionVariable.from_variable(tomatoes, 2+2),
+        puan.SolutionVariable.from_variable(cucumbers, 1),
+    ]
 
     # ... and evaluate if it satisfies the model
-    print(ph.evaluate(new_cart))
-    # >>> (True, integer_ndarray([1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 4]))
+    print(fridge_model.evaluate(new_cart))
+    # >>> True
 
 And now we are ready to checkout and go home.
