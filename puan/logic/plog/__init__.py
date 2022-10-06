@@ -461,7 +461,26 @@ class AtLeast(puan.StatementInterface):
 
     def evaluate(self, interpretation: typing.List[puan.SolutionVariable]) -> bool:
 
-        """"""
+        """
+            Evaluates interpretation on this model. It will evaluate sub propositions
+            bottoms-up and propagate results upwards. This means that even though 
+            intermediate variables are not set in interpretation, they receive a value
+            based on the evaluation of its propositions.
+
+            Examples
+            --------
+                >>> All(*"xy", variable="A").evaluate([puan.SolutionVariable("x", value=1)])
+                False
+
+                >>> All(*"xy", variable="A").evaluate([puan.SolutionVariable("x", value=1), puan.SolutionVariable("y", value=1)])
+                True
+
+                >>> AtLeast(propositions=[puan.variable("x", dtype="int")], value=10).evaluate([puan.SolutionVariable("x", value=9)])
+                False
+
+                >>> AtLeast(propositions=[puan.variable("x", dtype="int")], value=10).evaluate([puan.SolutionVariable("x", value=10)])
+                True
+        """
 
         interpretation_map = dict(
             zip(

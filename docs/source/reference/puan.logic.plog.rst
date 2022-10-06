@@ -28,13 +28,6 @@ Data types
 
 .. currentmodule:: puan.logic.plog
 
-Proposition
-+++++++++++
-.. autoclass:: Proposition
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
 AtLeast
 +++++++
 .. autoclass:: AtLeast
