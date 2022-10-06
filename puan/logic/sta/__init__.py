@@ -548,7 +548,7 @@ class application(dict):
             ...         }
             ...     }
             ... ])
-            VARc0c57da36fa89c0a63e29a0799e9784d0c4e14808d4fd7eff31504db16bdbe58: +(VAR72bdbb0fcce67b453ee7f6dcc3ae4650d8866abdf06304d896897d9e5387f98d,VAR9483070ee5135b4561fff001c86b8d5f63ec3cf365b647db7742fb5bff20994f,VARb4cbd329edd6bade659ddd0852a5133e9ccb884145600231bb9366d0639656ba)>=3
+            VAR0524279dccbb26ea47f51ff8073349f79872e971b169e3851e60bb82f7235c96: +(VAR42b0074ce0dc2eb0311dcd55c064682c3767c9913bd8099e7618c35e1dee7ffa,VAR7c29eebd3eee9752034daf711372174aee6427e6ae5e852b872bd4928bf913ac,VAR93e536a6a6cd73e08049ee4dd2cceae0bfb5d8ab5531045820cca691d912b156)>=3
     """
         n_ge_one = functools.partial(filter, maz.compose(maz.pospartial(operator.ge, [(1,1)]), len))
         return pg.All(
@@ -565,7 +565,7 @@ class application(dict):
                                             "components": [
                                                 {
                                                     "id": str(application._extract_value(source_item, id_key)),
-                                                    "virtual": source_item['virtual'] if 'virtual' in source_item else False
+                                                    "bounds": source_item.get("bounds", (0,1))
                                                 }
                                                 for source_item in source_items
                                             ]
@@ -577,7 +577,7 @@ class application(dict):
                                     "components": [
                                         {
                                             "id": str(application._extract_value(target_item, id_key)),
-                                            "virtual": target_item['virtual'] if 'virtual' in target_item else False
+                                            "bounds": target_item.get("bounds", (0,1))
                                         }
                                         for target_item in target_items
                                     ]

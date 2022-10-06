@@ -1,3 +1,4 @@
+import pytest
 import ast
 import functools
 import itertools
@@ -30,6 +31,7 @@ def proposition_strategy():
         pg.AtLeast, 
         propositions=st.iterables(
             atom_proposition_strategy(),
+            min_size=1,
             max_size=5
         ),
         variable=st.text(), 
@@ -829,6 +831,9 @@ def test_application_with_no_item_hits_should_yield_no_rules():
         When there are no variable hits from neither source or targets,
         then there should be no rules created. There was a risk before of
         creating a rule with no condition nor consequence.components.
+
+        NOTE. Now we raise an error if this is the case. This is since
+        a All-proposition with no sub propositions are considered invalid.
     """
 
     application = {
@@ -884,8 +889,8 @@ def test_application_with_no_item_hits_should_yield_no_rules():
         {"category": {"id": "Y"}, "id": "a"},
         {"category": {"id": "Y"}, "id": "b"},
     ]
-    model = puan.logic.sta.application.to_plog(application, items)
-    assert len(model.propositions) == 0
+    with pytest.raises(Exception):
+        model = puan.logic.sta.application.to_plog(application, items)
 
 
 def test_reduce_matrix():
@@ -1304,356 +1309,6 @@ def test_reduce_rows_with_variable_index():
     assert ph_red.shape[1] == 5
     assert ph_red.shape[0] == ph_red.index.size
 
-def test_logicfunc():
-    test_cases = [
-        (
-            ((2, 1, [((0, 0, 0), (1, 2, 3), (1, 1, 1), 3, 4), ((0, 0, 0), (1, 5, 6), (1, 1, 1), 3, 7)], 0), True),
-            (1, 1, [((0,0,0,0,0),(1,2,3,5,6), (2,1,1,1,1), 6, 0)], 0)
-        ),
-        (
-            # Relation any between two constraints of types 1 1 (Any Any)
-            ((1, 1, [((0, 0, 0), (1, 2, 3), (1, 1, 1), 1, 4), ((0, 0), (5, 6), (1, 1), 1, 7)], 0), True),
-            # Possible to merge to one constraint
-            (1, 1, [((0, 0, 0, 0, 0), (1,2,3,5,6), (1,1,1,1,1), 1, 0)], 0)
-        ),
-        (
-            # Relation any between two constraints of types 1 2 (Any Atmost N-1)
-            ((1, 1, [((0, 0, 0), (1, 2, 3), (1, 1, 1), 1, 4), ((0, 0, 0, 0), (5, 6, 7, 8), (-1, -1, -1, -1), -3, 9)], 0), True),
-            # Possible to merge to one constraint
-            (1, 1, [((0, 0, 0, 0, 0, 0, 0), (1,2,3,5,6,7,8), (4,4,4,-1,-1,-1,-1), 0, 0)], 0)
-        ),
-        (
-            # Relation any between two constraints of types 1 3 (Any None)
-            ((1, 1, [((0, 0, 0), (1, 2, 3), (1, 1, 1), 1, 4), ((0, 0, 0, 0), (5, 6, 7, 8), (-1, -1, -1, -1), 0, 9)], 0), True),
-            # Possible to merge to one constraint
-            (1, 1, [((0, 0, 0, 0, 0, 0 ,0), (1,2,3,5,6,7,8), (4,4,4,-1,-1,-1,-1), 0, 0)], 0)
-        ),
-        (
-            # Relation any between two constraints of types 1 4 (Any All)
-            ((1, 1, [((0, 0, 0), (1, 2, 3), (1, 1, 1), 1, 4), ((0, 0, 0, 0), (5, 6, 7, 8), (1, 1, 1, 1), 4, 9)], 0), True),
-            # Possible to merge to one constraint
-            (1, 1, [((0, 0, 0, 0, 0, 0, 0), (1,2,3,5,6,7,8), (4,4,4,1,1,1,1), 4, 0)], 0)
-        ),
-        (
-            # Relation any between two constraints of types 1 5 (Any Atleast n)
-            ((1, 1, [((0, 0, 0), (1, 2, 3), (1, 1, 1), 1, 4), ((0, 0, 0, 0), (5, 6, 7, 8), (1, 1, 1, 1), 2, 9)], 0), True),
-            # Possible to merge to one constraint
-            (1, 1, [((0, 0, 0, 0, 0, 0, 0), (1,2,3,5,6,7,8), (4,4,4,1,1,1,1), 2, 0)], 0)
-        ),
-        (
-            # Relation any between two constraints of types 1 6 (Any Atmost n)
-            ((1, 1, [((0, 0, 0), (1, 2, 3), (1, 1, 1), 1, 4), ((0, 0, 0, 0), (5, 6, 7, 8), (-1, -1, -1, -1), -2, 9)], 0), True),
-            # Possible to merge to one constraint
-            (1, 1, [((0, 0, 0, 0, 0, 0, 0), (1,2,3,5,6,7,8), (4,4,4,-1,-1,-1,-1), -2, 0)], 0)
-        ),
-        (
-            # Relation any between two constraints of types 2 2 (Atmost N-1 Atmost N-1)
-            ((1, 1, [((0, 0, 0), (1, 2, 3), (-1, -1, -1), -2, 4), ((0, 0, 0, 0), (5, 6, 7, 8), (-1, -1, -1, -1), -3, 9)], 0), True),
-            # Possible to merge to one constraint
-            (1, 1, [((0, 0, 0, 0, 0, 0, 0), (1,2,3,5,6,7,8), (-4,-4,-4,-1,-1,-1,-1), -15, 0)], 0)
-        ),
-        (
-            # Relation any between two constraints of types 2 3 (Atmost N-1 None)
-            ((1, 1, [((0, 0, 0), (1, 2, 3), (-1, -1, -1), -2, 4), ((0, 0, 0, 0), (5, 6, 7, 8), (-1, -1, -1, -1), 0, 9)], 0), True),
-            # Possible to merge to one constraint
-            (1, 1, [((0, 0, 0, 0, 0, 0, 0), (1,2,3,5,6,7,8), (-1,-1,-1,-3,-3,-3,-3), -12, 0)], 0)
-        ),
-        (
-            # Relation any between two constraints of types 2 4 (Atmost N-1 All)
-            ((1, 1, [((0, 0, 0), (1, 2, 3), (-1, -1, -1), -2, 4), ((0, 0, 0, 0), (5, 6, 7, 8), (1, 1, 1, 1), 4, 9)], 0), True),
-            # Possible to merge to one constraint
-            (1, 1, [((0, 0, 0, 0, 0, 0, 0), (1,2,3,5,6,7,8), (-4,-4,-4,1,1,1,1), -8, 0)], 0)
-        ),
-        (
-            # Relation any between two constraints of types 2 5 (Atmost N-1 Atleast n)
-            ((1, 1, [((0, 0, 0), (1, 2, 3), (-1, -1, -1), -2, 4), ((0, 0, 0, 0), (5, 6, 7, 8), (1, 1, 1, 1), 2, 9)], 0), True),
-            # Possible to merge to one constraint
-            (1, 1, [((0, 0, 0, 0, 0, 0, 0), (1,2,3,5,6,7,8), (-4,-4,-4,1,1,1,1), -10, 0)], 0)
-        ),
-        (
-            # Relation any between two constraints of types 2 6 (Atmost N-1 Atmost n)
-            ((1, 1, [((0, 0, 0), (1, 2, 3), (-1, -1, -1), -2, 4), ((0, 0, 0, 0), (5, 6, 7, 8), (-1, -1, -1, -1), -2, 9)], 0), True),
-            # Possible to merge to one constraint
-            (1, 1, [((0, 0, 0, 0, 0, 0, 0), (1,2,3,5,6,7,8), (-4,-4,-4,-1,-1,-1,-1), -14, 0)], 0)
-        ),
-        (
-            # Relation any between two constraints of types 3 3 (None None)
-            ((1, 1, [((0, 0, 0), (1, 2, 3), (-1, -1, -1), 0, 4), ((0, 0, 0, 0), (5, 6, 7, 8), (-1, -1, -1, -1), 0, 9)], 0), True),
-            # Not possible to merge to one constraint, but could be merged to min(n1,n2) constraints without introducing new variable
-            (3, 1, [
-                ((0, 0, 0, 0, 0), (1,5,6,7,8), (-4,-1,-1,-1,-1), -4, 0),
-                ((0, 0, 0, 0, 0), (2,5,6,7,8), (-4,-1,-1,-1,-1), -4, 0),
-                ((0, 0, 0, 0, 0), (3,5,6,7,8), (-4,-1,-1,-1,-1), -4, 0)], 0)
-        ),
-        (
-            # Relation any between two constraints of types 3 4 (None All)
-            ((1, 1, [((0, 0, 0), (1, 2, 3), (-1, -1, -1), 0, 4), ((0, 0), (5, 6), (1, 1), 2, 9)], 0), True),
-            # Not possible to merge to one constraint, but could be merged to min(n1,n2) constraints without introducing new variable
-            (2, 1, [
-                ((0, 0, 0, 0), (5,1,2,3), (3,-1,-1,-1), 0, 0),
-                ((0, 0, 0, 0), (6,1,2,3), (3,-1,-1,-1), 0, 0)], 0)
-        ),
-        (
-            # Relation any between two constraints of types 3 4 (None All)
-            ((1, 1, [((0, 0, 0), (1, 2, 3), (-1, -1, -1), 0, 4), ((0, 0), (5, 6), (1, 1), 2, 9)], 0), False),
-            # Not possible to merge to one constraint
-            (3, 1, [
-                ((0, 0), (4,9), (1,1), 1, 0),
-                ((0, 0, 0, 0), (1,2,3,4), (-1,-1,-1,-3), -3, 4),
-                ((0, 0, 0), (5,6,9), (1,1,-2), 0, 9)], 0)
-        ),
-        (
-            # Relation any between two constraints of types 3 5 (None Atleast n)
-            ((1, 1, [((0, 0, 0), (1, 2, 3), (-1, -1, -1), 0, 4), ((0, 0, 0, 0), (5, 6, 7, 8), (1, 1, 1, 1), 2, 9)], 0), True),
-            # Not possible to merge to one constraint
-            (3, 1, [
-                ((0, 0, 0, 0, 0), (1,5,6,7,8), (-4,1,1,1,1), -2, 0),
-                ((0, 0, 0, 0, 0), (2,5,6,7,8), (-4,1,1,1,1), -2, 0),
-                ((0, 0, 0, 0, 0), (3,5,6,7,8), (-4,1,1,1,1), -2, 0),], 0)
-        ),
-        (
-            # Relation any between two constraints of types 3 6 (None Atmost n)
-            ((1, 1, [((0, 0, 0), (1, 2, 3), (-1, -1, -1), 0, 4), ((0, 0, 0, 0), (5, 6, 7, 8), (-1, -1, -1, -1), -2, 9)], 0), True),
-            # Not possible to merge to one constraint
-            (3, 1, [
-                ((0, 0, 0, 0, 0), (1,5,6,7,8), (-4,-1,-1,-1,-1), -6, 0),
-                ((0, 0, 0, 0, 0), (2,5,6,7,8), (-4,-1,-1,-1,-1), -6, 0),
-                ((0, 0, 0, 0, 0), (3,5,6,7,8), (-4,-1,-1,-1,-1), -6, 0),], 0)
-        ),
-        (
-            # Relation any between two constraints of types 4 4 (All All)
-            ((1, 1, [((0, 0, 0), (1, 2, 3), (1, 1, 1), 3, 4), ((0, 0, 0, 0), (5, 6, 7, 8), (1, 1, 1, 1), 4, 9)], 0), True),
-            # Not possible to merge to one constraint
-            (3, 1, [
-                ((0, 0, 0, 0, 0), (1,5,6,7,8), (4,1,1,1,1), 4, 0),
-                ((0, 0, 0, 0, 0), (2,5,6,7,8), (4,1,1,1,1), 4, 0),
-                ((0, 0, 0, 0, 0), (3,5,6,7,8), (4,1,1,1,1), 4, 0),], 0)
-        ),
-        (
-            # Relation any between two constraints of types 4 5 (All Atleast n)
-            ((1, 1, [((0, 0, 0), (1, 2, 3), (1, 1, 1), 3, 4), ((0, 0, 0, 0), (5, 6, 7, 8), (1, 1, 1, 1), 2, 9)], 0), True),
-            # Not possible to merge to one constraint
-            (3, 1, [
-                ((0, 0, 0, 0, 0), (1,5,6,7,8), (4,1,1,1,1), 2, 0),
-                ((0, 0, 0, 0, 0), (2,5,6,7,8), (4,1,1,1,1), 2, 0),
-                ((0, 0, 0, 0, 0), (3,5,6,7,8), (4,1,1,1,1), 2, 0),], 0)
-        ),
-        (
-            # Relation any between two constraints of types 4 6 (All Atmost n)
-            ((1, 1, [((0, 0, 0), (1, 2, 3), (1, 1, 1), 3, 4), ((0, 0, 0, 0), (5, 6, 7, 8), (-1, -1, -1, -1), -2, 9)], 0), True),
-            # Not possible to merge to one constraint
-            (3, 1, [
-                ((0, 0, 0, 0, 0), (1,5,6,7,8), (4,-1,-1,-1,-1), -2, 0),
-                ((0, 0, 0, 0, 0), (2,5,6,7,8), (4,-1,-1,-1,-1), -2, 0),
-                ((0, 0, 0, 0, 0), (3,5,6,7,8), (4,-1,-1,-1,-1), -2, 0),], 0)
-        ),
-        (
-            # Relation any between two constraints of types 5 5 (Atleast n Atleast n)
-            ((1, 1, [((0, 0, 0, 0), (1, 2, 3, 4), (1, 1, 1, 1), 2, 9), ((0, 0, 0, 0), (5, 6, 7, 8), (1, 1, 1, 1), 2, 10)], 0), True),
-            # Not possible to merge to one constraint
-            (3, 1, [
-                ((0, 0), (9, 10), (1,1), 1, 0),
-                ((0, 0, 0, 0, 0), (1,2,3,4,9), (1,1,1,1,-2), 0, 9),
-                ((0, 0, 0, 0, 0), (5,6,7,8,10), (1,1,1,1,-2), 0, 10),], 0)
-        ),
-        (
-            # Relation any between two constraints of types 5 6 (Atleast n Atmost n)
-            ((1, 1, [((0, 0, 0, 0), (1, 2, 3, 4), (1, 1, 1, 1), 2, 9), ((0, 0, 0, 0), (5, 6, 7, 8), (-1, -1, -1, -1), -2, 10)], 0), True),
-            # Not possible to merge to one constraint
-            (3, 1, [
-                ((0, 0), (9, 10), (1,1), 1, 0),
-                ((0, 0, 0, 0, 0), (1,2,3,4,9), (1,1,1,1,-2), 0, 9),
-                ((0, 0, 0, 0, 0), (5,6,7,8,10), (-1,-1,-1,-1,-2), -4, 10),], 0)
-        ),
-        (
-            # Relation any between two constraints of types 6 6 (Atmost n Atmost n)
-            ((1, 1, [((0, 0, 0, 0), (1, 2, 3, 4), (-1, -1, -1, -1), -2, 9), ((0, 0, 0, 0), (5, 6, 7, 8), (-1, -1, -1, -1), -2, 10)], 0), True),
-            # Not possible to merge to one constraint
-            (3, 1, [
-                ((0, 0), (9, 10), (1,1), 1, 0),
-                ((0, 0, 0, 0, 0), (1,2,3,4,9), (-1,-1,-1,-1,-2), -4, 9),
-                ((0, 0, 0, 0, 0), (5,6,7,8,10), (-1,-1,-1,-1,-2), -4, 10),], 0)
-        ),
-        (
-            # Relation any between four constraints of types 1 (Any)
-            ((1, 1, [
-                ((0,), (1,), (1,), 1, 5),
-                ((0,), (2,), (1,), 1, 6),
-                ((0,), (3,), (1,), 1, 7),
-                ((0,), (4,), (1,), 1, 8)], 0), True),
-            # Possible to merge to one constraint
-            (1, 1, [((0, 0, 0, 0), (1, 2, 3, 4), (1,1,1,1), 1, 0),], 0)
-        ),
-        (
-            # Relation all between two constraints of types 1 1 (Any Any)
-            ((2, 1, [((0, 0, 0), (1, 2, 3), (1, 1, 1), 1, 4), ((0, 0), (5, 6), (1, 1), 1, 7)], 0), True),
-            # Not possible to merge to one constraint
-            (1, 1, [
-                ((0, 0, 0, 0), (5,1,2,3), (3,1,1,1), 4, 0),
-                ((0, 0, 0, 0), (6,1,2,3), (3,1,1,1), 4, 0)], 0)
-        ),
-        (
-            # Relation all between two constraints of types 1 2 (Any Atmost N-1)
-            ((2, 1, [((0, 0, 0), (1, 2, 3), (1, 1, 1), 1, 4), ((0, 0, 0, 0), (5, 6, 7, 8), (-1, -1, -1, -1), -3, 9)], 0), True),
-            # Not ossible to merge to one constraint
-            (3, 1, [
-                ((0, 0), (4, 9), (1,1), 2, 0),
-                ((0, 0, 0, 0), (1,2,3,4), (1, 1, 1,-1), 0, 4),
-                ((0,0,0,0,0),(5,6,7,8,9),(-1, -1, -1, -1, -1), -4, 9)], 0)
-        ),
-        (
-            # Relation all between two constraints of types 1 3 (Any None)
-            ((2, 1, [((0, 0, 0), (1, 2, 3), (1, 1, 1), 1, 4), ((0, 0, 0, 0), (5, 6, 7, 8), (-1, -1, -1, -1), 0, 9)], 0), True),
-            # Possible to merge to one constraint
-            (1, 1, [((0, 0, 0, 0, 0, 0 ,0), (1,2,3,5,6,7,8), (1,1,1,3,3,3,3), 1, 0)], 0)
-        ),
-        (
-            # Relation all between two constraints of types 1 4 (Any All)
-            ((2, 1, [((0, 0, 0), (1, 2, 3), (1, 1, 1), 1, 4), ((0, 0, 0, 0), (5, 6, 7, 8), (1, 1, 1, 1), 4, 9)], 0), True),
-            # Possible to merge to one constraint
-            (1, 1, [((0, 0, 0, 0, 0, 0, 0), (1,2,3,5,6,7,8), (1,1,1,3,3,3,3), 13, 0)], 0)
-        ),
-        (
-            # Relation all between two constraints of types 1 5 (Any Atleast n)
-            ((2, 1, [((0, 0, 0), (1, 2, 3), (1, 1, 1), 1, 4), ((0, 0, 0, 0), (5, 6, 7, 8), (1, 1, 1, 1), 2, 9)], 0), True),
-            # Not possible to merge to one constraint
-            (1, 1, [
-                ((0, 0, 0, 0, 0), (1,5,6,7,8), (4,1,1,1,1), 6, 0),
-                ((0, 0, 0, 0, 0), (2,5,6,7,8), (4,1,1,1,1), 6, 0),
-                ((0, 0, 0, 0, 0), (3,5,6,7,8), (4,1,1,1,1), 6, 0)], 0)
-        ),
-        (
-            # Relation all between two constraints of types 1 6 (Any Atmost n)
-            ((2, 1, [((0, 0, 0), (1, 2, 3), (1, 1, 1), 1, 4), ((0, 0, 0, 0), (5, 6, 7, 8), (-1, -1, -1, -1), -2, 9)], 0), True),
-            # Not possible to merge to one constraint
-            (1, 1, [
-                ((0, 0, 0, 0, 0), (1,5,6,7,8), (4,-1,-1,-1,-1), 2, 0),
-                ((0, 0, 0, 0, 0), (2,5,6,7,8), (4,-1,-1,-1,-1), 2, 0),
-                ((0, 0, 0, 0, 0), (3,5,6,7,8), (4,-1,-1,-1,-1), 2, 0)], 0)
-        ),
-        (
-            # Relation all between two constraints of types 2 2 (Atmost N-1 Atmost N-1)
-            ((2, 1, [((0, 0, 0), (1, 2, 3), (-1, -1, -1), -2, 4), ((0, 0, 0, 0), (5, 6, 7, 8), (-1, -1, -1, -1), -3, 9)], 0), True),
-            # Not possible to merge to one constraint
-            (3, 1, [
-                ((0, 0), (4, 9), (1,1), 2, 0),
-                ((0, 0, 0, 0), (1,2,3,4), (-1, -1, -1,-1), -3, 4),
-                ((0,0,0,0,0),(5,6,7,8,9),(-1, -1, -1, -1, -1), -4, 9)], 0)
-        ),
-        (
-            # Relation all between two constraints of types 2 3 (Atmost N-1 None)
-            ((2, 1, [((0, 0, 0), (1, 2, 3), (-1, -1, -1), -2, 4), ((0, 0, 0, 0), (5, 6, 7, 8), (-1, -1, -1, -1), 0, 9)], 0), True),
-            # Possible to merge to one constraint
-            (1, 1, [((0, 0, 0, 0, 0, 0, 0), (1,2,3,5,6,7,8), (-1,-1,-1,-3,-3,-3,-3), -2, 0)], 0)
-        ),
-        (
-            # Relation all between two constraints of types 2 4 (Atmost N-1 All)
-            ((2, 1, [((0, 0, 0), (1, 2, 3), (-1, -1, -1), -2, 4), ((0, 0, 0, 0), (5, 6, 7, 8), (1, 1, 1, 1), 4, 9)], 0), True),
-            # Possible to merge to one constraint
-            (1, 1, [((0, 0, 0, 0, 0, 0, 0), (1,2,3,5,6,7,8), (-1,-1,-1,3,3,3,3), 10, 0)], 0)
-        ),
-        (
-            # Relation all between two constraints of types 2 5 (Atmost N-1 Atleast n)
-            ((2, 1, [((0, 0, 0), (1, 2, 3), (-1, -1, -1), -2, 4), ((0, 0, 0, 0), (5, 6, 7, 8), (1, 1, 1, 1), 2, 9)], 0), True),
-            # Not possible to merge to one constraint
-            (3, 1, [
-                ((0, 0), (4, 9), (1,1), 2, 0),
-                ((0, 0, 0, 0), (1,2,3,4), (-1, -1, -1,-1), -3, 4),
-                ((0,0,0,0,0),(5,6,7,8,9),(1, 1, 1, 1, -2), 0, 9)], 0)
-        ),
-        (
-            # Relation all between two constraints of types 2 6 (Atmost N-1 Atmost n)
-            ((2, 1, [((0, 0, 0), (1, 2, 3), (-1, -1, -1), -2, 4), ((0, 0, 0, 0), (5, 6, 7, 8), (-1, -1, -1, -1), -2, 9)], 0), True),
-            # Not possible to merge to one constraint
-            (3, 1, [
-                ((0, 0), (4, 9), (1,1), 2, 0),
-                ((0, 0, 0, 0), (1,2,3,4), (-1, -1, -1,-1), -3, 4),
-                ((0,0,0,0,0),(5,6,7,8,9),(-1, -1, -1, -1, -2), -4, 9)
-            ], 0)
-        ),
-        (
-            # Relation all between two constraints of types 3 3 (None None)
-            ((2, 1, [((0, 0, 0), (1, 2, 3), (-1, -1, -1), 0, 4), ((0, 0, 0, 0), (5, 6, 7, 8), (-1, -1, -1, -1), 0, 9)], 0), True),
-            # Possible to merge to one constraint
-            (1, 1, [((0, 0, 0, 0, 0, 0, 0), (1,2,3,5,6,7,8), (-1,-1,-1,-1,-1,-1,-1), 0, 0)], 0)
-        ),
-        (
-            # Relation all between two constraints of types 3 4 (None All)
-            ((2, 1, [((0, 0, 0), (1, 2, 3), (-1, -1, -1), 0, 4), ((0, 0), (5, 6), (1, 1), 2, 9)], 0), True),
-            # Possible to merge to one constraint
-            (1, 1, [((0, 0, 0, 0, 0), (1,2,3,5,6), (-1,-1,-1,1, 1), 2, 0)], 0)
-        ),
-        (
-            # Relation all between two constraints of types 3 5 (None Atleast n)
-            ((2, 1, [((0, 0, 0), (1, 2, 3), (-1, -1, -1), 0, 4), ((0, 0, 0, 0), (5, 6, 7, 8), (1, 1, 1, 1), 2, 9)], 0), True),
-            # Possible to merge to one constraint
-            (1, 1, [((0, 0, 0, 0, 0, 0, 0), (1,2,3,5,6,7,8), (-4,-4,-4,1,1,1,1), 2, 0)], 0)
-        ),
-        (
-            # Relation all between two constraints of types 3 6 (None Atmost n)
-            ((2, 1, [((0, 0, 0), (1, 2, 3), (-1, -1, -1), 0, 4), ((0, 0, 0, 0), (5, 6, 7, 8), (-1, -1, -1, -1), -2, 9)], 0), True),
-            # Possible to merge to one constraint
-            (1, 1, [((0, 0, 0, 0, 0, 0, 0), (1,2,3,5,6,7,8), (-4,-4,-4,-1,-1,-1,-1), -2, 0)], 0)
-        ),
-        (
-            # Relation all between two constraints of types 4 4 (All All)
-            ((2, 1, [((0, 0, 0), (1, 2, 3), (1, 1, 1), 3, 4), ((0, 0, 0, 0), (5, 6, 7, 8), (1, 1, 1, 1), 4, 9)], 0), True),
-            # Possible to merge to one constraint
-            (1, 1, [((0, 0, 0, 0, 0, 0, 0), (1,2,3,5,6,7,8), (1,1,1,1,1,1,1), 7, 0)], 0)
-        ),
-        (
-            # Relation all between two constraints of types 4 5 (All Atleast n)
-            ((2, 1, [((0, 0, 0), (1, 2, 3), (1, 1, 1), 3, 4), ((0, 0, 0, 0), (5, 6, 7, 8), (1, 1, 1, 1), 2, 9)], 0), True),
-            # Possible to merge to one constraint
-            (1, 1, [((0, 0, 0, 0, 0, 0, 0), (1,2,3,5,6,7,8), (4,4,4,1,1,1,1), 14, 0)], 0)
-        ),
-        (
-            # Relation all between two constraints of types 4 6 (All Atmost n)
-            ((2, 1, [((0, 0, 0), (1, 2, 3), (1, 1, 1), 3, 4), ((0, 0, 0, 0), (5, 6, 7, 8), (-1, -1, -1, -1), -2, 9)], 0), True),
-            # Possible to merge to one constraint
-            (1, 1, [((0, 0, 0, 0, 0, 0, 0), (1,2,3,5,6,7,8), (4,4,4,-1,-1,-1,-1), 10, 0)], 0)
-        ),
-        (
-            # Relation all between two constraints of types 5 5 (Atleast n Atleast n)
-            ((2, 1, [((0, 0, 0, 0), (1, 2, 3, 4), (1, 1, 1, 1), 2, 9), ((0, 0, 0, 0), (5, 6, 7, 8), (1, 1, 1, 1), 2, 10)], 0), True),
-            # Not possible to merge to one constraint
-            (3, 1, [
-                ((0, 0), (9, 10), (1,1), 2, 0),
-                ((0, 0, 0, 0, 0), (1,2,3,4,9), (1,1,1,1,-2), 0, 9),
-                ((0, 0, 0, 0, 0), (5,6,7,8,10), (1,1,1,1,-2), 0, 10),], 0)
-        ),
-        (
-            # Relation all between two constraints of types 5 6 (Atleast n Atmost n)
-            ((2, 1, [((0, 0, 0, 0), (1, 2, 3, 4), (1, 1, 1, 1), 2, 9), ((0, 0, 0, 0), (5, 6, 7, 8), (-1, -1, -1, -1), -2, 10)], 0), True),
-            # Possible to merge to one constraint
-            (1, 1, [((0, 0, 0, 0, 0, 0, 0,0), (1,2,3,4,5,6,7,8), (4,4,4,4,-1,-1,-1,-1), 6, 0)], 1)
-        ),
-        (
-            # Relation all between two constraints of types 6 6 (Atmost n Atmost n)
-            ((2, 1, [((0, 0, 0, 0), (1, 2, 3, 4), (-1, -1, -1, -1), -2, 9), ((0, 0, 0, 0), (5, 6, 7, 8), (-1, -1, -1, -1), -2, 10)], 0), True),
-            # Not possible to merge to one constraint
-            (3, 1, [
-                ((0, 0), (9, 10), (1,1), 2, 0),
-                ((0, 0, 0, 0, 0), (1,2,3,4,9), (-1,-1,-1,-1,-2), -4, 9),
-                ((0, 0, 0, 0, 0), (5,6,7,8,10), (-1,-1,-1,-1,-2), -4, 10),], 0)
-        ),
-        (
-            # Relation any between four constraints of types 1 (Any)
-            ((4, 1, [
-                ((0,), (1,), (1,), 1, 5),
-                ((0,), (2,), (1,), 1, 6),
-                ((0,), (3,), (1,), 1, 7),
-                ((0,), (4,), (1,), 1, 8)], 0), True),
-            # Possible to merge to one constraint
-            (1, 1, [((0, 0, 0, 0), (4,3,1, 2), (1,1,1,1), 4, 0),], 0)
-        )
-    ]
-    # for i in range(10000):
-    for inpt, expected_output in test_cases[:1]:
-        print(inpt)
-        actual_output = lf.transform(*inpt)
-        assert expected_output == actual_output
-
 def test_json_conversion():
 
     model = pg.All(
@@ -1677,8 +1332,8 @@ def test_xnor_proposition():
     actual_model = pg.XNor("x","y","z") # <- meaning none or at least 2
     polyhedron = actual_model.to_polyhedron(True)
     assert polyhedron.shape == (3,6)
-    assert polyhedron[polyhedron.A.dot([0,1,1,1,1]) < polyhedron.b].size == 0
-    assert polyhedron[polyhedron.A.dot([0,1,1,1,0]) < polyhedron.b].size == 0
+    assert polyhedron[polyhedron.A.dot([1,0,1,1,1]) < polyhedron.b].size == 0 # <- AtLeast 2 -variable active (neg AtMost 1)
+    assert polyhedron[polyhedron.A.dot([0,1,0,0,0]) < polyhedron.b].size == 0 # <- None -variable active (neg AtLeast 1)
 
 def test_proposition_polyhedron_conversions():
 
@@ -1687,7 +1342,7 @@ def test_proposition_polyhedron_conversions():
         variable="all_not"
     ).to_polyhedron(True)
     assert not all(actual.A.dot(actual.A.construct(*{"x": 1}.items())) >= actual.b)
-    assert all(actual.A.dot(actual.A.construct(*{"VARec31682fde561917952ff78a7a8adeffd0febc372dd26871916c46c630381b45": 1}.items())) >= actual.b)
+    assert all(actual.A.dot(actual.A.construct(*{"VARfe372293ac6fc8767d248278e9ceacbb53aa57de8d3b30ef20813933935d1332": 1}.items())) >= actual.b)
 
     actual = pg.Not(
         pg.All("x","y","z", variable="all_xyz")
@@ -1707,8 +1362,8 @@ def test_proposition_polyhedron_conversions():
         condition=pg.Not("x"),
         consequence=pg.All("a","b","c")
     ).to_polyhedron(True)
-    assert all(actual.A.dot(actual.A.construct(*{"VARec31682fde561917952ff78a7a8adeffd0febc372dd26871916c46c630381b45": 1, "x": 1}.items())) >= actual.b)
-    assert all(actual.A.dot(actual.A.construct(*{"VAR851ca7a5e2d4bce908ced2c566ce1ef6f1cc1921fcb4c270353cbc81f2e3b59c": 1, "a": 1, "b": 1, "c": 1}.items())) >= actual.b)
+    assert all(actual.A.dot(actual.A.construct(*{"VARfe372293ac6fc8767d248278e9ceacbb53aa57de8d3b30ef20813933935d1332": 1, "x": 1}.items())) >= actual.b)
+    assert all(actual.A.dot(actual.A.construct(*{"VARa786dc00ea76fe754d21e63ec49ef338cc4771c44ed9562a0fb0bd52d305ae1e": 1, "a": 1, "b": 1, "c": 1}.items())) >= actual.b)
 
     actual = pg.Not(
         pg.Imply(
@@ -1716,11 +1371,11 @@ def test_proposition_polyhedron_conversions():
             consequence=pg.Any("a","b","c")
         ),
     ).to_polyhedron(True)
-    assert all(actual.A.dot(actual.A.construct(*{"VAR86fca5ee438a294cecf9003ee4f8c73dcf99f07273ba6d609ed49abe9e2d3d2d": 1, "VARdbfcfd0d87220f629339bd3adcf452d083fde3246625fb3a93e314f833e20d37": 1, "x": 1, "y": 1, "z": 1}.items())) >= actual.b)
-    assert not all(actual.A.dot(actual.A.construct(*{"VAR86fca5ee438a294cecf9003ee4f8c73dcf99f07273ba6d609ed49abe9e2d3d2d": 1, "VARdbfcfd0d87220f629339bd3adcf452d083fde3246625fb3a93e314f833e20d37": 1, "x": 1, "y": 1, "z": 1, "a": 1}.items())) >= actual.b)
-    assert not all(actual.A.dot(actual.A.construct(*{"VAR86fca5ee438a294cecf9003ee4f8c73dcf99f07273ba6d609ed49abe9e2d3d2d": 1, "VARdbfcfd0d87220f629339bd3adcf452d083fde3246625fb3a93e314f833e20d37": 1, "x": 1, "y": 1, "z": 1, "b": 1}.items())) >= actual.b)
-    assert not all(actual.A.dot(actual.A.construct(*{"VAR86fca5ee438a294cecf9003ee4f8c73dcf99f07273ba6d609ed49abe9e2d3d2d": 1, "VARdbfcfd0d87220f629339bd3adcf452d083fde3246625fb3a93e314f833e20d37": 1, "x": 1, "y": 1, "z": 1, "c": 1}.items())) >= actual.b)
-    assert not all(actual.A.dot(actual.A.construct(*{"VAR86fca5ee438a294cecf9003ee4f8c73dcf99f07273ba6d609ed49abe9e2d3d2d": 1, "VARdbfcfd0d87220f629339bd3adcf452d083fde3246625fb3a93e314f833e20d37": 1, "x": 1, "y": 1}.items())) >= actual.b)
+    assert all(actual.A.dot(actual.A.construct(*{"VARb6a05d7d91efc84e49117524cffa01cba8dcb1f14479be025342b909c9ab0cc2": 1, "VARc0f852a67830b3fb052513573b07057974eba4efd30675780affbc5ac374ae3c": 1, "x": 1, "y": 1, "z": 1}.items())) >= actual.b)
+    assert not all(actual.A.dot(actual.A.construct(*{"VARb6a05d7d91efc84e49117524cffa01cba8dcb1f14479be025342b909c9ab0cc2": 1, "VARc0f852a67830b3fb052513573b07057974eba4efd30675780affbc5ac374ae3c": 1, "x": 1, "y": 1, "z": 1, "a": 1}.items())) >= actual.b)
+    assert not all(actual.A.dot(actual.A.construct(*{"VARb6a05d7d91efc84e49117524cffa01cba8dcb1f14479be025342b909c9ab0cc2": 1, "VARc0f852a67830b3fb052513573b07057974eba4efd30675780affbc5ac374ae3c": 1, "x": 1, "y": 1, "z": 1, "b": 1}.items())) >= actual.b)
+    assert not all(actual.A.dot(actual.A.construct(*{"VARb6a05d7d91efc84e49117524cffa01cba8dcb1f14479be025342b909c9ab0cc2": 1, "VARc0f852a67830b3fb052513573b07057974eba4efd30675780affbc5ac374ae3c": 1, "x": 1, "y": 1, "z": 1, "c": 1}.items())) >= actual.b)
+    assert not all(actual.A.dot(actual.A.construct(*{"VARb6a05d7d91efc84e49117524cffa01cba8dcb1f14479be025342b909c9ab0cc2": 1, "VARc0f852a67830b3fb052513573b07057974eba4efd30675780affbc5ac374ae3c": 1, "x": 1, "y": 1}.items())) >= actual.b)
 
     actual = pg.Not(
         pg.AtLeast(propositions=["x","y","z"], value=2)
@@ -2182,6 +1837,33 @@ def test_proposition_negation():
     assert negated.propositions[1].sign == -1
     assert negated.propositions[1].value == 0
 
+    # Test to negate when variable bounds range in int space
+    # We expect no difference with or without different bounds
+    # but to be sure, we include a test here.
+    model = pg.All(
+        pg.Any(
+            puan.variable("a", bounds=(-10,10)),
+            puan.variable("b", bounds=(-10,10)),
+            puan.variable("c", bounds=(-10,10)),
+        ),
+        pg.Xor(
+            puan.variable("x", bounds=(-10,10)),
+            puan.variable("y", bounds=(-10,10)),
+            puan.variable("z", bounds=(-10,10)),
+        ),
+    )
+    negated = model.negate()
+    assert len(negated.propositions) == 2
+    assert negated.sign == 1
+    assert negated.value == 1
+    assert negated.propositions[0].sign == -1
+    assert negated.propositions[0].value == 0
+    assert len(negated.propositions[1].propositions) == 2
+    assert negated.propositions[1].propositions[0].sign == -1
+    assert negated.propositions[1].propositions[0].value == 0
+    assert negated.propositions[1].propositions[1].sign == 1
+    assert negated.propositions[1].propositions[1].value == 2
+
 def test_configurator_to_json():
 
     expected = {
@@ -2231,3 +1913,14 @@ def test_configurator_to_json():
         assert a['type'] == b['type']
         assert len(a['propositions']) == len(b['propositions'])
         assert a.get('default', []) == b.get('default', [])
+
+def test_at_leasts():
+
+    with pytest.raises(Exception):
+        pg.AtLeast(value=1, propositions=None)
+
+    with pytest.raises(Exception):
+        pg.AtLeast(value=1, propositions=None, variable="A")
+
+    with pytest.raises(Exception):
+        pg.AtLeast(propositions=[], value=1, variable="A")

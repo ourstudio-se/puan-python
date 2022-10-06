@@ -17,8 +17,29 @@ from toposort import toposort
 from dataclasses import dataclass
 
 class AtLeast(puan.StatementInterface):
+
+    """
+        AtLeast proposition is in it's core a regular at least expression (e.g. x+y+z >= 1), but simplified
+        into having only +1 or -1 as coefficients. This is set by the `sign` property. An AtLeast-proposition
+        is considered invalid if there are no sub propositions given.
+
+        Notes
+        -----
+            - `propositions` may take on different values than 0 and 1 dependen on their inner bounds.
+            - `propositions` list cannot be empty.
+            - `sign` parameter take only -1 or 1 as value.
+            - `variable` may be of type puan.variable, str or None. 
+                - If str, a default puan.variable will be constructed with its id=variable.
+                - If None, then a id will be generated based on its propositions, value and sign.
+
+        Examples
+        --------
+        Meaning at least one of x, y and z.
+            >>> AtLeast(1, list("xyz"), variable="A")
+            A: -(x,y,z)>=-1
+    """
     
-    def __init__(self, value: int, propositions: list = None, variable: typing.Union[str, puan.variable] = None, sign: int = 1):
+    def __init__(self, value: int, propositions: typing.List[typing.Union[str, puan.variable]], variable: typing.Union[str, puan.variable] = None, sign: int = 1):
         self.value = value
         self.sign = sign
         if not sign in [-1,1]:
@@ -26,6 +47,9 @@ class AtLeast(puan.StatementInterface):
 
         if sign is None:
             self.sign = 1 if value > 0 else -1
+
+        if propositions is None or len(list(propositions)) == 0:
+            raise Exception("Proposition must have variable and/or sub propositions, not none")
 
         self.propositions = propositions
         if self.propositions is not None:
@@ -45,9 +69,7 @@ class AtLeast(puan.StatementInterface):
                 )
             )
 
-        if variable is None and propositions is None:
-            raise Exception("Proposition must have variable and/or sub propositions, not none")
-        elif variable is None:
+        if variable is None:
             self.variable = puan.variable(id=AtLeast._id_generator(self.propositions, value, sign))
         elif type(variable) == str:
             self.variable = puan.variable(id=variable, bounds=(0,1))
@@ -600,8 +622,24 @@ class AtLeast(puan.StatementInterface):
         )
 
 class AtMost(AtLeast):
+
+    """
+        A AtMost proposition is an at least expression with negative coefficients and positive bias 
+        (e.g. -x-y-z >= -1). However, sub propositions are given as ordinary as well as the value.
+
+        Notes
+        -----
+            - Propositions may be of type str, puan.variable or AtLeast (or other inheriting AtLeast) 
+            - Propositions list cannot be empty.
+
+        Examples
+        --------
+        Meaning at most one of x, y and z.
+            >>> AtMost(1, list("xyz"), variable="A")
+            A: -(x,y,z)>=-1
+    """
     
-    def __init__(self, value: int, propositions: list = None, variable: typing.Union[str, puan.variable] = None):
+    def __init__(self, value: int, propositions: typing.List[typing.Union[str, puan.variable]], variable: typing.Union[str, puan.variable] = None):
         super().__init__(value=-1*value, propositions=propositions, variable=variable, sign=-1)
 
     @staticmethod
@@ -643,6 +681,22 @@ class AtMost(AtLeast):
 
 class All(AtLeast):
 
+    """
+        All -proposition means that all of its propositions must be true, otherwise this proposition
+        is false.
+
+        Notes
+        -----
+            - Propositions may be of type str, puan.variable or AtLeast (or other inheriting AtLeast) 
+            - Propositions list cannot be empty.
+
+        Examples
+        --------
+        Meaning at least one of x, y and z.
+            >>> All(*"xyz", variable="A")
+            A: +(x,y,z)>=3
+    """
+    
     def __init__(self, *propositions, variable: typing.Union[str, puan.variable] = None):
         super().__init__(value=len(propositions), propositions=propositions, variable=variable)
 
@@ -683,6 +737,22 @@ class All(AtLeast):
 
 class Any(AtLeast):
 
+    """
+        Any -proposition means that at least 1 of its propositions must be true, otherwise this proposition
+        is false.
+
+        Notes
+        -----
+            - Propositions may be of type str, puan.variable or AtLeast (or other inheriting AtLeast) 
+            - Propositions list cannot be empty.
+
+        Examples
+        --------
+        Meaning at least one of x, y and z.
+            >>> All(*"xyz", variable="A")
+            A: +(x,y,z)>=3
+    """
+
     def __init__(self, *propositions, variable: typing.Union[str, puan.variable] = None):
         super().__init__(value=1, propositions=propositions, variable=variable)
 
@@ -722,6 +792,23 @@ class Any(AtLeast):
         }
 
 class Imply(Any):
+
+    """
+        Imply -proposition consists of two sub propositions: condition and consequence. A implication
+        proposition says that if the conditions is true then the consequence must be true. Otherwise
+        is this proposition false.
+
+        Notes
+        -----
+            - Propositions may be of type str, puan.variable or AtLeast (or other inheriting AtLeast) 
+            - Condition and consequence must be set.
+
+        Examples
+        --------
+        Meaning at least one of x, y and z.
+            >>> Imply(condition=All(*"abc", variable="B"), consequence=Any(*"xyz", variable="C"), variable="A")
+            A: +(B,C)>=1
+    """
 
     def __init__(self, condition, consequence, variable: typing.Union[str, puan.variable] = None):
         super().__init__(condition, consequence, variable=variable)
@@ -801,7 +888,7 @@ class Imply(Any):
                 ...         ]
                 ...     }
                 ... })
-                someId: +(VAR724b37bcf910ce0504f0b4ae3182d4b5c98e65aa937eeb95985d426c8ac76731,VAR86fca5ee438a294cecf9003ee4f8c73dcf99f07273ba6d609ed49abe9e2d3d2d)>=1
+                someId: +(VAR17ebc38da7ecba33587158c5afbf2744031da80fe2d9b14dcda4b4366916a201,VARb6a05d7d91efc84e49117524cffa01cba8dcb1f14479be025342b909c9ab0cc2)>=1
             
             Returns
             -------
@@ -841,6 +928,16 @@ class Imply(Any):
             return consequence
 
 class Xor(All):
+
+    """
+        Xor -proposition is true when exactly one of its propositions is true.
+        For instance as the equality constraint x+y+z == 1
+
+        Notes
+        -----
+            - Propositions may be of type str, puan.variable or AtLeast (or other inheriting AtLeast) 
+            - Propositions list cannot be empty.
+    """
 
     def __init__(self, *propositions, variable: typing.Union[str, puan.variable] = None):
         super().__init__(
@@ -886,6 +983,14 @@ class Xor(All):
 
 class Not():
 
+    """
+        Not -proposition negates the input proposition. 
+
+        Notes
+        -----
+            - Proposition may be of type str, puan.variable or AtLeast (or other inheriting AtLeast) 
+    """
+
     def __new__(self, proposition):
         return (All(proposition) if type(proposition) == str else proposition).negate()
 
@@ -906,6 +1011,14 @@ class Not():
         )
 
 class XNor():
+
+    """
+        XNor -proposition is a negated Xor. I.e. only "exactly one" -configurations will be false. 
+
+        Notes
+        -----
+            - Proposition may be of type str, puan.variable or AtLeast (or other inheriting AtLeast) 
+    """
 
     def __new__(self, *propositions, variable: typing.Union[puan.variable, str] = None):
         return Not(
