@@ -36,7 +36,7 @@ class AtLeast(puan.StatementInterface):
         --------
         Meaning at least one of x, y and z.
             >>> AtLeast(1, list("xyz"), variable="A")
-            A: -(x,y,z)>=-1
+            A: +(x,y,z)>=1
     """
     
     def __init__(self, value: int, propositions: typing.List[typing.Union[str, puan.variable]], variable: typing.Union[str, puan.variable] = None, sign: int = 1):
