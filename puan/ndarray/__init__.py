@@ -18,10 +18,10 @@ class variable_ndarray(numpy.ndarray):
     def __new__(cls, input_array, variables: typing.List[puan.variable] = [], index: typing.List[typing.Union[int, puan.variable]] = [], dtype=numpy.int64):
         arr = numpy.asarray(input_array, dtype=dtype).view(cls)
         if len(variables) == 0:
-            variables = list(map(functools.partial(puan.variable, dtype=0, virtual=False), range(arr.shape[arr.ndim-1])))
+            variables = list(map(functools.partial(puan.variable, bounds=(0,1)), range(arr.shape[arr.ndim-1])))
 
         if len(index) == 0:
-            index = list(map(functools.partial(puan.variable, dtype=0, virtual=False), range(arr.shape[arr.ndim-2])))
+            index = list(map(functools.partial(puan.variable, bounds=(0,1)), range(arr.shape[arr.ndim-2])))
 
         arr.variables = numpy.array(variables)
         arr.index = numpy.array(index)
@@ -53,17 +53,13 @@ class variable_ndarray(numpy.ndarray):
             -------
                 out : numpy.ndarray 
         """
-
+        is_bool = 1*(variable_type==0)
         return numpy.array(
             sorted(
                 map(
                     operator.itemgetter(0),
                     filter(
-                        maz.compose(
-                            functools.partial(operator.eq, variable_type),
-                            operator.attrgetter("dtype"),
-                            operator.itemgetter(1)
-                        ),
+                        lambda x: 1*(x[1].bounds != (0,1)) + is_bool == 1,
                         enumerate(self.variables)
                     )
                 )
@@ -86,7 +82,7 @@ class variable_ndarray(numpy.ndarray):
                 ...     [0,-1, 1, 0, 0],
                 ...     [0, 0,-1, 1, 0],
                 ...     [0, 0, 0,-1, 1],
-                ... ]), [puan.variable("0", 1, True), puan.variable("a", 1, False), puan.variable("b", 0, False), puan.variable("c", 1, False), puan.variable("d", 0, False)])
+                ... ]), [puan.variable("0",(-10,10)), puan.variable("a",(0,10)), puan.variable("b"), puan.variable("c",(-2,2)), puan.variable("d")])
                 >>> ge_polyhedron.boolean_variable_indices
                 array([2, 4])
         """
@@ -109,7 +105,7 @@ class variable_ndarray(numpy.ndarray):
                 ...     [0,-1, 1, 0, 0],
                 ...     [0, 0,-1, 1, 0],
                 ...     [0, 0, 0,-1, 1],
-                ... ]), [puan.variable("0", 1, True), puan.variable("a", 1, False), puan.variable("b", 0, False), puan.variable("c", 1, False), puan.variable("d", 0, False)])
+                ... ]), [puan.variable("0",(-10,10)), puan.variable("a",(0,10)), puan.variable("b"), puan.variable("c",(-2,2)), puan.variable("d")])
                 >>> ge_polyhedron.integer_variable_indices
                 array([0, 1, 3])
         """
@@ -125,36 +121,47 @@ class variable_ndarray(numpy.ndarray):
             --------
 
             Constructing a new 1D variable ndarray shadow from this array and setting x = 5
-                >>> vnd = variable_ndarray([[1,2,3], [2,3,4]], [puan.variable("x", 1, False), puan.variable("y", 1, False), puan.variable("z", 1, False)])
+                >>> vnd = variable_ndarray([[1,2,3], [2,3,4]], [puan.variable("x"), puan.variable("y"), puan.variable("z")])
                 >>> vnd.construct(("x", 5))
                 array([5, 0, 0])
 
             Constructing a new 2D variable ndarray shadow from this array and setting x0 = 5, y0 = 4 and y1 = 3
-                >>> vnd = variable_ndarray([[1,2,3], [2,3,4]], [puan.variable("x", 1, False), puan.variable("y", 1, False), puan.variable("z", 1, False)])
+                >>> vnd = variable_ndarray([[1,2,3], [2,3,4]], [puan.variable("x"), puan.variable("y"), puan.variable("z")])
                 >>> vnd.construct([("x", 5), ("y", 4)], [("y", 3)])
                 array([[5, 4, 0],
                        [0, 3, 0]])
+
+            Notes
+            -----
+            If a variable in `variable_values` is not in self.variables, then it will be ignored.
 
             Returns
             -------
                 out : variable_ndarray
         """
+        variable_ids = list(map(lambda x: x.id, self.variables))
         if len(variable_values) == 0:
             return numpy.ones((self.shape[1]), dtype=dtype)*default_value
         elif isinstance(variable_values[0], tuple):
+            filtered_variable_values = list(
+                filter(
+                    lambda x: x[0] in variable_ids,
+                    variable_values
+                )
+            )
             variable_indices = list(
                 map(
-                    self.variables.tolist().index,
+                    variable_ids.index,
                     puan.variable.from_mixed(
                         *map(
                             operator.itemgetter(0),
-                            variable_values
+                            filtered_variable_values
                         )
                     )
                 )
             )
             v = numpy.ones(len(self.variables), dtype=dtype) * default_value
-            v[variable_indices] = list(map(operator.itemgetter(1), variable_values))
+            v[variable_indices] = list(map(operator.itemgetter(1), filtered_variable_values))
             return v
         else:
             return numpy.array(
@@ -288,6 +295,9 @@ class ge_polyhedron(variable_ndarray):
                 out : numpy.ndarray
         """
         init = self.bounds_init()
+        if init.size == 0:
+            raise Exception(f"Matrix A in polyhedron is empty")
+
         return (init[0]*(self.A>0)*self.A)+(init[1]*(self.A<0)*self.A)
 
     @property
@@ -361,20 +371,20 @@ class ge_polyhedron(variable_ndarray):
             All columns could be *assumed not* since picking any of the corresponding variable would violate the inequlity
 
                 >>> ge_polyhedron(numpy.array([[0, -1, -1, -1]])).reducable_columns_approx()
-                array([0, 0, 0])
+                array([0., 0., 0.])
 
             All columns could be *assumed* since not picking any of the corresponding variable would violate the inequlity
 
                 >>> ge_polyhedron(numpy.array([[3, 1, 1, 1]])).reducable_columns_approx()
-                array([1, 1, 1])
+                array([1., 1., 1.])
 
             Combination of *assume* and *not assume*
 
                 >>> ge_polyhedron(numpy.array([[0, 1, 1, -3]])).reducable_columns_approx()
-                array([nan, nan, 0])
+                array([nan, nan,  0.])
 
                 >>> ge_polyhedron(numpy.array([[2, 1, 1, -1]])).reducable_columns_approx()
-                array([1, 1, 0])
+                array([1., 1., 0.])
 
             Contradicting rules
 
@@ -548,7 +558,7 @@ class ge_polyhedron(variable_ndarray):
                 ...     [ 0, 1, 1, 0, 1, 0],
                 ...     [ 0, 1, 1, 0, 1,-1] 
                 ... ])).reducable_rows_and_columns()
-                (array([0, 0, 0, 1, 1, 1, 1]), array([nan, nan, nan, 1, 0]))
+                (array([0, 0, 0, 1, 1, 1, 1]), array([nan, nan, nan,  1.,  0.]))
 
         """
 
@@ -561,9 +571,15 @@ class ge_polyhedron(variable_ndarray):
             _M = ge_polyhedron.reduce_columns(_M, red_cols)
             full_cols[numpy.isnan(full_cols)] = red_cols
 
+            if _M.shape[1] <= 1:
+                break
+
             red_rows = ge_polyhedron.reducable_rows(_M) * 1
             _M = ge_polyhedron.reduce_rows(_M, red_rows)
             full_rows[full_rows == 0] = red_rows
+
+            if _M.shape[0] == 0:
+                break
 
             red_cols = ge_polyhedron.reducable_columns_approx(_M)
             red_rows = ge_polyhedron.reducable_rows(_M) * 1
@@ -918,7 +934,7 @@ class ge_polyhedron(variable_ndarray):
             x[0][x[1][1]] = -1
             return x
         list(map(_priorities_constraints, zip(polyhedron,priority_indices)))
-        variables = [puan.variable("0",1,True)] + list(map(maz.pospartial(puan.variable, [(1,1),(2,False)]), variables))
+        variables = [puan.variable("0")] + list(map(puan.variable, variables))
         return ge_polyhedron(numpy.concatenate((polyhedron, lez_constraint), axis=0), variables)
 
     def bounds_init(self, outer_bounds = (puan.default_min_int, puan.default_max_int)) -> numpy.array:
@@ -936,8 +952,8 @@ class ge_polyhedron(variable_ndarray):
         mn, mx = outer_bounds
         lb_outer = numpy.ones(self.A.shape[1]) * mn
         ub_outer = numpy.ones(self.A.shape[1]) * mx
-        lb = numpy.array(list(map(lambda x: lb_ib[x.dtype], self.A.variables)))
-        ub = numpy.array(list(map(lambda x: ub_ib[x.dtype], self.A.variables)))
+        lb = numpy.array(list(map(maz.compose(min, operator.attrgetter("bounds")), self.A.variables)))
+        ub = numpy.array(list(map(maz.compose(max, operator.attrgetter("bounds")), self.A.variables)))
         return numpy.array([
             numpy.max(numpy.array([lb_outer, lb]), axis=0),
             numpy.min(numpy.array([ub_outer, ub]), axis=0),
@@ -1612,7 +1628,7 @@ class ge_polyhedron_config(ge_polyhedron):
             )
         ).ndint_compress(method="shadow", axis=0)
 
-    def select(self, *prios: typing.List[typing.Dict[str, int]], solver, include_virtual_vars: bool = False) -> typing.Iterable[typing.List[puan.variable]]:
+    def select(self, *prios: typing.List[typing.Dict[str, int]], solver) -> typing.Iterable[typing.List[puan.variable]]:
 
         """
             Select items to prioritize and receive a solution.
@@ -1624,28 +1640,15 @@ class ge_polyhedron_config(ge_polyhedron):
 
                 solver : a mixed integer linear programming solver
 
-                default_prio_map : typing.Dict[str, int] = {}
-                    a dict mapping id to default prio value
-
             Returns
             -------
                 out : typing.List[typing.List[puan.variable]]
         """
         return map(
             lambda v: list(
-                filter(
-                    maz.compose(
-                        functools.partial(
-                            operator.add,
-                            include_virtual_vars
-                        ),
-                        operator.not_,
-                        operator.attrgetter("virtual"),
-                    ),
-                    itertools.starmap(
-                        puan.SolutionVariable.from_variable,
-                        zip(self.A.variables[v > 0], v[v > 0].tolist())
-                    ),
+                itertools.starmap(
+                    puan.SolutionVariable.from_variable,
+                    zip(self.A.variables[v > 0], v[v > 0].tolist())
                 )
             ), 
             solver(

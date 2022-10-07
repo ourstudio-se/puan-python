@@ -11,30 +11,33 @@ For simplicity, we will use only two t-shirts, two sweaters, two jeans and two p
 
 .. code:: python
 
+    import puan
     import puan.logic.plog as pg
     import puan.modules.configurator as cc
 
     model = cc.StingyConfigurator(
         pg.Xor(
-            pg.Proposition(id="t-thirt-blue"),
-            pg.Proposition(id="t-thirt-black"),
-            id="t-shirts"
+            puan.variable(id="t-thirt-blue"),
+            puan.variable(id="t-thirt-black"),
+            variable="t-shirts"
         ),
         pg.AtMost(
-            pg.Proposition(id="sweater-green"),
-            pg.Proposition(id="sweater-black"),
+            propositions=[
+                puan.variable(id="sweater-green"),
+                puan.variable(id="sweater-black"),
+            ],
             value=1,
-            id="sweaters"
+            variable="sweaters"
         ),
         pg.Xor(
-            pg.Proposition(id="jeans-blue"),
-            pg.Proposition(id="jeans-black"),
-            id="jeans"
+            puan.variable(id="jeans-blue"),
+            puan.variable(id="jeans-black"),
+            variable="jeans"
         ),
         pg.Xor(
-            pg.Proposition(id="shoes-white"),
-            pg.Proposition(id="shoes-black"),
-            id="shoes"
+            puan.variable(id="shoes-white"),
+            puan.variable(id="shoes-black"),
+            variable="shoes"
         ),
         id="outfit"
     )
@@ -53,6 +56,8 @@ a solver function taking four arguments: the A, and b numpy ndarray's from the p
     import npycvx # https://github.com/ourstudio-se/puan-npycvx
     import operator
     import functools
+    import typing
+    import numpy
 
     def solve_stuff(A, b, int_idxs, objs) -> typing.Iterable[numpy.ndarray]:
 
@@ -79,10 +84,11 @@ And now we are ready to select stuff, and get solutions.
 .. code:: python
 
     # Pick the black pair of jeans
-    solution = list(
+    solution = next(
         model.select(
-            [{"jeans-black": 1}], 
-            solve_stuff
+            {"jeans-black": 1}, 
+            solver=solve_stuff,
+            only_leafs=True
         )
     )
 
@@ -100,6 +106,8 @@ As it is defined right now, the answer is no. Well, to be exact, the answer is a
 the solutions are equally great. When this is the case, we say that the system is *ambiguous* and can lead to unexpected behaviour in the end. To avoid ambiguity, we use other classes from the StingyConfigurator module
 directly.
 
+Notice the "only_leafs" flag. Extra variables are created under the hood and are usually a part of the solution. By setting "only_leafs" to true, we filter out these extra variables.
+
 Fixing ambiguity
 ----------------
 Instead of using the Xor (or Any) class from `puan.logic.plog`, we use them from `puan.modules.configurator` instead since they offer an extra `default` parameter. Now we can define a new configurator model:
@@ -110,30 +118,32 @@ Instead of using the Xor (or Any) class from `puan.logic.plog`, we use them from
     import puan.logic.plog as pg
     import puan.modules.configurator as cc
 
-    model = cc.ConfiguratStingyConfiguratoror(
+    model = cc.StingyConfigurator(
         cc.Xor(
-            pg.Proposition(id="t-thirt-blue"),
-            pg.Proposition(id="t-thirt-black"),
+            puan.variable(id="t-thirt-blue"),
+            puan.variable(id="t-thirt-black"),
             default="t-thirt-black",
-            id="t-shirts"
+            variable="t-shirts"
         ),
         pg.AtMost(
-            pg.Proposition(id="sweater-green"),
-            pg.Proposition(id="sweater-black"),
+            propositions=[
+                puan.variable(id="sweater-green"),
+                puan.variable(id="sweater-black"),
+            ],
             value=1,
-            id="sweaters"
+            variable="sweaters"
         ),
         cc.Xor(
-            pg.Proposition(id="jeans-blue"),
-            pg.Proposition(id="jeans-black"),
+            puan.variable(id="jeans-blue"),
+            puan.variable(id="jeans-black"),
             default="jeans-black",
-            id="jeans"
+            variable="jeans"
         ),
         cc.Xor(
-            pg.Proposition(id="shoes-white"),
-            pg.Proposition(id="shoes-black"),
+            puan.variable(id="shoes-white"),
+            puan.variable(id="shoes-black"),
             default="shoes-black",
-            id="shoes"
+            variable="shoes"
         ),
         id="outfit"
     )
@@ -143,8 +153,12 @@ Running the new model, we are guaranteed to get our cool black outfit when none 
 .. code:: python
 
     # Pick the black pair of jeans
-    solution = list(
-        model.select([{"jeans-black": 1}], solve_stuff),
+    solution = next(
+        model.select(
+            {"jeans-black": 1}, 
+            solver=solve_stuff,
+            only_leafs=True
+        ),
     )
     print(solution)
     # [
@@ -160,16 +174,14 @@ the black sweater
 
 .. code:: python
 
-    # Pick the black pair of jeans
-    solution = list(
+    solution = next(
         model.select(
-            [
-                {
-                    "jeans-black": 1,
-                    "sweater-black": 1,
-                }
-            ], 
-            solve_stuff
+            {
+                "jeans-black": 1,
+                "sweater-black": 1,
+            }, 
+            solver=solve_stuff,
+            only_leafs=True
         ),
     )
     print(solution)
@@ -185,7 +197,7 @@ But here both are set to have the same priority. Let's add another logic relatio
 .. code:: python
 
     new_model = model.add(
-        pg.AtMost("sweater-black", "jeans-black", value=1)
+        pg.AtMost(propositions=["sweater-black", "jeans-black"], value=1)
     )
 
 
@@ -193,16 +205,14 @@ And again solve with same prio
 
 .. code:: python
 
-    # Pick the black pair of jeans
-    solution = list(
-        model.select(
-            [
-                {
-                    "jeans-black": 1,
-                    "sweater-black": 1,
-                }
-            ], 
-            solve_stuff
+    solution = next(
+        new_model.select(
+            {
+                "jeans-black": 1,
+                "sweater-black": 1,
+            }, 
+            solver=solve_stuff,
+            only_leafs=True
         ),
     )
     print(solution)
@@ -212,21 +222,19 @@ And again solve with same prio
     #    (variable(id='t-thirt-black', dtype=0, virtual=False), 1)
     # ]
 
-And we know did get the black jeans and got rid of our sweater. The reason for this is that the solution with jeans has 3 items whereas the solution with a sweater has 4 and a low number of items
+And we now did get the black jeans and got rid of our sweater. The reason for this is that the solution with jeans has 3 items whereas the solution with a sweater has 4 and a low number of items
 are more prioritized than a high number of items. If we change sweater prio to be higher than the jeans, we'll instead get the black sweater with another pair of jeans:
 
 .. code:: python
 
-    # Pick the black pair of jeans
-    solution = list(
-        model.select(
-            [
-                {
-                    "jeans-black": 1,
-                    "sweater-black": 2,
-                }
-            ], 
-            solve_stuff
+    solution = next(
+        new_model.select(
+            {
+                "jeans-black": 1,
+                "sweater-black": 2,
+            }, 
+            solver=solve_stuff,
+            only_leafs=True
         ),
     )
     print(solution)
@@ -241,17 +249,15 @@ You can also select with **negative prio**. For instance, you could go with any 
 
 .. code:: python
 
-    # Pick the black pair of jeans
-    solution = list(
+    solution = next(
         model.select(
-            [
-                {
-                    "shoes-black": -1,
-                    "jeans-black": 1,
-                    "sweater-black": 2,
-                }
-            ], 
-            solve_stuff
+            {
+                "shoes-black": -1,
+                "jeans-black": 1,
+                "sweater-black": 2,
+            }, 
+            solver=solve_stuff,
+            only_leafs=True
         ),
     )
     print(solution)

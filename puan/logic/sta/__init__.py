@@ -548,7 +548,7 @@ class application(dict):
             ...         }
             ...     }
             ... ])
-            All(id='VARea34...', equation='+VAR0aad...+VAR639a...+VARdc40...>=3')
+            VAR0524279dccbb26ea47f51ff8073349f79872e971b169e3851e60bb82f7235c96: +(VAR42b0074ce0dc2eb0311dcd55c064682c3767c9913bd8099e7618c35e1dee7ffa,VAR7c29eebd3eee9752034daf711372174aee6427e6ae5e852b872bd4928bf913ac,VAR93e536a6a6cd73e08049ee4dd2cceae0bfb5d8ab5531045820cca691d912b156)>=3
     """
         n_ge_one = functools.partial(filter, maz.compose(maz.pospartial(operator.ge, [(1,1)]), len))
         return pg.All(
@@ -565,7 +565,7 @@ class application(dict):
                                             "components": [
                                                 {
                                                     "id": str(application._extract_value(source_item, id_key)),
-                                                    "virtual": source_item['virtual'] if 'virtual' in source_item else False
+                                                    "bounds": source_item.get("bounds", (0,1))
                                                 }
                                                 for source_item in source_items
                                             ]
@@ -577,7 +577,7 @@ class application(dict):
                                     "components": [
                                         {
                                             "id": str(application._extract_value(target_item, id_key)),
-                                            "virtual": target_item['virtual'] if 'virtual' in target_item else False
+                                            "bounds": target_item.get("bounds", (0,1))
                                         }
                                         for target_item in target_items
                                     ]
@@ -594,7 +594,7 @@ class application(dict):
                     application._explode_from_variables(self)
                 )
             ),
-            id=model_id,
+            variable=model_id,
         )
 
     # @staticmethod
