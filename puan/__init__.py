@@ -110,7 +110,7 @@ class variable(StatementInterface):
 
             Notes
             -----
-            - Every item in variables that is not an instance of ``variable`` will be converted to a string and used as an id.
+            - Every item in ``*variables`` that is not an instance of ``variable`` will be converted to a string and used as an id.
             - List of variables are returned sorted.
 
             Examples
