@@ -19,7 +19,7 @@ from dataclasses import dataclass
 class AtLeast(puan.StatementInterface):
 
     """
-        ``AtLeast`` proposition is in its core a regular at least expression (e.g. :math:`x+y+z >= 1`), but restricted
+        ``AtLeast`` proposition is in its core a regular at least expression (e.g. :math:`x+y+z \ge 1`), but restricted
         to having only +1 or -1 as variable coefficients. This is set by the `sign` property. An ``AtLeast`` proposition
         is considered invalid if there are no sub propositions given.
 
@@ -613,9 +613,9 @@ class AtLeast(puan.StatementInterface):
             The key is the id of a proposition.
             The value is a list of three elements:
 
-            #. sign of coeffs (e.g. sign=1 means a+b+c, sign=-1 means -a-b-c)
+            #. sign of coeffs (e.g. sign=1 means :math:`a+b+c`, sign=-1 means :math:`-a-b-c`)
             #. sub propositions / variables (e.g. a,b,c)
-            #. value of support vector (e.g. 3 as in a+b+c>=3)
+            #. value of support vector (e.g. 3 as in :math:`a+b+c \ge 3`)
 
             Examples
             --------
