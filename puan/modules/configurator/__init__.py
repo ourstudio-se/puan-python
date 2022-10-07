@@ -145,7 +145,7 @@ class StingyConfigurator(pg.All):
     def polyhedron(self) -> pnd.ge_polyhedron_config:
 
         """
-            This configurator model's polyhedron (see logic.plog.Proposition.to_polyhedron).
+            This configurator model's polyhedron (see logic.plog.AtLeast.to_polyhedron).
         """
         polyhedron = self.to_polyhedron(True)
         return pnd.ge_polyhedron_config(

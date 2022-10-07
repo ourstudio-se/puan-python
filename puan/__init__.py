@@ -48,9 +48,9 @@ class variable(StatementInterface):
 
     def __init__(self, id: str, bounds: typing.Tuple[int, int] = (0, 1), dtype: str = None):
         self.id = id
-        self.bounds = bounds
-        if dtype is not None and dtype == "int":
-            self.bounds = default_int_bounds
+        self.bounds = tuple(bounds)
+        if dtype is not None:
+            self.bounds = {"int": default_int_bounds, "bool": (0, 1)}.get(dtype, (0, 1))
 
     def __hash__(self):
         return hash(self.id)
@@ -110,8 +110,8 @@ class variable(StatementInterface):
 
             Notes
             -----
-            - Every item in *variables that is not an instance of `variable` will be converted to a string and used as an id.
-            - List of variables are returned sorted
+            - Every item in *variables that is not an instance of ``variable`` will be converted to a string and used as an id.
+            - List of variables are returned sorted.
 
             Examples
             --------

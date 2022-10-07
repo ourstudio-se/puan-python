@@ -19,24 +19,32 @@ from dataclasses import dataclass
 class AtLeast(puan.StatementInterface):
 
     """
-        AtLeast proposition is in it's core a regular at least expression (e.g. x+y+z >= 1), but simplified
-        into having only +1 or -1 as coefficients. This is set by the `sign` property. An AtLeast-proposition
+        ``AtLeast`` proposition is in its core a regular at least expression (e.g. :math:`x+y+z >= 1`), but restricted
+        to having only +1 or -1 as variable coefficients. This is set by the `sign` property. An ``AtLeast`` -proposition
         is considered invalid if there are no sub propositions given.
 
         Notes
         -----
-            - `propositions` may take on different values than 0 and 1 dependen on their inner bounds.
+            - `propositions` may take on any integer value given by their inner bounds, i.e. they are not restricted to boolean values.
             - `propositions` list cannot be empty.
             - `sign` parameter take only -1 or 1 as value.
-            - `variable` may be of type puan.variable, str or None. 
-                - If str, a default puan.variable will be constructed with its id=variable.
-                - If None, then a id will be generated based on its propositions, value and sign.
+            - `variable` may be of type ``puan.variable``, ``str`` or ``None``. 
+                - If ``str``, a default ``puan.variable`` will be constructed with its id=variable.
+                - If ``None``, then an id will be generated based on its propositions, value and sign.
 
         Examples
         --------
-        Meaning at least one of x, y and z.
+        At least one of x, y and z.
             >>> AtLeast(1, list("xyz"), variable="A")
             A: +(x,y,z)>=1
+        
+        At least three of a, b and c.
+            >>> AtLeast(value=3, propositions=list("abc"), variable="A")
+            A: +(a,b,c)>=3
+        
+        At least eight of t. Notice the ``dtype`` on variable `t`
+            >>> AtLeast(value=8, propositions=[puan.variable("t", dtype="int")], variable="A")
+            A: +(t)>=8
     """
     
     def __init__(self, value: int, propositions: typing.List[typing.Union[str, puan.variable]], variable: typing.Union[str, puan.variable] = None, sign: int = 1):
@@ -117,10 +125,28 @@ class AtLeast(puan.StatementInterface):
 
     @property
     def compound_propositions(self) -> iter:
+        """
+            All propositions of (inheriting) type ``AtLeast``.
+
+            Examples
+            --------
+                >>> proposition = AtLeast(value=1, propositions=["a", AtLeast(value=2, propositions=list("xy"), variable="B")], variable="A")
+                >>> list(proposition.compound_propositions)
+                [B: +(x,y)>=2]
+        """
         return filter(lambda x: type(x) != puan.variable, self.propositions)
 
     @property
     def atomic_propositions(self) -> iter:
+        """
+            All propositions of type ``puan.variable``.
+
+            Examples
+            --------
+                >>> proposition = AtLeast(value=1, propositions=["a", AtLeast(value=2, propositions=list("xy"), variable="B")], variable="A")
+                >>> list(proposition.atomic_propositions)
+                [variable(id='a', bounds=(0, 1))]
+        """
         return filter(lambda x: type(x) == puan.variable, self.propositions)
 
     @property
@@ -149,6 +175,17 @@ class AtLeast(puan.StatementInterface):
         )
 
     def flatten(self) -> list:
+
+        """
+            Returns all its propositions and their sub propositions as a unique list of propositions.
+
+            Examples
+            --------
+                >>> proposition = AtLeast(1, [AtLeast(1, ["a", "b"], "B"), AtLeast(1, ["c", "d"], "C"), "e"], "A")
+                >>> proposition.flatten()
+                [A: +(B,C,e)>=1, B: +(a,b)>=1, C: +(c,d)>=1, variable(id='a', bounds=(0, 1)), variable(id='b', bounds=(0, 1)), variable(id='c', bounds=(0, 1)), variable(id='d', bounds=(0, 1)), variable(id='e', bounds=(0, 1))]
+        """
+
         return sorted(
             set(
                 itertools.chain(
@@ -163,6 +200,20 @@ class AtLeast(puan.StatementInterface):
         )
 
     def to_polyhedron(self, active: bool = False) -> pnd.ge_polyhedron:
+
+        """
+            Converts into a polyhedron.
+
+            Properties
+            ----------
+                active : bool = False
+                    If true, then the top node id will be assumed to be true.
+
+            Returns
+            -------
+                out : pnd.ge_polyhedron
+        """
+
         flatten = self.flatten()
         flatten_dict = dict(zip(map(lambda x: x.id, flatten), flatten))
         variable_id_map = dict(
@@ -357,8 +408,7 @@ class AtLeast(puan.StatementInterface):
     @property
     def equation_bounds(self) -> tuple:
         """
-            The max and min value this equation can return.
-            ax + by + cz - value (bias)
+            The range of values the left hand side of equations on the form :math:`ax + by + cz - value(bias) \ge 0` can take.
 
             Examples
             --------
@@ -562,9 +612,10 @@ class AtLeast(puan.StatementInterface):
             Transforms model into a dictionary representation.
             The key is the id of a proposition.
             The value is a list of three elements:
-            1. sign of coeffs (e.g. sign=1 means a+b+c, sign=-1 means -a-b-c)
-            2. sub propositions / variables (e.g. a,b,c)
-            3. value of support vector (e.g. 3 as in a+b+c>=3)
+
+            #. sign of coeffs (e.g. sign=1 means a+b+c, sign=-1 means -a-b-c)
+            #. sub propositions / variables (e.g. a,b,c)
+            #. value of support vector (e.g. 3 as in a+b+c>=3)
 
             Examples
             --------
@@ -629,10 +680,25 @@ class AtLeast(puan.StatementInterface):
         ).decode(str_decoding)
     
     @staticmethod
-    def from_json(data: dict, class_map) -> "AtLeast":
+    def from_json(data: dict, class_map: list) -> "AtLeast":
 
         """
-            Convert from json data to a Proposition.
+            Convert from json data to a proposition.
+
+            Properties
+            ----------
+                class_map : list
+                    A list of classes implementing the ``puan.StatementInterface`` protocol.
+                    They'll be mapped from `type` -attribute in the json data.
+
+            Notes
+            -----
+            Propositions within data not having `type` -attribute will be considered a ``puan.variable``.
+
+            Examples
+            --------
+                >>> AtLeast.from_json({"type": "AtLeast", "propositions": [{"id":"x"},{"id":"y"},{"id":"z"}], "id": "A"}, [puan.variable, AtLeast])
+                A: +(x,y,z)>=1
 
             Returns
             -------
@@ -650,6 +716,15 @@ class AtLeast(puan.StatementInterface):
 
         """
             From short data format into AtLeast proposition.
+            A short data format is a tuple of id, sign, variables, bias and bounds.
+
+            Examples
+            --------
+                >>> AtLeast.from_short(("A", 1, ["a","b","c"], -1, [0,1]))
+                A: +(a,b,c)>=1
+
+                >>> AtLeast.from_short(("x", 1, [], 0, [-10,10]))
+                variable(id='x', bounds=(-10, 10))
 
             Returns
             -------
@@ -660,22 +735,25 @@ class AtLeast(puan.StatementInterface):
         except Exception as e:
             raise Exception(f"tried to convert short into AtLeast propositions but failed due to: {e}")
 
-        return AtLeast(
-            value=-1*bias,
-            propositions=props,
-            variable=puan.variable(_id, bounds),
-            sign=sign,
-        )
+        if len(props) > 0:
+            return AtLeast(
+                value=-1*bias,
+                propositions=props,
+                variable=puan.variable(_id, bounds),
+                sign=sign,
+            )
+        else:
+            return puan.variable(_id, bounds)
 
 class AtMost(AtLeast):
 
     """
-        A AtMost proposition is an at least expression with negative coefficients and positive bias 
-        (e.g. -x-y-z >= -1). However, sub propositions are given as ordinary as well as the value.
+        ``AtMost`` proposition is an at least expression with negative coefficients and positive bias 
+        (e.g. `:math:-x-y-z+1 \ge 0`). Sub propositions may take on any value given by their equation bounds
 
         Notes
         -----
-            - Propositions may be of type str, puan.variable or AtLeast (or other inheriting AtLeast) 
+            - Propositions may be of type ``str``, ``puan.variable`` or ``AtLeast`` (or other inheriting AtLeast) 
             - Propositions list cannot be empty.
 
         Examples
@@ -691,7 +769,7 @@ class AtMost(AtLeast):
     @staticmethod
     def from_json(data: dict, class_map) -> "AtMost":
         """
-            Convert from json data to a Proposition.
+            Convert from json data to a proposition.
 
             Returns
             -------
@@ -728,12 +806,12 @@ class AtMost(AtLeast):
 class All(AtLeast):
 
     """
-        All -proposition means that all of its propositions must be true, otherwise this proposition
+        ``All`` -proposition means that all of its propositions must be true, otherwise the proposition
         is false.
 
         Notes
         -----
-            - Propositions may be of type str, puan.variable or AtLeast (or other inheriting AtLeast) 
+            - Propositions may be of type ``str``, ``puan.variable`` or ``AtLeast`` (or other inheriting AtLeast) 
             - Propositions list cannot be empty.
 
         Examples
@@ -749,7 +827,7 @@ class All(AtLeast):
     @staticmethod
     def from_json(data: dict, class_map) -> "All":
         """
-            Convert from json data to a Proposition.
+            Convert from json data to a proposition.
 
             Returns
             -------
@@ -784,12 +862,12 @@ class All(AtLeast):
 class Any(AtLeast):
 
     """
-        Any -proposition means that at least 1 of its propositions must be true, otherwise this proposition
+        ``Any`` -proposition means that at least 1 of its propositions must be true, otherwise the proposition
         is false.
 
         Notes
         -----
-            - Propositions may be of type str, puan.variable or AtLeast (or other inheriting AtLeast) 
+            - Propositions may be of type ``str``, ``puan.variable`` or ``AtLeast`` (or other inheriting AtLeast) 
             - Propositions list cannot be empty.
 
         Examples
@@ -805,7 +883,7 @@ class Any(AtLeast):
     @staticmethod
     def from_json(data: dict, class_map) -> "Any":
         """
-            Convert from json data to a Proposition.
+            Convert from json data to a proposition.
 
             Returns
             -------
@@ -840,13 +918,12 @@ class Any(AtLeast):
 class Imply(Any):
 
     """
-        Imply -proposition consists of two sub propositions: condition and consequence. A implication
-        proposition says that if the conditions is true then the consequence must be true. Otherwise
-        is this proposition false.
+        ``Imply`` -proposition consists of two sub propositions: condition and consequence. An implication
+        proposition says that if the condition is true then the consequence must be true. Otherwise the proposition is false.
 
         Notes
         -----
-            - Propositions may be of type str, puan.variable or AtLeast (or other inheriting AtLeast) 
+            - Propositions may be of type ``str``, ``puan.variable`` or ``AtLeast`` (or other inheriting AtLeast) 
             - Condition and consequence must be set.
 
         Examples
@@ -863,7 +940,7 @@ class Imply(Any):
     @staticmethod
     def from_json(data: dict, class_map) -> "Imply":
         """
-            Convert from json data to a Proposition.
+            Convert from json data to a proposition.
 
             Returns
             -------
@@ -976,8 +1053,7 @@ class Imply(Any):
 class Xor(All):
 
     """
-        Xor -proposition is true when exactly one of its propositions is true.
-        For instance as the equality constraint x+y+z == 1
+        ``Xor`` -proposition is true when exactly one of its propositions is true, e.g. x+y+z = 1
 
         Notes
         -----
@@ -995,7 +1071,7 @@ class Xor(All):
     @staticmethod
     def from_json(data: dict, class_map) -> "Xor":
         """
-            Convert from json data to a Proposition.
+            Convert from json data to a proposition.
 
             Returns
             -------
@@ -1034,7 +1110,7 @@ class Not():
 
         Notes
         -----
-            - Proposition may be of type str, puan.variable or AtLeast (or other inheriting AtLeast) 
+            - Proposition may be of type ``str``, ``puan.variable`` or ``AtLeast`` (or other inheriting AtLeast) 
     """
 
     def __new__(self, proposition):
@@ -1043,7 +1119,7 @@ class Not():
     @staticmethod
     def from_json(data: dict, class_map) -> "AtLeast":
         """
-            Convert from json data to a Proposition.
+            Convert from json data to a proposition.
 
             Returns
             -------
@@ -1059,11 +1135,11 @@ class Not():
 class XNor():
 
     """
-        XNor -proposition is a negated Xor. I.e. only "exactly one" -configurations will be false. 
+        ``XNor`` -proposition is a negated ``Xor``. I.e. only "exactly one" -configurations will be false. 
 
         Notes
         -----
-            - Proposition may be of type str, puan.variable or AtLeast (or other inheriting AtLeast) 
+            - Proposition may be of type ``str``, ``puan.variable`` or ``AtLeast`` (or other inheriting AtLeast) 
     """
 
     def __new__(self, *propositions, variable: typing.Union[puan.variable, str] = None):
@@ -1077,7 +1153,7 @@ class XNor():
     @staticmethod
     def from_json(data: dict, class_map) -> "XNor":
         """
-            Convert from json data to a Proposition.
+            Convert from json data to a proposition.
 
             Returns
             -------
@@ -1092,14 +1168,19 @@ class XNor():
 def from_json(data: dict, class_map: list = [puan.variable,AtLeast,AtMost,All,Any,Xor,Not,XNor,Imply]) -> typing.Any:
 
     """
-        Convert from json data to a Proposition.
+        Convert from json data to a proposition.
 
         Returns
         -------
             out : typing.Any
     """
     _class_map = dict(zip(map(lambda x: x.__name__, class_map), class_map))
-    if 'type' not in data or data['type'] in ["Proposition", "Variable"]:
+    if 'type' not in data:
+        if 'propositions' in data:
+            return _class_map["AtLeast"].from_json(data, class_map)
+        else:
+            return _class_map["variable"].from_json(data, class_map)
+    elif data['type'] in ["Proposition", "Variable"]:
         return _class_map["variable"].from_json(data, class_map)
     elif data['type'] in _class_map:
         return _class_map[data['type']].from_json(data, class_map)
