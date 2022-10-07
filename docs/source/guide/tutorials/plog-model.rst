@@ -46,7 +46,7 @@ This is called an implication:
    \text{milk_done_right} = \text{milk_home} \rightarrow \text{milk_bought} 
    
 There is a proposition class for this expression called `:class: puan.logic.plog.Imply` and it exist to model an implication. 
-The implication-proposition is another essential class in the plog system and it has two properties; a condition and a consequence. 
+The `Imply` proposition is another essential class in the plog system and it has two properties; a condition and a consequence. 
 The operator says the relationship between the condition and the consequence. For instance, it can say *if milk is half* (condition), then buy more milk (consequence). 
 
 So now, let's put it into code.
@@ -79,7 +79,7 @@ And the number of tomatoes should not be less than 2. To model this we do the fo
     cucumbers_ge_one = pg.AtLeast(propositions=[cucumbers], value=1, variable="cucumbers_ge_one")
     
 Now if all of these variables are true, then it means that number of tomatoes are between 4-5 and number of cucumbers between 1-5.
-To tie these two expressions we need to plug them into an implication proposition.
+To tie these two expressions we need to plug them into an `Imply` proposition.
 
 .. code:: python
 

@@ -12,10 +12,11 @@ import dataclasses
 class Any(pg.Any):
 
     """
-        Overriding plog.Any proposition with default -attribute indicating which solution
+        Overriding ``plog.Any`` proposition with default -attribute indicating which solution
         is default. If proposition is A: a+b+c >= 1 and default is "c", then new proposition is
-            A  : A'+c >=1
-            A' : a+b  >=1
+
+            | A  : A'+c >=1
+            | A' : a+b  >=1
 
         and prio is set to c > A'.
     """
@@ -75,10 +76,12 @@ class Any(pg.Any):
 class Xor(pg.Xor):
 
     """
-        Overriding plog.Xor proposition with default -attribute indicating which solution
+        Overriding ``plog.Xor`` proposition with default -attribute indicating which solution
         is default. If proposition is A: a+b+c >= 1 and default is "c", then new proposition is
-        A  : A'+c >=1
-        A' : a+b  >=1
+        
+            | A  : A'+c >=1
+            | A' : a+b  >=1
+            
         and prio is set to c > A'.
     """
 

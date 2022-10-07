@@ -20,7 +20,7 @@ class AtLeast(puan.StatementInterface):
 
     """
         ``AtLeast`` proposition is in its core a regular at least expression (e.g. :math:`x+y+z >= 1`), but restricted
-        to having only +1 or -1 as variable coefficients. This is set by the `sign` property. An ``AtLeast`` -proposition
+        to having only +1 or -1 as variable coefficients. This is set by the `sign` property. An ``AtLeast`` proposition
         is considered invalid if there are no sub propositions given.
 
         Notes
@@ -715,7 +715,7 @@ class AtLeast(puan.StatementInterface):
     def from_short(short: tuple) -> "AtLeast":
 
         """
-            From short data format into AtLeast proposition.
+            From short data format into an ``AtLeast`` proposition.
             A short data format is a tuple of id, sign, variables, bias and bounds.
 
             Examples
@@ -733,7 +733,7 @@ class AtLeast(puan.StatementInterface):
         try:
             _id, sign, props, bias, bounds = short
         except Exception as e:
-            raise Exception(f"tried to convert short into AtLeast propositions but failed due to: {e}")
+            raise Exception(f"tried to convert short into ``AtLeast`` propositions but failed due to: {e}")
 
         if len(props) > 0:
             return AtLeast(
@@ -806,7 +806,7 @@ class AtMost(AtLeast):
 class All(AtLeast):
 
     """
-        ``All`` -proposition means that all of its propositions must be true, otherwise the proposition
+        ``All`` proposition means that all of its propositions must be true, otherwise the proposition
         is false.
 
         Notes
@@ -862,7 +862,7 @@ class All(AtLeast):
 class Any(AtLeast):
 
     """
-        ``Any`` -proposition means that at least 1 of its propositions must be true, otherwise the proposition
+        ``Any`` proposition means that at least 1 of its propositions must be true, otherwise the proposition
         is false.
 
         Notes
@@ -918,7 +918,7 @@ class Any(AtLeast):
 class Imply(Any):
 
     """
-        ``Imply`` -proposition consists of two sub propositions: condition and consequence. An implication
+        ``Imply`` proposition consists of two sub propositions: condition and consequence. An implication
         proposition says that if the condition is true then the consequence must be true. Otherwise the proposition is false.
 
         Notes
@@ -1053,7 +1053,7 @@ class Imply(Any):
 class Xor(All):
 
     """
-        ``Xor`` -proposition is true when exactly one of its propositions is true, e.g. x+y+z = 1
+        ``Xor`` proposition is true when exactly one of its propositions is true, e.g. x+y+z = 1
 
         Notes
         -----
@@ -1106,7 +1106,7 @@ class Xor(All):
 class Not():
 
     """
-        Not -proposition negates the input proposition. 
+        ``Not`` proposition negates the input proposition. 
 
         Notes
         -----
@@ -1135,7 +1135,7 @@ class Not():
 class XNor():
 
     """
-        ``XNor`` -proposition is a negated ``Xor``. I.e. only "exactly one" -configurations will be false. 
+        ``XNor`` proposition is a negated ``Xor``. I.e. only "exactly one" -configurations will be false. 
 
         Notes
         -----
