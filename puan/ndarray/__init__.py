@@ -15,7 +15,28 @@ import sys
 from collections import Counter
 
 class variable_ndarray(numpy.ndarray):
+    """
+        A numpy.ndarray sub class which ties variables to the indices of the ndarray.
 
+        Attributes
+        ----------
+        See numpy.array
+
+        Methods
+        -------
+        variable_indices
+            Returns the indices of variable of the input type.
+        boolean_variable_indices
+            Returns the indices of boolean variables
+        integer_variable_indices
+            Returns the indices of integer variables
+        construct
+            Constructs a variable_ndarray from a list of tuples of variable IDs and integers.
+        to_value_map
+            Reduces the polyhedron into a value map.
+        
+
+    """
     def __new__(cls, input_array, variables: typing.List[puan.variable] = [], index: typing.List[typing.Union[int, puan.variable]] = [], dtype=numpy.int64):
         arr = numpy.asarray(input_array, dtype=dtype).view(cls)
         if len(variables) == 0:
@@ -149,7 +170,7 @@ class variable_ndarray(numpy.ndarray):
     def construct(self, *variable_values: typing.List[typing.Tuple[str, int]], default_value: int = 0, dtype=numpy.int64) -> numpy.ndarray:
 
         """
-            Constructs a variable_ndarray from a list of tuples of variable ID's and integers.
+            Constructs a variable_ndarray from a list of tuples of variable IDs and integers.
 
             Examples
             --------
@@ -251,8 +272,6 @@ class ge_polyhedron(variable_ndarray):
 
         Methods
         -------
-        to_value_map
-            Reduces the polyhedron into a value map.
         to_linalg
             assumes support vector index 0 in polyhedron and returns :math:`A, b` as in :math:`Ax \\ge b`
         reducable_columns_approx
