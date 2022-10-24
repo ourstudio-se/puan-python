@@ -46,11 +46,11 @@ class Any(pg.Any):
                 "id": self.id,
                 "type": "Any",
                 "propositions": [
-                    self.propositions[0].to_json()
+                    next(self.atomic_propositions).to_json()
                 ] + list(
                     map(
                         operator.methodcaller('to_json'),
-                        self.propositions[1].propositions
+                        next(self.compound_propositions).propositions
                     )
                 ),
                 'default': list(map(lambda x: x.to_json(), self.default))
@@ -65,13 +65,16 @@ class Any(pg.Any):
         
         """"""
         default = data.get("default", [])
-        default_item = None if len(default) == 0 else list(map(lambda x: puan.variable.from_json(x, [puan.variable]), default))
-        _class_map = dict(zip(map(lambda x: x.__name__, class_map), class_map))
-        return Any(
-            *map(functools.partial(pg.from_json, class_map=class_map), data.get('propositions', [])),
-            default=default_item,
-            variable=data.get("id", None)
-        )
+        if default:
+            default_item = None if len(default) == 0 else list(map(lambda x: puan.variable.from_json(x, [puan.variable]), default))
+            _class_map = dict(zip(map(lambda x: x.__name__, class_map), class_map))
+            return Any(
+                *map(functools.partial(pg.from_json, class_map=class_map), data.get('propositions', [])),
+                default=default_item,
+                variable=data.get("id", None)
+            )
+        else:
+            return pg.Any.from_json(data, class_map)
 
 class Xor(pg.Xor):
 
@@ -107,7 +110,7 @@ class Xor(pg.Xor):
                 "propositions": list(
                     map(
                         operator.methodcaller('to_json'),
-                        self.propositions[1].propositions
+                        next(filter(lambda x: type(x) == pg.AtMost, self.propositions)).propositions
                     )
                 ),
                 "default": list(map(lambda x: x.to_json(), self.default))
@@ -122,13 +125,16 @@ class Xor(pg.Xor):
 
         """"""
         default = data.get("default", [])
-        default_item = None if len(default) == 0 else list(map(lambda x: puan.variable.from_json(x, [puan.variable]), default))
-        _class_map = dict(zip(map(lambda x: x.__name__, class_map), class_map))
-        return Xor(
-            *map(functools.partial(pg.from_json, class_map=class_map), data.get('propositions', [])),
-            default=default_item,
-            variable=data.get("id", None)
-        )
+        if default:
+            default_item = None if len(default) == 0 else list(map(lambda x: puan.variable.from_json(x, [puan.variable]), default))
+            _class_map = dict(zip(map(lambda x: x.__name__, class_map), class_map))
+            return Xor(
+                *map(functools.partial(pg.from_json, class_map=class_map), data.get('propositions', [])),
+                default=default_item,
+                variable=data.get("id", None)
+            )
+        else:
+            return pg.Xor.from_json(data, class_map)
 
 class StingyConfigurator(pg.All):
 

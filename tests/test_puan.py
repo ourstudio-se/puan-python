@@ -26,21 +26,115 @@ def atom_proposition_strategy():
         ),
     )
 
-def proposition_strategy():
+def variable_proposition_strategy():
+    return st.one_of(atom_proposition_strategy(), st.none())
+
+def atoms_propositions_strategy(mn_size: int = 1, mx_size: int = 5):
+    return st.iterables(
+        atom_proposition_strategy(),
+        min_size=mn_size,
+        max_size=mx_size,
+    )
+
+def atleast_proposition_strategy():
     return st.builds(
         pg.AtLeast, 
-        propositions=st.iterables(
-            atom_proposition_strategy(),
-            min_size=1,
-            max_size=5
-        ),
-        variable=st.text(), 
+        propositions=atoms_propositions_strategy(),
+        variable=variable_proposition_strategy(), 
         value=st.integers(min_value=-5, max_value=5),
     )
 
-@given(proposition_strategy())
-def test_model_variables_hypothesis(model):
-    _ = model.propositions
+def atmost_proposition_strategy():
+    return st.builds(
+        pg.AtMost, 
+        propositions=atoms_propositions_strategy(),
+        variable=variable_proposition_strategy(), 
+        value=st.integers(min_value=-5, max_value=5),
+    )
+
+def all_proposition_strategy():
+    return st.builds(
+        pg.All.from_list,
+        atoms_propositions_strategy(),
+        variable=variable_proposition_strategy(),
+    )
+
+def any_proposition_strategy():
+    return st.builds(
+        pg.Any.from_list,
+        atoms_propositions_strategy(),
+        variable=variable_proposition_strategy(),
+    )
+
+def imply_proposition_strategy():
+    return st.builds(
+        pg.Imply,
+        condition=atom_proposition_strategy(),
+        consequence=atom_proposition_strategy(),
+        variable=variable_proposition_strategy(),
+    )
+
+def xor_proposition_strategy():
+    return st.builds(
+        pg.Xor.from_list,
+        atoms_propositions_strategy(),
+        variable=variable_proposition_strategy(),
+    )
+
+def xnor_proposition_strategy():
+    return st.builds(
+        pg.XNor.from_list,
+        atoms_propositions_strategy(),
+        variable=variable_proposition_strategy(),
+    )
+
+def not_proposition_strategy():
+    return st.builds(
+        pg.Not,
+        atom_proposition_strategy(),
+    )
+
+def proposition_strategy():
+    return st.one_of(
+        atleast_proposition_strategy(),
+        atmost_proposition_strategy(),
+        all_proposition_strategy(),
+        any_proposition_strategy(),
+        imply_proposition_strategy(),
+        xor_proposition_strategy(),
+        xnor_proposition_strategy(),
+        not_proposition_strategy(),
+    )
+
+def propositions_strategy():
+    return st.lists(proposition_strategy())
+
+
+@given(propositions_strategy())
+@settings(deadline=None)
+def test_model_properties_hypothesis(propositions):
+    if len(propositions) > 0:
+        model = pg.All(*propositions, variable="main")
+        
+        # Properties that should never fail when accessing
+        model.variables
+        model.is_contradiction
+        model.is_tautologi
+        model.id
+        model.bounds
+        model.equation_bounds
+        list(model.compound_propositions)
+        list(model.atomic_propositions)
+
+        # Methods that should never fail when running
+        model.flatten()
+        model.negate()
+        model.to_short()
+        model.to_text()
+        model.to_polyhedron()
+        model.to_polyhedron(True)
+        model.to_dict()
+        model.to_b64()
 
 def test_application_to_rules():
     items = [
@@ -202,8 +296,8 @@ def test_rules2matrix_with_mixed_condition_rules():
             }
         }
     ]
-    conj_props = pg.All(*map(pg.Imply.from_cicJE, rules), variable="A")
-    matrix = conj_props.to_polyhedron(active=True)
+    model = pg.All(*map(pg.Imply.from_cicJE, rules), variable="A")
+    matrix = model.to_polyhedron(active=True)
 
     expected_feasible_configurations = matrix.A.construct(
         [("B",1),("D",1),("E",1),("F",1)],
@@ -1427,12 +1521,12 @@ def test_proposition_polyhedron_conversions():
         actual.A.dot(
             actual.A.construct(
                 *{
-                    "VAR6fae5889da53aadfe57f53370395637e6a7ae1109dd4bc0180504716a57f0a2e": 1,
-                    "VARebc35dc8fd85f21b82cd5fa86fd251fdb93c3e16eb7d458566b2ab11a222eee0": 1,
-                    "VAR54b93113181fabf3d141bc7defbf98d03c49b797101fa02d7b355c468557c270": 1,
-                    "VARb661ed11e7501b130227325ce74f27864afb6ca3f9d0b421d63345eefba37444": 1,
-                    "VAR6f04068f5f83b4c193b77ab88d5e43d0c4e0238105260929ad39a344d3ce0303": 1,
-                    "VARb8ec1d97114306b67935580a74d769593876e88ed6b771e5077d04e14d660208": 1,
+                    "VAR0b6effa003e76fb0c48121f48d7b83b1d50f7e989e6bb5aacda2e9ea390ddf66": 1,
+                    "VAR17884981776c78b41dfa00d95d5f43f3ee9f242a47cd9a4f3c1e0b0215717c97": 1,
+                    "VARa0b72653f399fc9ab0397f821243190115995dbe0d142fe252a58715d792d264": 1,
+                    "VARa11150dc3b0e819c212cddba7436d42610eceb3b58814a4ef002d2b16189dfcf": 1,
+                    "VARb1d47eae1ac79f2576c042d53e8659cd9916a6d01802253d60a1d6ac4dee5842": 1,
+                    "VARce40c57d36c6a44fc01dc2fa041ad03ec2bd64ce8148627047937bab81a0aac5": 1,
                     "t-shirts": 1,
                     "sweaters": 1,
                     "jeans": 1,
@@ -1507,28 +1601,153 @@ def test_bound_approx():
 
     # Test random constraints with a being an integer
     variables = [
-        puan.variable("0", (-10,10)),
+        puan.variable.support_vector_variable(),
         puan.variable("a", (-10,10)),
-        puan.variable("b", (0,1)),
-        puan.variable("c", (0,1)),
-        puan.variable("d", (0,1)),
+        puan.variable("b", (-10,10)),
+        puan.variable("c", (-10,10)),
+        puan.variable("d", (-10,10)),
     ]
     actual = puan.ndarray.ge_polyhedron([
-        [ 3, 1, 1, 1, 0],
-        [ 3, 1, 0, 0, 0],
-        [ 0,-2, 1, 1, 0],
-        [-1,-1,-1, 0, 0],
-    ], variables=variables).bounds_approx((-10,10))
+        [-3, 0, 1, 0, 0], # b_lb = -2
+        [-3, 0, 0, 0,-1], # d_ub =  3
+    ], variables=variables).bounds_approx()
     expected = numpy.array([
-        [ 3, 0, 0, 0],
-        [ 1, 1, 1, 1]
+        [-10, -3,-10,-10],
+        [ 10, 10, 10,  3]
     ])
     assert (actual == expected).all()
 
+    actual = puan.ndarray.ge_polyhedron([
+        [ 3, 1, 0, 0, 0], # a_lb =  3
+        [ 3, 0, 0,-1, 0], # c_ub = -3
+    ], variables=variables).bounds_approx()
+    expected = numpy.array([
+        [  3,-10,-10,-10],
+        [ 10, 10, -3, 10]
+    ])
+    assert (actual == expected).all()
+
+    # When both upper bound and lower bounds are in same column
+    actual = puan.ndarray.ge_polyhedron([
+        [ 3, 1, 0, 0, 0], # a_lb = 3
+        [-5,-1, 0, 0, 0], # a_ub = 5
+    ], variables=variables).bounds_approx()
+    expected = numpy.array([
+        [  3,-10,-10,-10],
+        [  5, 10, 10, 10]
+    ])
+    assert (actual == expected).all()
+
+    # When a taighter bound exists
+    actual = puan.ndarray.ge_polyhedron([
+        [ 3, 1, 0, 0, 0], # a_lb = 3
+        [ 3, 0, 1, 0, 0], # a_lb = 3
+        [ 3, 0, 0,-1, 0], # a_lb = 3
+        [ 4, 1, 0, 0, 0], # b_lb = 4
+        [ 4, 0, 1, 0, 0], # b_lb = 4
+        [ 4, 0, 0,-1, 0], # b_lb = 4
+        [ 5, 1, 0, 0, 0], # c_ub = 5
+        [ 5, 0, 1, 0, 0], # c_ub = 5
+        [ 5, 0, 0,-1, 0], # c_ub = 5
+    ], variables=variables).bounds_approx()
+    expected = numpy.array([
+        [  5,  5,-10,-10],
+        [ 10, 10, -5, 10]
+    ])
+    assert (actual == expected).all()
+
+    # Currently fractions are not supported
+    with pytest.raises(Exception):
+        # When coeffs are large and ub/lb will be a fraction
+        actual = puan.ndarray.ge_polyhedron([
+            [ 3, 2, 0, 0, 0], # a_lb =  3
+            [ 5, 0, 0,-3, 0], # c_ub = -3
+        ], variables=variables).bounds_approx()
+        expected = numpy.array([
+            [  2,-10,-10,-10],
+            [ 10, 10, -2, 10]
+        ])
+        assert (actual == expected).all()
+
+    # Currently fractions are not supported
+    with pytest.raises(Exception):
+        # When one constraint is taighter than the others
+        # 3 <= a gives taightes bounds on a
+        actual = puan.ndarray.ge_polyhedron([
+            [ 3, 4, 0, 0, 0], # 1 <= a
+            [ 4, 3, 0, 0, 0], # 2 <= a
+            [ 5, 2, 0, 0, 0], # 3 <= a
+        ], variables=variables).bounds_approx()
+        expected = numpy.array([
+            [  3,-10,-10,-10],
+            [ 10, 10, 10, 10]
+        ])
+        assert (actual == expected).all()
+
+    # Mixed lower and upper bound on `a` with fractions
+    actual = puan.ndarray.ge_polyhedron([
+        [-5,-2, 0, 0, 0], # -3 >= a
+        [-2,-1, 0, 0, 0], # -2 >= a
+        [ 3, 2, 0, 0, 0], #  2 <= a
+        [ 3, 1, 0, 0, 0], #  3 <= a
+    ], variables=variables).bounds_approx()
+    expected = numpy.array([
+        [  3,-10,-10,-10],
+        [  2, 10, 10, 10]
+    ])
+    assert (actual == expected).all()
+
+    # When one constraint is taighter than the others, but is not covered as special case
+    # Check such that bounds for a is *not* set to [  4, 10]
+    # Check such that bounds for c is *not* set to [-10,  4]
+    actual = puan.ndarray.ge_polyhedron([
+        [20, 1, 1, 0, 0], # a>=10 & b>=10
+        [ 4, 1, 0, 0, 0], # a>=4
+        [20, 0, 0,-1,-1], # c<=0 & d<=0
+        [-4, 0, 0,-1, 0], # c<=-4 
+    ], variables=variables).bounds_approx()
+    expected = numpy.array([
+        [ 10, 10,-10,-10],
+        [ 10, 10,-10,-10]
+    ])
+    assert (actual == expected).all()
+
+    # Same as previous but a contradicting constraint
+    # is added to the bottom.
+    actual = puan.ndarray.ge_polyhedron([
+        [20, 1, 1, 0, 0],
+        [ 4, 1, 0, 0, 0], 
+        [-9,-1, 0, 0, 0], 
+    ], variables=variables).bounds_approx()
+    expected = numpy.array([
+        [ 10, 10,-10,-10],
+        [ 9, 10, 10, 10]
+    ])
+    assert (actual == expected).all()
+
+    # Conflicting constraints
+    actual = puan.ndarray.ge_polyhedron([
+        [ 1, 1], # <- at least 1
+        [ 0,-1], # <- at most  0
+    ]).bounds_approx()
+    expected = numpy.array([
+        [ 1],
+        [ 0]
+    ])
+    assert (actual == expected).all()
+
+    actual = puan.ndarray.ge_polyhedron([
+        [21, 1, 1, 0, 0],
+    ], variables=variables).bounds_approx()
+    expected = numpy.array([
+        [ 11, 11,-10,-10],
+        [ 10, 10, 10, 10]
+    ])
+    assert (actual == expected).all()
 
     # Test integer lower bound will increase
     variables = [
-        puan.variable("0", (-10,10)),
+        puan.variable.support_vector_variable(),
         puan.variable("a", (-10,10)),
         puan.variable("b", (0,1)),
         puan.variable("c", (0,1)),
@@ -1537,10 +1756,10 @@ def test_bound_approx():
     actual = puan.ndarray.ge_polyhedron([
         [ 3, 1, 0, 0, 0],
         [ 0,-2, 1, 1, 0],
-    ], variables=variables).bounds_approx((-10,10))
+    ], variables=variables).bounds_approx()
     expected = numpy.array([
-        [3,0,0,0],
-        [1,1,1,1]
+        [ 3, 0, 0, 0],
+        [ 1, 1, 1, 1] # <- because if coeff of a >1, than constraint on row index 1 cannot ever be satisfied
     ])
     assert (actual == expected).all()
     
@@ -1549,7 +1768,7 @@ def test_bound_approx():
         [ 0,-2, 1, 1, 0],
         [-3,-2,-1,-1, 0],
         [-3,-2,-2, 1, 1]
-    ]).bounds_approx((-10,10))
+    ]).bounds_approx()
     expected = numpy.array([
         [0,0,0,0],
         [1,1,1,1]
@@ -1559,7 +1778,7 @@ def test_bound_approx():
     # Test force lower bound to increase to 1
     actual = puan.ndarray.ge_polyhedron([
         [3,1,1,1,0]
-    ]).bounds_approx((-10,10))
+    ]).bounds_approx()
     expected = numpy.array([
         [1,1,1,0],
         [1,1,1,1]
@@ -1569,7 +1788,7 @@ def test_bound_approx():
     # Test lower bound won't increase while at least one must be set
     actual = puan.ndarray.ge_polyhedron([
         [1,1,1,1,0]
-    ]).bounds_approx((-10,10))
+    ]).bounds_approx()
     expected = numpy.array([
         [0,0,0,0],
         [1,1,1,1]
@@ -1578,33 +1797,33 @@ def test_bound_approx():
     
     # Test integer upper bound will decrease
     variables = [
-        puan.variable("0", (-10,10)),
+        puan.variable.support_vector_variable(),
         puan.variable("a", (-10,10)),
         puan.variable("b", (0,1)),
         puan.variable("c", (0,1)),
         puan.variable("d", (0,1)),
     ]
     actual = puan.ndarray.ge_polyhedron([
-        [-10,-1, 0, 0, 0],
-        [  0,-2, 1, 1, 0],
-    ], variables=variables).bounds_approx((-10,10))
+        [ -1,-1, 0, 0, 0],
+        [  0, 0,-1,-1,-1],
+    ], variables=variables).bounds_approx()
     expected = numpy.array([
         [-10,0,0,0],
-        [ 1,1,1,1]
+        [  1,0,0,0]
     ])
-    assert (actual == expected).all()    
+    assert (actual == expected).all()
 
     # Test "inverted" boolean (as integers)
     variables = [
-        puan.variable("0", (-10,10)),
-        puan.variable("a", (-10,10)),
-        puan.variable("b", (-10,10)),
-        puan.variable("c", (-10,10)),
-        puan.variable("d", (-10,10)),
+        puan.variable.support_vector_variable(),
+        puan.variable("a", (-1,1)),
+        puan.variable("b", (-1,1)),
+        puan.variable("c", (-1,1)),
+        puan.variable("d", (-1,1)),
     ]
     actual = puan.ndarray.ge_polyhedron([
         [ 4,-1,-1,-1,-1],
-    ], variables=variables).bounds_approx((-1,0))
+    ], variables=variables).bounds_approx()
     expected = numpy.array([
         [-1,-1,-1,-1],
         [-1,-1,-1,-1],
@@ -1613,23 +1832,52 @@ def test_bound_approx():
 
     # Test if finding lower bound < 0 
     variables = [
-        puan.variable("0", (-10,10)),
+        puan.variable.support_vector_variable(),
         puan.variable("a", (-10,10)),
-        puan.variable("b", (0,1))
+        puan.variable("b", (  0, 1))
     ]
     actual = puan.ndarray.ge_polyhedron([
-        [ 1,-1,-1],
-    ], variables=variables).bounds_approx((-5,0))
+        [ 11,-1, 1],
+    ], variables=variables).bounds_approx()
     expected = numpy.array([
-        [-5,0],
-        [-1,0],
+        [-10,1],
+        [-10,1],
     ])
     assert (actual == expected).all()    
 
-def test_bounds_init(): 
+    # Test if constraint has unnecessary large coefficients
+    actual = puan.ndarray.ge_polyhedron([
+        [4, 2, 2, 0],
+        [9, 3, 3, 3],
+    ]).bounds_approx()
+    expected = numpy.array([
+        [1, 1, 1],
+        [1, 1, 1],
+    ])
+    assert (actual == expected).all()
+
+    actual = puan.ndarray.ge_polyhedron([
+        [ 0, -2, -2, -2],
+    ]).bounds_approx()
+    expected = numpy.array([
+        [0, 0, 0],
+        [0, 0, 0],
+    ])
+    assert (actual == expected).all()
+
+def test_column_bounds(): 
+
+    actual = puan.ndarray.ge_polyhedron([])
+    assert actual.variables.size == 0
+    assert actual.shape == (0,)
+
+    actual = puan.ndarray.ge_polyhedron([[0]])
+    assert actual.variables.size == 1
+    assert actual.variables[0] == puan.variable.support_vector_variable()
+    assert actual.shape == (1,1)
 
     variables = [
-        puan.variable("0", (-10,10)),
+        puan.variable.support_vector_variable(),
         puan.variable("a", (-10,10)),
         puan.variable("b", (0,1)),
         puan.variable("c", (-10,10)),
@@ -1638,10 +1886,27 @@ def test_bounds_init():
 
     actual = puan.ndarray.ge_polyhedron([
         [ 1,-1,-1,-1,-1],
-    ], variables=variables).bounds_init((-5,0))
+    ], variables=variables).column_bounds()
     expected = numpy.array([
-        [-5, 0,-5, 0],
-        [ 0, 0, 0, 0]
+        [-10, 0,-10, 0],
+        [ 10, 1, 10, 1]
+    ])
+    assert (actual == expected).all()
+
+    variables = [
+        puan.variable.support_vector_variable(),
+        puan.variable("a", dtype="int"),
+        puan.variable("b", dtype="bool"),
+        puan.variable("c", (-10,10)),
+        puan.variable("d", (0,1)),
+    ]
+
+    actual = puan.ndarray.ge_polyhedron([
+        [ 1,-1,-1,-1,-1],
+    ], variables=variables).column_bounds()
+    expected = numpy.array([
+        [puan.default_min_int, 0,-10, 0],
+        [puan.default_max_int, 1, 10, 1]
     ])
     assert (actual == expected).all()
 
@@ -1910,19 +2175,20 @@ def test_proposition_negation():
     assert len(negated.propositions) == 2
     assert negated.sign == 1
     assert negated.value == 1
-    assert negated.propositions[0].sign == -1
-    assert negated.propositions[0].value == 0
-    assert len(negated.propositions[1].propositions) == 2
-    assert negated.propositions[1].propositions[0].sign == -1
-    assert negated.propositions[1].propositions[0].value == 0
-    assert negated.propositions[1].propositions[1].sign == 1
-    assert negated.propositions[1].propositions[1].value == 2
+    assert len(negated.propositions[0].propositions) == 2
+    assert negated.propositions[0].propositions[0].sign == 1
+    assert negated.propositions[0].propositions[0].value == 2
+    assert negated.propositions[0].propositions[1].sign == -1
+    assert negated.propositions[0].propositions[1].value == 0
+    assert negated.propositions[1].sign == -1
+    assert negated.propositions[1].value == 0
 
 def test_configurator_to_json():
 
     expected = {
         'propositions': [
             {
+                "id": "A",
                 "type": "Xor",
                 "propositions": [
                     {"id": "z"},
@@ -1934,6 +2200,7 @@ def test_configurator_to_json():
                 ]
             },
             {
+                "id": "B",
                 "type": "Any",
                 "propositions": [
                     {"id": "b"},
@@ -1945,6 +2212,7 @@ def test_configurator_to_json():
                 ]
             },
             {
+                "id": "C",
                 "type": "Xor",
                 "propositions": [
                     {"id": "p"},
@@ -1952,6 +2220,7 @@ def test_configurator_to_json():
                 ],
             },
             {
+                "id": "D",
                 "type": "Any",
                 "propositions": [
                     {"id": "r"},
@@ -1964,6 +2233,7 @@ def test_configurator_to_json():
     actual = cc.StingyConfigurator.from_json(expected).to_json()
     assert len(actual['propositions']) == len(expected['propositions'])
     for a,b in zip(actual['propositions'], expected['propositions']):
+        assert a['id'] == b['id']
         assert a['type'] == b['type']
         assert len(a['propositions']) == len(b['propositions'])
         assert a.get('default', []) == b.get('default', [])
@@ -2024,3 +2294,10 @@ def test_plog_evaluate_method():
     ]
 
     assert fridge_model.evaluate(new_cart)
+
+def test_duplicated_ids_should_not_result_in_contradiction():
+
+    assert not pg.All(*"xxyyzz").is_contradiction
+    assert not pg.Any(*"xxyyzz").is_contradiction
+    assert not pg.Xor(*"xxyyzz").is_contradiction
+    assert not pg.XNor(*"xxyyzz").is_contradiction
