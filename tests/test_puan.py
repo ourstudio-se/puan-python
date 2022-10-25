@@ -184,7 +184,7 @@ def test_model_json_conversion(propositions):
     _model = cc.StingyConfigurator.from_json(model.to_json())
     assert model == _model
 
-def test_json_conversion_special():
+def test_json_conversion_special_cases():
 
     model = cc.StingyConfigurator(
         cc.Any(
@@ -197,6 +197,18 @@ def test_json_conversion_special():
             variable=""
         ),
         id="main"
+    )
+    _model = cc.StingyConfigurator.from_json(model.to_json())
+    assert model == _model
+
+    model = cc.StingyConfigurator(
+        cc.Any(
+            puan.variable('0', (0,0)),
+            puan.variable('1', (0,0)),
+            default=[
+                puan.variable('', (0,0))
+            ]
+        )
     )
     _model = cc.StingyConfigurator.from_json(model.to_json())
     assert model == _model
@@ -1676,7 +1688,7 @@ def test_bound_approx():
     actual = puan.ndarray.ge_polyhedron([
         [-3, 0, 1, 0, 0], # b_lb = -2
         [-3, 0, 0, 0,-1], # d_ub =  3
-    ], variables=variables).bounds_approx()
+    ], variables=variables).tighten_column_bounds()
     expected = numpy.array([
         [-10, -3,-10,-10],
         [ 10, 10, 10,  3]
@@ -1686,7 +1698,7 @@ def test_bound_approx():
     actual = puan.ndarray.ge_polyhedron([
         [ 3, 1, 0, 0, 0], # a_lb =  3
         [ 3, 0, 0,-1, 0], # c_ub = -3
-    ], variables=variables).bounds_approx()
+    ], variables=variables).tighten_column_bounds()
     expected = numpy.array([
         [  3,-10,-10,-10],
         [ 10, 10, -3, 10]
@@ -1697,7 +1709,7 @@ def test_bound_approx():
     actual = puan.ndarray.ge_polyhedron([
         [ 3, 1, 0, 0, 0], # a_lb = 3
         [-5,-1, 0, 0, 0], # a_ub = 5
-    ], variables=variables).bounds_approx()
+    ], variables=variables).tighten_column_bounds()
     expected = numpy.array([
         [  3,-10,-10,-10],
         [  5, 10, 10, 10]
@@ -1715,7 +1727,7 @@ def test_bound_approx():
         [ 5, 1, 0, 0, 0], # c_ub = 5
         [ 5, 0, 1, 0, 0], # c_ub = 5
         [ 5, 0, 0,-1, 0], # c_ub = 5
-    ], variables=variables).bounds_approx()
+    ], variables=variables).tighten_column_bounds()
     expected = numpy.array([
         [  5,  5,-10,-10],
         [ 10, 10, -5, 10]
@@ -1728,7 +1740,7 @@ def test_bound_approx():
         actual = puan.ndarray.ge_polyhedron([
             [ 3, 2, 0, 0, 0], # a_lb =  3
             [ 5, 0, 0,-3, 0], # c_ub = -3
-        ], variables=variables).bounds_approx()
+        ], variables=variables).tighten_column_bounds()
         expected = numpy.array([
             [  2,-10,-10,-10],
             [ 10, 10, -2, 10]
@@ -1743,7 +1755,7 @@ def test_bound_approx():
             [ 3, 4, 0, 0, 0], # 1 <= a
             [ 4, 3, 0, 0, 0], # 2 <= a
             [ 5, 2, 0, 0, 0], # 3 <= a
-        ], variables=variables).bounds_approx()
+        ], variables=variables).tighten_column_bounds()
         expected = numpy.array([
             [  3,-10,-10,-10],
             [ 10, 10, 10, 10]
@@ -1756,7 +1768,7 @@ def test_bound_approx():
         [-2,-1, 0, 0, 0], # -2 >= a
         [ 3, 2, 0, 0, 0], #  2 <= a
         [ 3, 1, 0, 0, 0], #  3 <= a
-    ], variables=variables).bounds_approx()
+    ], variables=variables).tighten_column_bounds()
     expected = numpy.array([
         [  3,-10,-10,-10],
         [  2, 10, 10, 10]
@@ -1771,7 +1783,7 @@ def test_bound_approx():
         [ 4, 1, 0, 0, 0], # a>=4
         [20, 0, 0,-1,-1], # c<=0 & d<=0
         [-4, 0, 0,-1, 0], # c<=-4 
-    ], variables=variables).bounds_approx()
+    ], variables=variables).tighten_column_bounds()
     expected = numpy.array([
         [ 10, 10,-10,-10],
         [ 10, 10,-10,-10]
@@ -1784,7 +1796,7 @@ def test_bound_approx():
         [20, 1, 1, 0, 0],
         [ 4, 1, 0, 0, 0], 
         [-9,-1, 0, 0, 0], 
-    ], variables=variables).bounds_approx()
+    ], variables=variables).tighten_column_bounds()
     expected = numpy.array([
         [ 10, 10,-10,-10],
         [ 9, 10, 10, 10]
@@ -1795,7 +1807,7 @@ def test_bound_approx():
     actual = puan.ndarray.ge_polyhedron([
         [ 1, 1], # <- at least 1
         [ 0,-1], # <- at most  0
-    ]).bounds_approx()
+    ]).tighten_column_bounds()
     expected = numpy.array([
         [ 1],
         [ 0]
@@ -1804,7 +1816,7 @@ def test_bound_approx():
 
     actual = puan.ndarray.ge_polyhedron([
         [21, 1, 1, 0, 0],
-    ], variables=variables).bounds_approx()
+    ], variables=variables).tighten_column_bounds()
     expected = numpy.array([
         [ 11, 11,-10,-10],
         [ 10, 10, 10, 10]
@@ -1822,7 +1834,7 @@ def test_bound_approx():
     actual = puan.ndarray.ge_polyhedron([
         [ 3, 1, 0, 0, 0],
         [ 0,-2, 1, 1, 0],
-    ], variables=variables).bounds_approx()
+    ], variables=variables).tighten_column_bounds()
     expected = numpy.array([
         [ 3, 0, 0, 0],
         [ 1, 1, 1, 1] # <- because if coeff of a >1, than constraint on row index 1 cannot ever be satisfied
@@ -1834,7 +1846,7 @@ def test_bound_approx():
         [ 0,-2, 1, 1, 0],
         [-3,-2,-1,-1, 0],
         [-3,-2,-2, 1, 1]
-    ]).bounds_approx()
+    ]).tighten_column_bounds()
     expected = numpy.array([
         [0,0,0,0],
         [1,1,1,1]
@@ -1844,7 +1856,7 @@ def test_bound_approx():
     # Test force lower bound to increase to 1
     actual = puan.ndarray.ge_polyhedron([
         [3,1,1,1,0]
-    ]).bounds_approx()
+    ]).tighten_column_bounds()
     expected = numpy.array([
         [1,1,1,0],
         [1,1,1,1]
@@ -1854,7 +1866,7 @@ def test_bound_approx():
     # Test lower bound won't increase while at least one must be set
     actual = puan.ndarray.ge_polyhedron([
         [1,1,1,1,0]
-    ]).bounds_approx()
+    ]).tighten_column_bounds()
     expected = numpy.array([
         [0,0,0,0],
         [1,1,1,1]
@@ -1872,7 +1884,7 @@ def test_bound_approx():
     actual = puan.ndarray.ge_polyhedron([
         [ -1,-1, 0, 0, 0],
         [  0, 0,-1,-1,-1],
-    ], variables=variables).bounds_approx()
+    ], variables=variables).tighten_column_bounds()
     expected = numpy.array([
         [-10,0,0,0],
         [  1,0,0,0]
@@ -1889,7 +1901,7 @@ def test_bound_approx():
     ]
     actual = puan.ndarray.ge_polyhedron([
         [ 4,-1,-1,-1,-1],
-    ], variables=variables).bounds_approx()
+    ], variables=variables).tighten_column_bounds()
     expected = numpy.array([
         [-1,-1,-1,-1],
         [-1,-1,-1,-1],
@@ -1904,7 +1916,7 @@ def test_bound_approx():
     ]
     actual = puan.ndarray.ge_polyhedron([
         [ 11,-1, 1],
-    ], variables=variables).bounds_approx()
+    ], variables=variables).tighten_column_bounds()
     expected = numpy.array([
         [-10,1],
         [-10,1],
@@ -1915,7 +1927,7 @@ def test_bound_approx():
     actual = puan.ndarray.ge_polyhedron([
         [4, 2, 2, 0],
         [9, 3, 3, 3],
-    ]).bounds_approx()
+    ]).tighten_column_bounds()
     expected = numpy.array([
         [1, 1, 1],
         [1, 1, 1],
@@ -1924,7 +1936,7 @@ def test_bound_approx():
 
     actual = puan.ndarray.ge_polyhedron([
         [ 0, -2, -2, -2],
-    ]).bounds_approx()
+    ]).tighten_column_bounds()
     expected = numpy.array([
         [0, 0, 0],
         [0, 0, 0],
@@ -2381,3 +2393,24 @@ def test_duplicated_ids_should_not_result_in_contradiction():
     assert not pg.Any(*"xxyyzz").is_contradiction
     assert not pg.Xor(*"xxyyzz").is_contradiction
     assert not pg.XNor(*"xxyyzz").is_contradiction
+
+def test_cc_any_will_init_properly():
+
+    model = cc.StingyConfigurator(
+        # NOTE a is not in list of propositions and should keep structure
+        cc.Any(*"xyz", default=["a"]),
+        id="A"
+    )
+    assert len(model.propositions) == 1
+    assert len(model.propositions[0].propositions) == 3
+
+    model = cc.StingyConfigurator(
+        # NOTE x IS in list of propositions and should restructure
+        cc.Any(*"xyz", default=["x"]),
+        id="A"
+    )
+    assert len(model.propositions) == 1
+    assert len(model.propositions[0].propositions) == 2
+    # Test that the id is new inside the automatic created sub proposition
+    # Also that it exists and is an pg.Any
+    assert next(filter(lambda x: type(x) == pg.Any, model.propositions[0].propositions)).id != model.propositions[0].id

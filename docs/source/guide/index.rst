@@ -5,6 +5,7 @@ User Guide
    :maxdepth: 2
    :caption: Contents:
 
+   puan
    install
    quickstart
    Tutorials <tutorials/index>

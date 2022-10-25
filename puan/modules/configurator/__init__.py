@@ -25,15 +25,17 @@ class Any(pg.Any):
         self.default = list(map(lambda x: puan.variable(x) if type(x) == str else x, default if default is not None else []))
         if len(self.default) > 0 and self.default is not None and len(propositions) > 1:
             _default = self.default[0].id
-            inner = pg.Any(
-                *filter(lambda x: not x.id == _default, propositions)
-            )
-            inner.prio = getattr(inner, 'prio', -1)-1 
-            super().__init__(
-                *filter(lambda x: x.id == _default, propositions),
-                inner,
-                variable=variable,
-            )
+            complement = list(filter(lambda x: not x == _default, propositions))
+            if len(complement) == len(propositions) or len(complement) == 0:
+                super().__init__(*propositions, variable=variable)
+            else:
+                inner = pg.Any(*complement)
+                inner.prio = getattr(inner, 'prio', -1)-1 
+                super().__init__(
+                    *filter(lambda x: x == _default, propositions),
+                    inner,
+                    variable=variable,
+                )
         else:
             super().__init__(*propositions, variable=variable)
 
@@ -41,7 +43,7 @@ class Any(pg.Any):
         # currently we only care about first element since no implementation
         # to handle list of defaults (like a prio list). But since future may include list of 
         # defaults, we keep interface as list
-        if self.default and len(self.propositions) > 1:
+        if len(self.propositions) == 2 and any(map(lambda x: hasattr(x, 'prio'), self.propositions)):
             d = {
                 "id": self.id,
                 "type": "Any",

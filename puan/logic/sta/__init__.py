@@ -28,6 +28,14 @@ class application(dict):
             E.g. from_dict = {'k': {'g': 1}}, selector_string = 'k.g'
             and value 1 is returned.
 
+            Raises
+            ------
+                Exception
+                    | If no keys in selector string.
+                    | If key is selector string but key is not in dict.
+                    | Key is not numeric nor one of '>' or '<'
+                    | If any general error occurred when extracting value
+
             Returns
             -------
                 any
@@ -68,6 +76,14 @@ class application(dict):
     def _validate_literal(literal: dict, item: dict) -> bool:
         """
             Validates if item[key] != value.
+
+            Raises
+            ------
+                Exception
+                    If no function exists for given operator.
+                
+                KeyError
+                    If key not in item.
 
             Returns
             -------
@@ -146,6 +162,12 @@ class application(dict):
             Extracts items using selector's extractions and applies requirement checks.
             If any requirement is not fulfilled, then exception is raised.
 
+            Raises
+            ------
+                Exception
+                    | If operator not valid.
+                    | If requirement is not fulfilled.
+
             Returns
             -------
                 out : list(list)
@@ -171,6 +193,11 @@ class application(dict):
 
         """
             Group items by their keys `group_bys` -value's.
+
+            Raises
+            ------
+                Exception
+                    If `skip_item_if_fail` is False and failing to generate groups for any item.
 
             Returns
             -------
@@ -597,30 +624,26 @@ class application(dict):
             variable=model_id,
         )
 
-    # @staticmethod
-    # def to_conjunctional_implication_proposition(applications: typing.List["application"], from_items: typing.List[dict], id_key: str = "id"):# -> cc.conjunctional_implication_proposition:
+    @staticmethod
+    def to_all_proposition(applications: typing.List["application"], from_items: typing.List[dict], id_key: str = "id", id: str = None) -> pg.All:
 
-    #     """
-    #         Compiles into a conjunction proposition from a list of applications and a list of items.
+        """
+            Compiles into a `pg.All` proposition from a list of applications and a list of items.
 
-    #         Returns
-    #         -------
-    #             out : conjunctional_implication_proposition
-    #     """
+            Returns
+            -------
+                out : pg.All
+        """
 
-    #     return cc.conjunctional_implication_proposition(
-    #         list(
-    #             map(
-    #                 cc.cicJE.to_implication_proposition,
-    #                 itertools.chain(
-    #                     *map(
-    #                         lambda x: x.to_plog(from_items),
-    #                         map(
-    #                             application,
-    #                             applications
-    #                         )
-    #                     )
-    #                 )
-    #             )
-    #         )
-    #     )
+        return pg.All(
+            *itertools.chain(
+                *map(
+                    lambda x: x.to_plog(from_items).propositions,
+                    map(
+                        application,
+                        applications
+                    )
+                )
+            ),
+            variable=id
+        )

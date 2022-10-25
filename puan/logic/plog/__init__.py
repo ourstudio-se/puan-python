@@ -32,6 +32,13 @@ class AtLeast(puan.StatementInterface):
                 - If ``str``, a default ``puan.variable`` will be constructed with its id=variable.
                 - If ``None``, then an id will be generated based on its propositions, value and sign.
 
+        Raises
+        ------
+            Exception
+                | If `sign` is not -1 or 1.
+                | If `propositions` is either empty or None.
+                | If variable bounds is not (0, 1).
+
         Examples
         --------
         At least one of x, y and z.
@@ -731,6 +738,11 @@ class AtLeast(puan.StatementInterface):
                 >>> AtLeast.from_short(("x", 1, [], 0, [-10,10]))
                 variable(id='x', bounds=(-10, 10))
 
+            Raises
+            ------
+                Exception
+                    If tuple is not of size 5.
+
             Returns
             -------
                 out : AtLeast
@@ -958,6 +970,11 @@ class Imply(Any):
         """
             Convert from json data to a proposition.
 
+            Raises
+            ------
+                Exception
+                    If no `consequence` key in `data`.
+
             Returns
             -------
                 out : Imply
@@ -1141,6 +1158,11 @@ class Not():
         """
             Convert from json data to a proposition.
 
+            Raises
+            ------
+                Exception
+                    If no `proposition` key in `data`.
+
             Returns
             -------
                 out : AtLeast
@@ -1194,6 +1216,11 @@ def from_json(data: dict, class_map: list = [puan.variable,AtLeast,AtMost,All,An
     """
         Convert from json data to a proposition.
 
+        Raises
+        ------
+            Exception
+                If no parse function for `type` value is not implemented.
+
         Returns
         -------
             out : typing.Any
@@ -1219,6 +1246,11 @@ def from_b64(base64_str: str) -> typing.Any:
         Parameters
         ----------
             base64_str: str
+
+        Raises
+        ------
+            Exception
+                If error occurred while decompressing.
 
         Returns
         -------
@@ -1247,6 +1279,12 @@ def from_dict(d: dict, id: str = None) -> AtLeast:
         --------
             >>> from_dict({'a': [1, ['b','c'], 1, [0,1]], 'b': [1, ['x','y'], 1, [0,1]], 'c': [1, ['p','q'], 1, [0,1]]})
             a: +(b,c)>=-1
+
+        Raises
+        ------
+            Exception
+                | If there exists no topological sort order or a circular dependency exists.
+                | If there are more than one top node.
         
         Returns
         -------
