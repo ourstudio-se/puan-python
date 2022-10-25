@@ -2048,6 +2048,20 @@ def test_configuring_using_ge_polyhedron_config():
     actual = list(model.select({"a": 1}, solver=dummy_solver, only_leafs=True))
     assert actual[0] == expected
 
+    # Test should raise error when solution is None
+    def dummy_solver_none(A, b, ints, objs):
+        return [None]
+
+    with pytest.raises(puan.ndarray.InfeasibleError):
+        list(model.select({"a": 1}, solver=dummy_solver_none))
+
+    def dummy_solver_raises(A, b, ints, objs):
+        raise Exception("error from solver")
+
+    with pytest.raises(puan.ndarray.InfeasibleError):
+        list(model.select({"a": 1}, solver=dummy_solver_raises))
+
+
 def test_dump_load_ge_polyhedron_config():
 
     model = cc.StingyConfigurator(

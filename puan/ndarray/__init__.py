@@ -1853,6 +1853,10 @@ class boolean_ndarray(variable_ndarray):
         return _res[~(_res==self).all(axis=self.ndim-1)]
 
 
+class InfeasibleError(Exception):
+    """In context of solving on polyhedron and no feasible solution exists"""
+    pass
+
 class ge_polyhedron_config(ge_polyhedron):
 
     def __new__(cls, input_array, default_prio_vector: numpy.ndarray, variables: typing.List[puan.variable] = [], index: typing.List[typing.Union[int, puan.variable]] = [], dtype=numpy.int64):
@@ -1906,24 +1910,39 @@ class ge_polyhedron_config(ge_polyhedron):
 
                 solver : a mixed integer linear programming solver
 
+            Raises
+            ------
+            InfeasibleError
+                No solution could be found. Note that if solver raises another
+                error, it will be shown within parantheses.
+
             Returns
             -------
                 out : typing.List[typing.List[puan.variable]]
         """
-        return map(
-            lambda v: list(
-                itertools.starmap(
-                    puan.SolutionVariable.from_variable,
-                    zip(self.A.variables[v > 0], v[v > 0].tolist())
+        def map_solutions(solution) -> list:
+            try:
+                return list(
+                    itertools.starmap(
+                        puan.SolutionVariable.from_variable,
+                        zip(self.A.variables[solution > 0], solution[solution > 0].tolist())
+                    )
                 )
-            ), 
-            solver(
-                self.A, 
-                self.b,
-                self.A.integer_variable_indices,
-                self._vectors_from_prios(prios),
+            except:
+                raise InfeasibleError("no solution exists")
+
+        try:
+            return map(
+                map_solutions, 
+                solver(
+                    self.A, 
+                    self.b,
+                    self.A.integer_variable_indices,
+                    self._vectors_from_prios(prios),
+                )
             )
-        )
+        except Exception as e:
+            raise InfeasibleError(f"couldn't generate a solution from solver ({e})")
 
     def to_b64(self, str_decoding: str = 'utf8') -> str:
 
