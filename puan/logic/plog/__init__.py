@@ -56,31 +56,38 @@ class AtLeast(puan.StatementInterface):
         if sign is None:
             self.sign = 1 if value > 0 else -1
 
-        if propositions is None or len(list(propositions)) == 0:
-            raise Exception("Proposition must have variable and/or sub propositions, not none")
+        propositions_list = list(propositions)
+        if propositions is None or len(propositions_list) == 0:
+            raise Exception("Sub propositions cannot be `None`")
 
-        self.propositions = list(
-            itertools.chain(
-                filter(
-                    lambda x: type(x) != str, 
-                    propositions
-                ),
-                map(
-                    puan.variable,
+        self.propositions = sorted(
+            set(
+                itertools.chain(
                     filter(
-                        lambda x: type(x) == str,
-                        propositions
+                        lambda x: type(x) != str, 
+                        propositions_list
+                    ),
+                    map(
+                        puan.variable,
+                        filter(
+                            lambda x: type(x) == str,
+                            propositions_list
+                        )
                     )
                 )
-            )
+            ),
         )
 
         if variable is None:
             self.variable = puan.variable(id=AtLeast._id_generator(self.propositions, value, sign))
         elif type(variable) == str:
             self.variable = puan.variable(id=variable, bounds=(0,1))
-        else:
+        elif type(variable) == puan.variable:
+            if variable.bounds != (0,1):
+                raise ValueError(f"variable of a compound proposition cannot have bounds other than (0, 1), got: {variable.bounds}")
             self.variable = variable
+        else:
+            raise ValueError(f"`variable` must be of type `str` or `puan.variable`, got: {type(variable)}")
 
     def __repr__(self) -> str:
         atoms = sorted(
@@ -92,6 +99,9 @@ class AtLeast(puan.StatementInterface):
         return self.id < other.id
 
     def __eq__(self, other):
+        if not type(self) == type(other):
+            return False
+
         return (self.id == other.id) & (self.equation_bounds == other.equation_bounds) & (self.value == other.value)
 
     def __hash__(self):
@@ -159,17 +169,13 @@ class AtLeast(puan.StatementInterface):
             -------
                 out : typing.List[puan.variable]
         """
-        flat = self.flatten()
         return sorted(
-            itertools.chain(
-                map(
-                    operator.attrgetter('variable'),
-                    filter(
-                        lambda x: type(x) != puan.variable
-                    )
-                ),
-                filter(
-                    lambda x: type(x) == puan.variable
+            set(
+                itertools.chain(
+                    map(
+                        operator.attrgetter('id'),
+                        self.flatten(),
+                    ),
                 )
             )
         )
@@ -257,7 +263,6 @@ class AtLeast(puan.StatementInterface):
             M, 
             variables=[puan.variable.support_vector_variable()]+list(
                 itertools.chain(
-
                     map(
                         lambda x: x[1].variable if hasattr(x[1], "variable") else x[1], 
                         variable_id_map.values()
@@ -507,7 +512,7 @@ class AtLeast(puan.StatementInterface):
                 out : bool
         """
         # When the highest sum from equation still not satisfied inequality, this is a contradition
-        return self.equation_bounds[1] < self.value
+        return self.equation_bounds[1] < 0
 
     def evaluate(self, interpretation: typing.List[puan.SolutionVariable]) -> bool:
 
@@ -822,7 +827,7 @@ class All(AtLeast):
     """
     
     def __init__(self, *propositions, variable: typing.Union[str, puan.variable] = None):
-        super().__init__(value=len(propositions), propositions=propositions, variable=variable)
+        super().__init__(value=len(set(propositions)), propositions=propositions, variable=variable)
 
     @staticmethod
     def from_json(data: dict, class_map) -> "All":
@@ -838,6 +843,10 @@ class All(AtLeast):
             *map(functools.partial(from_json, class_map=class_map), propositions),
             variable=data.get('id', None)
         )
+
+    @staticmethod
+    def from_list(propositions: list, variable: typing.Union[str, puan.variable] = None):
+        return All(*propositions, variable=variable)
 
     def to_json(self) -> dict:
 
@@ -895,6 +904,10 @@ class Any(AtLeast):
             variable=data.get('id', None)
         )
 
+    @staticmethod
+    def from_list(propositions: list, variable: typing.Union[str, puan.variable] = None):
+        return Any(*propositions, variable=variable)
+
     def to_json(self) -> dict:
 
         """
@@ -934,8 +947,11 @@ class Imply(Any):
     """
 
     def __init__(self, condition, consequence, variable: typing.Union[str, puan.variable] = None):
-        super().__init__(condition, consequence, variable=variable)
-        self.propositions[0] = (All(self.propositions[0]) if type(self.propositions[0]) == puan.variable else self.propositions[0]).negate()
+        if type(condition) in [str, puan.variable]:
+            condition = All(condition)
+        self.condition = condition.negate()
+        self.consequence = consequence
+        super().__init__(self.condition, self.consequence, variable=variable)
 
     @staticmethod
     def from_json(data: dict, class_map) -> "Imply":
@@ -970,8 +986,8 @@ class Imply(Any):
         return {
             'id': self.id,
             'type': self.__class__.__name__,
-            'condition': self.propositions[0].negate().to_json(),
-            'consequence': self.propositions[1].to_json(),
+            'condition': self.condition.negate().to_json(),
+            'consequence': self.consequence.to_json(),
         }
 
     @staticmethod
@@ -1083,6 +1099,10 @@ class Xor(All):
             variable=data.get('id', None)
         )
 
+    @staticmethod
+    def from_list(propositions: list, variable: typing.Union[str, puan.variable] = None):
+        return Xor(*propositions, variable=variable)
+
     def to_json(self) -> dict:
 
         """
@@ -1164,6 +1184,10 @@ class XNor():
             *map(functools.partial(from_json, class_map=class_map), propositions),
             variable=data.get('id', None)
         )
+
+    @staticmethod
+    def from_list(propositions: list, variable: typing.Union[str, puan.variable] = None):
+        return XNor(*propositions, variable=variable)
 
 def from_json(data: dict, class_map: list = [puan.variable,AtLeast,AtMost,All,Any,Xor,Not,XNor,Imply]) -> typing.Any:
 

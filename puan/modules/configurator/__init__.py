@@ -23,14 +23,14 @@ class Any(pg.Any):
 
     def __init__(self, *propositions, default: typing.List[typing.Union[puan.variable, str]] = None, variable: typing.Union[puan.variable, str] = None):
         self.default = list(map(lambda x: puan.variable(x) if type(x) == str else x, default if default is not None else []))
-        if default is not None:
+        if len(self.default) > 0 and self.default is not None and len(propositions) > 1:
             _default = self.default[0].id
             inner = pg.Any(
-                *filter(lambda x: not x == _default, propositions)
+                *filter(lambda x: not x.id == _default, propositions)
             )
             inner.prio = getattr(inner, 'prio', -1)-1 
             super().__init__(
-                *filter(lambda x: x == _default, propositions),
+                *filter(lambda x: x.id == _default, propositions),
                 inner,
                 variable=variable,
             )
@@ -41,37 +41,58 @@ class Any(pg.Any):
         # currently we only care about first element since no implementation
         # to handle list of defaults (like a prio list). But since future may include list of 
         # defaults, we keep interface as list
-        if self.default:
+        if self.default and len(self.propositions) > 1:
             d = {
                 "id": self.id,
                 "type": "Any",
-                "propositions": [
-                    self.propositions[0].to_json()
-                ] + list(
-                    map(
-                        operator.methodcaller('to_json'),
-                        self.propositions[1].propositions
-                    )
+                "propositions": list(
+                    itertools.chain(
+                        map(
+                            operator.methodcaller("to_json"), 
+                            filter(
+                                lambda x: not hasattr(x, 'prio'),
+                                self.propositions,
+                            )
+                        ),
+                        map(
+                            operator.methodcaller('to_json'),
+                            next(
+                                filter(
+                                    lambda x: hasattr(x, 'prio'),
+                                    self.propositions,
+                                )
+                            ).propositions
+                        ),
+                    ),
                 ),
-                'default': list(map(lambda x: x.to_json(), self.default))
             }
         else:
             d = super().to_json()
 
+        d['default'] = list(map(lambda x: x.to_json(), self.default))
+
         return d
 
     @staticmethod
-    def from_json(data: dict, class_map: list) -> pg.AtLeast:
+    def from_json(data: dict, class_map: list) -> "Any":
         
         """"""
         default = data.get("default", [])
-        default_item = None if len(default) == 0 else list(map(lambda x: puan.variable.from_json(x, [puan.variable]), default))
-        _class_map = dict(zip(map(lambda x: x.__name__, class_map), class_map))
-        return Any(
-            *map(functools.partial(pg.from_json, class_map=class_map), data.get('propositions', [])),
-            default=default_item,
-            variable=data.get("id", None)
-        )
+        if default:
+            default_item = None if len(default) == 0 else list(map(lambda x: puan.variable.from_json(x, [puan.variable]), default))
+            _class_map = dict(zip(map(lambda x: x.__name__, class_map), class_map))
+            return Any(
+                *map(functools.partial(pg.from_json, class_map=class_map), data.get('propositions', [])),
+                default=default_item,
+                variable=data.get("id", None)
+            )
+        else:
+            return pg.Any.from_json(data, class_map)
+
+    
+    @staticmethod
+    def from_list(propositions: list, variable: typing.Union[str, puan.variable] = None, default: typing.List[puan.variable] = []) -> "Any":
+        return Any(*propositions, variable=variable, default=default)
 
 class Xor(pg.Xor):
 
@@ -107,7 +128,7 @@ class Xor(pg.Xor):
                 "propositions": list(
                     map(
                         operator.methodcaller('to_json'),
-                        self.propositions[1].propositions
+                        next(filter(lambda x: type(x) == pg.AtMost, self.propositions)).propositions
                     )
                 ),
                 "default": list(map(lambda x: x.to_json(), self.default))
@@ -118,17 +139,24 @@ class Xor(pg.Xor):
         return d
 
     @staticmethod
-    def from_json(data: dict, class_map: list) -> pg.AtLeast:
+    def from_json(data: dict, class_map: list) -> "Xor":
 
         """"""
         default = data.get("default", [])
-        default_item = None if len(default) == 0 else list(map(lambda x: puan.variable.from_json(x, [puan.variable]), default))
-        _class_map = dict(zip(map(lambda x: x.__name__, class_map), class_map))
-        return Xor(
-            *map(functools.partial(pg.from_json, class_map=class_map), data.get('propositions', [])),
-            default=default_item,
-            variable=data.get("id", None)
-        )
+        if default:
+            default_item = None if len(default) == 0 else list(map(lambda x: puan.variable.from_json(x, [puan.variable]), default))
+            _class_map = dict(zip(map(lambda x: x.__name__, class_map), class_map))
+            return Xor(
+                *map(functools.partial(pg.from_json, class_map=class_map), data.get('propositions', [])),
+                default=default_item,
+                variable=data.get("id", None)
+            )
+        else:
+            return pg.Xor.from_json(data, class_map)
+
+    @staticmethod
+    def from_list(propositions: list, variable: typing.Union[str, puan.variable] = None, default: typing.List[puan.variable] = []) -> "Xor":
+        return Xor(*propositions, variable=variable, default=default)
 
 class StingyConfigurator(pg.All):
 

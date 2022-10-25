@@ -56,7 +56,7 @@ class variable(StatementInterface):
         return hash(self.id)
 
     def __lt__(self, other):
-        return self.id < getattr(other, "id", other)
+        return self.id < other.id
 
     def __eq__(self, other):
         return self.id == getattr(other, "id", other)
