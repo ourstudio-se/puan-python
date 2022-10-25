@@ -1688,7 +1688,7 @@ def test_bound_approx():
     actual = puan.ndarray.ge_polyhedron([
         [-3, 0, 1, 0, 0], # b_lb = -2
         [-3, 0, 0, 0,-1], # d_ub =  3
-    ], variables=variables).tighter_column_bounds()
+    ], variables=variables).tighten_column_bounds()
     expected = numpy.array([
         [-10, -3,-10,-10],
         [ 10, 10, 10,  3]
@@ -1698,7 +1698,7 @@ def test_bound_approx():
     actual = puan.ndarray.ge_polyhedron([
         [ 3, 1, 0, 0, 0], # a_lb =  3
         [ 3, 0, 0,-1, 0], # c_ub = -3
-    ], variables=variables).tighter_column_bounds()
+    ], variables=variables).tighten_column_bounds()
     expected = numpy.array([
         [  3,-10,-10,-10],
         [ 10, 10, -3, 10]
@@ -1709,7 +1709,7 @@ def test_bound_approx():
     actual = puan.ndarray.ge_polyhedron([
         [ 3, 1, 0, 0, 0], # a_lb = 3
         [-5,-1, 0, 0, 0], # a_ub = 5
-    ], variables=variables).tighter_column_bounds()
+    ], variables=variables).tighten_column_bounds()
     expected = numpy.array([
         [  3,-10,-10,-10],
         [  5, 10, 10, 10]
@@ -1727,7 +1727,7 @@ def test_bound_approx():
         [ 5, 1, 0, 0, 0], # c_ub = 5
         [ 5, 0, 1, 0, 0], # c_ub = 5
         [ 5, 0, 0,-1, 0], # c_ub = 5
-    ], variables=variables).tighter_column_bounds()
+    ], variables=variables).tighten_column_bounds()
     expected = numpy.array([
         [  5,  5,-10,-10],
         [ 10, 10, -5, 10]
@@ -1740,7 +1740,7 @@ def test_bound_approx():
         actual = puan.ndarray.ge_polyhedron([
             [ 3, 2, 0, 0, 0], # a_lb =  3
             [ 5, 0, 0,-3, 0], # c_ub = -3
-        ], variables=variables).tighter_column_bounds()
+        ], variables=variables).tighten_column_bounds()
         expected = numpy.array([
             [  2,-10,-10,-10],
             [ 10, 10, -2, 10]
@@ -1755,7 +1755,7 @@ def test_bound_approx():
             [ 3, 4, 0, 0, 0], # 1 <= a
             [ 4, 3, 0, 0, 0], # 2 <= a
             [ 5, 2, 0, 0, 0], # 3 <= a
-        ], variables=variables).tighter_column_bounds()
+        ], variables=variables).tighten_column_bounds()
         expected = numpy.array([
             [  3,-10,-10,-10],
             [ 10, 10, 10, 10]
@@ -1768,7 +1768,7 @@ def test_bound_approx():
         [-2,-1, 0, 0, 0], # -2 >= a
         [ 3, 2, 0, 0, 0], #  2 <= a
         [ 3, 1, 0, 0, 0], #  3 <= a
-    ], variables=variables).tighter_column_bounds()
+    ], variables=variables).tighten_column_bounds()
     expected = numpy.array([
         [  3,-10,-10,-10],
         [  2, 10, 10, 10]
@@ -1783,7 +1783,7 @@ def test_bound_approx():
         [ 4, 1, 0, 0, 0], # a>=4
         [20, 0, 0,-1,-1], # c<=0 & d<=0
         [-4, 0, 0,-1, 0], # c<=-4 
-    ], variables=variables).tighter_column_bounds()
+    ], variables=variables).tighten_column_bounds()
     expected = numpy.array([
         [ 10, 10,-10,-10],
         [ 10, 10,-10,-10]
@@ -1796,7 +1796,7 @@ def test_bound_approx():
         [20, 1, 1, 0, 0],
         [ 4, 1, 0, 0, 0], 
         [-9,-1, 0, 0, 0], 
-    ], variables=variables).tighter_column_bounds()
+    ], variables=variables).tighten_column_bounds()
     expected = numpy.array([
         [ 10, 10,-10,-10],
         [ 9, 10, 10, 10]
@@ -1807,7 +1807,7 @@ def test_bound_approx():
     actual = puan.ndarray.ge_polyhedron([
         [ 1, 1], # <- at least 1
         [ 0,-1], # <- at most  0
-    ]).tighter_column_bounds()
+    ]).tighten_column_bounds()
     expected = numpy.array([
         [ 1],
         [ 0]
@@ -1816,7 +1816,7 @@ def test_bound_approx():
 
     actual = puan.ndarray.ge_polyhedron([
         [21, 1, 1, 0, 0],
-    ], variables=variables).tighter_column_bounds()
+    ], variables=variables).tighten_column_bounds()
     expected = numpy.array([
         [ 11, 11,-10,-10],
         [ 10, 10, 10, 10]
@@ -1834,7 +1834,7 @@ def test_bound_approx():
     actual = puan.ndarray.ge_polyhedron([
         [ 3, 1, 0, 0, 0],
         [ 0,-2, 1, 1, 0],
-    ], variables=variables).tighter_column_bounds()
+    ], variables=variables).tighten_column_bounds()
     expected = numpy.array([
         [ 3, 0, 0, 0],
         [ 1, 1, 1, 1] # <- because if coeff of a >1, than constraint on row index 1 cannot ever be satisfied
@@ -1846,7 +1846,7 @@ def test_bound_approx():
         [ 0,-2, 1, 1, 0],
         [-3,-2,-1,-1, 0],
         [-3,-2,-2, 1, 1]
-    ]).tighter_column_bounds()
+    ]).tighten_column_bounds()
     expected = numpy.array([
         [0,0,0,0],
         [1,1,1,1]
@@ -1856,7 +1856,7 @@ def test_bound_approx():
     # Test force lower bound to increase to 1
     actual = puan.ndarray.ge_polyhedron([
         [3,1,1,1,0]
-    ]).tighter_column_bounds()
+    ]).tighten_column_bounds()
     expected = numpy.array([
         [1,1,1,0],
         [1,1,1,1]
@@ -1866,7 +1866,7 @@ def test_bound_approx():
     # Test lower bound won't increase while at least one must be set
     actual = puan.ndarray.ge_polyhedron([
         [1,1,1,1,0]
-    ]).tighter_column_bounds()
+    ]).tighten_column_bounds()
     expected = numpy.array([
         [0,0,0,0],
         [1,1,1,1]
@@ -1884,7 +1884,7 @@ def test_bound_approx():
     actual = puan.ndarray.ge_polyhedron([
         [ -1,-1, 0, 0, 0],
         [  0, 0,-1,-1,-1],
-    ], variables=variables).tighter_column_bounds()
+    ], variables=variables).tighten_column_bounds()
     expected = numpy.array([
         [-10,0,0,0],
         [  1,0,0,0]
@@ -1901,7 +1901,7 @@ def test_bound_approx():
     ]
     actual = puan.ndarray.ge_polyhedron([
         [ 4,-1,-1,-1,-1],
-    ], variables=variables).tighter_column_bounds()
+    ], variables=variables).tighten_column_bounds()
     expected = numpy.array([
         [-1,-1,-1,-1],
         [-1,-1,-1,-1],
@@ -1916,7 +1916,7 @@ def test_bound_approx():
     ]
     actual = puan.ndarray.ge_polyhedron([
         [ 11,-1, 1],
-    ], variables=variables).tighter_column_bounds()
+    ], variables=variables).tighten_column_bounds()
     expected = numpy.array([
         [-10,1],
         [-10,1],
@@ -1927,7 +1927,7 @@ def test_bound_approx():
     actual = puan.ndarray.ge_polyhedron([
         [4, 2, 2, 0],
         [9, 3, 3, 3],
-    ]).tighter_column_bounds()
+    ]).tighten_column_bounds()
     expected = numpy.array([
         [1, 1, 1],
         [1, 1, 1],
@@ -1936,7 +1936,7 @@ def test_bound_approx():
 
     actual = puan.ndarray.ge_polyhedron([
         [ 0, -2, -2, -2],
-    ]).tighter_column_bounds()
+    ]).tighten_column_bounds()
     expected = numpy.array([
         [0, 0, 0],
         [0, 0, 0],

@@ -452,7 +452,7 @@ class ge_polyhedron(variable_ndarray):
         """
         A, b = ge_polyhedron(self, getattr(self, "variables", []), getattr(self, "index", [])).to_linalg()
         res = numpy.nan * numpy.zeros(A.shape[1], dtype=float)
-        lb, ub = self.tighter_column_bounds()
+        lb, ub = self.tighten_column_bounds()
         eq_bounds = lb == ub
         if eq_bounds.size > 0:
             res[eq_bounds] = lb[eq_bounds]
@@ -1081,7 +1081,7 @@ class ge_polyhedron(variable_ndarray):
         bnds = self.column_bounds()
         return numpy.array(numpy.prod((self.A != 0)*(bnds[1]-bnds[0]+1) + (self.A == 0)*1, axis=1))
 
-    def tighter_column_bounds(self) -> numpy.array:
+    def tighten_column_bounds(self) -> numpy.array:
         
         """
             Returns maybe tighter column/variable bounds based on row constraints.
@@ -1093,19 +1093,19 @@ class ge_polyhedron(variable_ndarray):
 
             Examples
             --------
-                >>> ge_polyhedron([[0,-2,1,1,0],[1,1,0,0,0],[1,0,0,0,1],[-3,0,0,0,-1]]).tighter_column_bounds()
+                >>> ge_polyhedron([[0,-2,1,1,0],[1,1,0,0,0],[1,0,0,0,1],[-3,0,0,0,-1]]).tighten_column_bounds()
                 array([[1, 0, 0, 1],
                        [1, 1, 1, 1]])
 
-                >>> ge_polyhedron([[3,1,1,1,0]]).tighter_column_bounds()
+                >>> ge_polyhedron([[3,1,1,1,0]]).tighten_column_bounds()
                 array([[1, 1, 1, 0],
                        [1, 1, 1, 1]])
 
-                >>> ge_polyhedron([[0,-1,-1,0,0]]).tighter_column_bounds()
+                >>> ge_polyhedron([[0,-1,-1,0,0]]).tighten_column_bounds()
                 array([[0, 0, 0, 0],
                        [0, 0, 1, 1]])
 
-                >>> ge_polyhedron([[2,-1,-1,0]], variables=[puan.variable(0, dtype="int"), puan.variable("a", bounds=(-2,1)), puan.variable("b"), puan.variable("c")]).tighter_column_bounds()
+                >>> ge_polyhedron([[2,-1,-1,0]], variables=[puan.variable(0, dtype="int"), puan.variable("a", bounds=(-2,1)), puan.variable("b"), puan.variable("c")]).tighten_column_bounds()
                 array([[-2,  0,  0],
                        [-2,  0,  1]])
 
