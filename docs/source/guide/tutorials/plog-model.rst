@@ -91,7 +91,7 @@ To tie these two expressions we need to plug them into a so called All-propositi
         tomatoes_le_five,
         cucumbers_le_five,
         cucumbers_ge_one,
-        variable="vegestables"
+        variable="vegetables"
     )
 
 Now we can put it all together in a single plog-model
@@ -101,7 +101,7 @@ Now we can put it all together in a single plog-model
     fridge_model = pg.All(
         chips,
         milk_done_right,
-        vegestables_ok,
+        vegetables_ok,
         variable="fridge"
     )
 
