@@ -9,9 +9,12 @@ The fundamental of the logic package is logic models. This is how you create a l
 .. code:: python
 
     import puan.logic.plog as pl
-    model = pl.AtLeast("x","y",value=1)
 
-Propositions can also be created from JSON, polyhedron, tuple or dict. See the :ref:`API reference<API>` for details on the formats.
+    # Whenever a string x is passed as a proposition,
+    # it will default into a puan.variable(id=x, bounds=(0,1)).
+    model = pl.Any("x","y",variable="A")
+
+Propositions can also be created from JSON, tuple or dict. See the :ref:`API reference<API>` for details on the formats.
 A proposition can also be converted to those formats. 
 
 

@@ -100,8 +100,8 @@ And now we are ready to select items, and get solutions.
     solution = next(
         model.select(
             {"jeans-black": 1}, 
-            solve_outfit,
-            only_leafs=True
+            solver=solve_outfit,
+            only_leafs=True # <- only leafs excludes any artificial variable value, which may not be interesting for you as a user
         )
     )
 
@@ -169,7 +169,7 @@ Running the new model, we are guaranteed to get our cool black outfit when none 
     solution = next(
         model.select(
             {"jeans-black": 1}, 
-            solve_outfit,
+            solver=solve_outfit,
             only_leafs=True
         ),
     )
@@ -193,7 +193,7 @@ the black sweater
                 "jeans-black": 1,
                 "sweater-black": 1,
             }, 
-            solve_outfit,
+            solver=solve_outfit,
             only_leafs=True
         ),
     )
@@ -224,7 +224,7 @@ And solve again solve with same prioritization
                 "jeans-black": 1,
                 "sweater-black": 1,
             }, 
-            solve_outfit,
+            solver=solve_outfit,
             only_leafs=True
         ),
     )
@@ -247,7 +247,7 @@ is more prioritized than a high number of items. If we increase the prioritizati
                 "jeans-black": 1,
                 "sweater-black": 2,
             }, 
-            solve_outfit,
+            solver=solve_outfit,
             only_leafs=True
         ),
     )
@@ -270,7 +270,7 @@ You can also select with **negative prio**. For instance, you could go with any 
                 "jeans-black": 1,
                 "sweater-black": 2,
             }, 
-            solve_outfit,
+            solver=solve_outfit,
             only_leafs=True
         ),
     )

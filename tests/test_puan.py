@@ -184,7 +184,7 @@ def test_model_json_conversion(propositions):
     _model = cc.StingyConfigurator.from_json(model.to_json())
     assert model == _model
 
-def test_json_conversion_special():
+def test_json_conversion_special_cases():
 
     model = cc.StingyConfigurator(
         cc.Any(
@@ -197,6 +197,18 @@ def test_json_conversion_special():
             variable=""
         ),
         id="main"
+    )
+    _model = cc.StingyConfigurator.from_json(model.to_json())
+    assert model == _model
+
+    model = cc.StingyConfigurator(
+        cc.Any(
+            puan.variable('0', (0,0)),
+            puan.variable('1', (0,0)),
+            default=[
+                puan.variable('', (0,0))
+            ]
+        )
     )
     _model = cc.StingyConfigurator.from_json(model.to_json())
     assert model == _model
@@ -2381,3 +2393,24 @@ def test_duplicated_ids_should_not_result_in_contradiction():
     assert not pg.Any(*"xxyyzz").is_contradiction
     assert not pg.Xor(*"xxyyzz").is_contradiction
     assert not pg.XNor(*"xxyyzz").is_contradiction
+
+def test_cc_any_will_init_properly():
+
+    model = cc.StingyConfigurator(
+        # NOTE a is not in list of propositions and should keep structure
+        cc.Any(*"xyz", default=["a"]),
+        id="A"
+    )
+    assert len(model.propositions) == 1
+    assert len(model.propositions[0].propositions) == 3
+
+    model = cc.StingyConfigurator(
+        # NOTE x IS in list of propositions and should restructure
+        cc.Any(*"xyz", default=["x"]),
+        id="A"
+    )
+    assert len(model.propositions) == 1
+    assert len(model.propositions[0].propositions) == 2
+    # Test that the id is new inside the automatic created sub proposition
+    # Also that it exists and is an pg.Any
+    assert next(filter(lambda x: type(x) == pg.Any, model.propositions[0].propositions)).id != model.propositions[0].id
