@@ -77,7 +77,7 @@ Based on those rules we will create an :ref:`STA model <puan.logic.sta>`. First 
             "category": {
                 "id": "bottoms"
             }
-        }
+        },
         {
             "id": "top",
             "name": "Top",
@@ -311,7 +311,6 @@ Yet the model is independent on items, which makes it very convenient to update 
 .. code:: python
 
     import puan.logic.sta as sta
-    import puan.logic.cic as cc
 
     # In the real application items come from some other source...
     # but for this example we hardcode a subset of the items here
@@ -371,8 +370,8 @@ Yet the model is independent on items, which makes it very convenient to update 
     items = virtual_items + non_virtual_items
     sta_rules = [rule1, rule2]
 
-    # Compile into a conjunctional proposition
-    conj_prop = sta.application.to_conjunctional_implication_proposition(sta_rules, items)
+    # Compile into an `All` proposition
+    conj_prop = sta.application.to_all_proposition(sta_rules, items)
 
     # Check if a particular combination is valid
     polyhedron = conj_prop.to_polyhedron()
@@ -409,27 +408,21 @@ Using the same model as previously defined, we now want to find the outfit with 
 .. code:: python
 
     import npycvx
+    import numpy as np
     import puan.ndarray as pnd
 
-    # We convert our polyhedron into cvxopt's constraints format 
+    # We convert our polyhedron into cvxopt's constraints format
     problem = npycvx.convert_numpy(*polyhedron.to_linalg())
 
     # Here we solve the linear program to find an outfit with as much clothes as possible (maximizing positive one-vector)
-    status, solution = npycvx.solve_lp(*problem, False, numpy.ones(len(polyhedron.A.variables)))
+    status, solution = npycvx.solve_lp(*problem, False, np.ones(len(polyhedron.A.variables)))
 
     if status == "optimal":
 
-        # Print out the solution variables but skip the virtual ones 
+        # Print out the solution variables
         print(
             pnd.boolean_ndarray(
-                solution, 
+                solution,
                 polyhedron.A.variables
             ).to_list(True)
         )
-
-        # [
-        #   'black_hat_with_cool_label': <class 'bool'> , <- did you also read "class cool" 8) ?
-        #   'black_trousers': <class 'bool'> , 
-        #   'converse': <class 'bool'> , 
-        #   'white_t_shirt': <class 'bool'> 
-        # ]

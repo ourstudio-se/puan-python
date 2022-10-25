@@ -1844,12 +1844,7 @@ class boolean_ndarray(variable_ndarray):
         """
 
         if self.ndim == 1:
-            return list(
-                filter(
-                    lambda variable: not (skip_virtual_variables and variable.virtual),
-                    numpy.array(self.variables)[self == 1].tolist()
-                )
-            )
+            return numpy.array(self.variables)[self == 1].tolist()
         else:
             return list(
                 map(

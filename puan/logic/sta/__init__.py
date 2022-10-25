@@ -597,30 +597,26 @@ class application(dict):
             variable=model_id,
         )
 
-    # @staticmethod
-    # def to_conjunctional_implication_proposition(applications: typing.List["application"], from_items: typing.List[dict], id_key: str = "id"):# -> cc.conjunctional_implication_proposition:
+    @staticmethod
+    def to_all_proposition(applications: typing.List["application"], from_items: typing.List[dict], id_key: str = "id", id: str = None) -> pg.All:
 
-    #     """
-    #         Compiles into a conjunction proposition from a list of applications and a list of items.
+        """
+            Compiles into a `pg.All` proposition from a list of applications and a list of items.
 
-    #         Returns
-    #         -------
-    #             out : conjunctional_implication_proposition
-    #     """
+            Returns
+            -------
+                out : pg.All
+        """
 
-    #     return cc.conjunctional_implication_proposition(
-    #         list(
-    #             map(
-    #                 cc.cicJE.to_implication_proposition,
-    #                 itertools.chain(
-    #                     *map(
-    #                         lambda x: x.to_plog(from_items),
-    #                         map(
-    #                             application,
-    #                             applications
-    #                         )
-    #                     )
-    #                 )
-    #             )
-    #         )
-    #     )
+        return pg.All(
+            *itertools.chain(
+                *map(
+                    lambda x: x.to_plog(from_items).propositions,
+                    map(
+                        application,
+                        applications
+                    )
+                )
+            ),
+            variable=id
+        )
