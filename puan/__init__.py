@@ -75,6 +75,13 @@ class variable(StatementInterface):
 
     @staticmethod
     def support_vector_variable():
+        """
+            Default support vector variable settings.
+
+            Returns
+            -------
+                out : variable
+        """
         return variable(0, dtype="int")
 
     @staticmethod

@@ -17,6 +17,9 @@ Data types
    which represents the relation between :math:`A` and :math:`b` (as in :math:`Ax \ge b`), i.e.
    polyhedron :math:`P=\{x \in R^n \ |\  Ax \ge b\}`.
 
+:class:`puan.ge_polyhedron.config`
+   A puan.ge_polyhedron sub class with specific configurator features.
+
 :class:`puan.integer_ndarray`
    A numpy.ndarray sub class with only integers in it.
 
@@ -35,6 +38,13 @@ Variable ndarray
 Ge polyhedron
 +++++++++++++
 .. autoclass:: ge_polyhedron
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+Ge polyhedron config
+++++++++++++++++++++
+.. autoclass:: ge_polyhedron_config
    :members:
    :undoc-members:
    :show-inheritance:

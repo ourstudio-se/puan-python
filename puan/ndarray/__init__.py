@@ -287,6 +287,14 @@ class ge_polyhedron(variable_ndarray):
             Returns reducable rows and columns of given polyhedron.
         reduce
             Reduces matrix polyhedron by information passed in rows_vector and columns_vector.
+        row_bounds
+            Returns the row equation bounds including bias.
+        row_distribution
+            Returns a distribution of all combinations for each row and their values.
+        row_stretch
+            Shows the proportion of the number of value spots for each row equation with respect to the number of combinations from active variable bounds.
+        row_stretch_int
+            Row bounds range from one number to another.
         neglectable_columns
             Returns neglectable columns of given polyhedron `ge_polyhedron`.
         neglect_columns
@@ -342,6 +350,11 @@ class ge_polyhedron(variable_ndarray):
 
         """
             Returns the minimum coefficient value based on variable's initial bounds.
+
+            Raises
+            ------
+                Exception
+                    If matrix A is empty.
 
             Returns
             -------
@@ -439,7 +452,7 @@ class ge_polyhedron(variable_ndarray):
         """
         A, b = ge_polyhedron(self, getattr(self, "variables", []), getattr(self, "index", [])).to_linalg()
         res = numpy.nan * numpy.zeros(A.shape[1], dtype=float)
-        lb, ub = self.bounds_approx()
+        lb, ub = self.tighter_column_bounds()
         eq_bounds = lb == ub
         if eq_bounds.size > 0:
             res[eq_bounds] = lb[eq_bounds]
@@ -1068,31 +1081,31 @@ class ge_polyhedron(variable_ndarray):
         bnds = self.column_bounds()
         return numpy.array(numpy.prod((self.A != 0)*(bnds[1]-bnds[0]+1) + (self.A == 0)*1, axis=1))
 
-    def bounds_approx(self) -> numpy.array:
+    def tighter_column_bounds(self) -> numpy.array:
         
         """
-            Return an approximate of column/variable lower and upper bounds. There may exist a tighter bound.
+            Returns maybe tighter column/variable bounds based on row constraints.
 
             Notes
             -----
-            - Array returned has two rows - first is the lower bound on each column and the second is the upper bound.
-            - Lower bound may be larger than upper bound without implying contradiction.
+            - Array returned has two rows - first is the lower bound and the second is the upper bound, on each column.
+            - Lower bound may be larger than upper bound. This implies contradiction but no exception is raised here.
 
             Examples
             --------
-                >>> ge_polyhedron([[0,-2,1,1,0],[1,1,0,0,0],[1,0,0,0,1],[-3,0,0,0,-1]]).bounds_approx()
+                >>> ge_polyhedron([[0,-2,1,1,0],[1,1,0,0,0],[1,0,0,0,1],[-3,0,0,0,-1]]).tighter_column_bounds()
                 array([[1, 0, 0, 1],
                        [1, 1, 1, 1]])
 
-                >>> ge_polyhedron([[3,1,1,1,0]]).bounds_approx()
+                >>> ge_polyhedron([[3,1,1,1,0]]).tighter_column_bounds()
                 array([[1, 1, 1, 0],
                        [1, 1, 1, 1]])
 
-                >>> ge_polyhedron([[0,-1,-1,0,0]]).bounds_approx()
+                >>> ge_polyhedron([[0,-1,-1,0,0]]).tighter_column_bounds()
                 array([[0, 0, 0, 0],
                        [0, 0, 1, 1]])
 
-                >>> ge_polyhedron([[2,-1,-1,0]], variables=[puan.variable(0, dtype="int"), puan.variable("a", bounds=(-2,1)), puan.variable("b"), puan.variable("c")]).bounds_approx()
+                >>> ge_polyhedron([[2,-1,-1,0]], variables=[puan.variable(0, dtype="int"), puan.variable("a", bounds=(-2,1)), puan.variable("b"), puan.variable("c")]).tighter_column_bounds()
                 array([[-2,  0,  0],
                        [-2,  0,  1]])
 
@@ -1100,43 +1113,6 @@ class ge_polyhedron(variable_ndarray):
             -------
                 out : numpy.array
         """
-        # if (self.row_stretch() < 1).any():
-        #     raise Exception("got at least one row of stretch < 1 which is invalid")
-
-        # bnds = self.column_bounds()
-        # singles = (self.A != 0).sum(axis=1) == 1
-        # if (~singles).any():
-        #     rw_bnds = self.row_bounds()
-        #     contradiction_check_rows = (rw_bnds[:,1] < 0)
-        #     assert not contradiction_check_rows.any(), f"contradictions found: rows at index {numpy.argwhere(contradiction_check_rows).T[0]} have an upper bound strict lower than 0 and are therefore contradictory."
-        #     reduced_rows = rw_bnds[:,1] == 0
-        #     one_solution_rows = self.A[reduced_rows]
-        #     lb_bound_fix = (one_solution_rows > 0).any(axis=0)
-        #     ub_bound_fix = (one_solution_rows < 0).any(axis=0)
-        #     contradiction_check_bounds = lb_bound_fix * ub_bound_fix
-        #     assert not contradiction_check_bounds.any(), f"contradictions found: columns at index {numpy.argwhere(contradiction_check_bounds).T[0]} must be fixed with multiple values, which is not possible."
-        #     bnds[0] = lb_bound_fix*bnds[1] + (1-lb_bound_fix)*bnds[0]
-        #     bnds[1] = ub_bound_fix*bnds[0] + (1-ub_bound_fix)*bnds[1]
-
-        
-        # # Means that the only one variable's lower or upper bound
-        # # could be set to the non-extreme but still (probably)
-        # # taighter bound than current 
-        # if singles.any():
-        #     rw_stch = self[singles]
-        #     A, b = rw_stch[:,1:], rw_stch[:,0]
-        #     bounds_new = numpy.divide(b.reshape(-1,1), A, out=numpy.zeros(A.shape), where=A!=0)
-        #     lb_bounds_msk = (A > 0).any(axis=1)
-        #     if lb_bounds_msk.any():
-        #         lb_bound = bounds_new[lb_bounds_msk].max(axis=0)
-        #         lb_active_bnds_msk = (lb_bound > bnds[0]) * (A[lb_bounds_msk] > 0).any(axis=0)
-        #         bnds[0, lb_active_bnds_msk] = lb_bound[lb_active_bnds_msk]
-        #     ub_bounds_msk = (A < 0).any(axis=1)
-        #     if ub_bounds_msk.any():
-        #         ub_bound = bounds_new[ub_bounds_msk].min(axis=0)
-        #         ub_active_bnds_msk = (ub_bound < bnds[1]) * (A[ub_bounds_msk] < 0).any(axis=0)
-        #         bnds[1, ub_active_bnds_msk] = ub_bound[ub_active_bnds_msk]
-
         cm_bnds = self.column_bounds()
         min_value = puan.default_min_int
         max_value = puan.default_max_int
@@ -1156,8 +1132,6 @@ class ge_polyhedron(variable_ndarray):
             cm_bnds[0, lb_msk] = lb_mx[lb_msk]
             cm_bnds[1, ub_msk] = ub_mn[ub_msk]
 
-        # candidate_contradictive_bounds = numpy.argwhere((cm_bnds[1]-cm_bnds[0]) < 0).T[0]
-        # assert candidate_contradictive_bounds.size == 0, f"contradictions found: columns in A at index {candidate_contradictive_bounds} has lower upper bounds than lower bounds, which is not possible."
         return cm_bnds
 
     def row_bounds(self) -> numpy.ndarray:
@@ -1204,7 +1178,7 @@ class ge_polyhedron(variable_ndarray):
             2     |         <- 2 combinations ([1,0], [0,1]) results in value 1
             1  |  |  |      <- 1 combination  ([0,0]) results in value 0 and 1 combination ([1,1]) results in value 2
             0 ----------
-               0  1  2   
+            0  1  2   
 
             Example 2:
             Equation = 2x+2y+0
@@ -1219,7 +1193,7 @@ class ge_polyhedron(variable_ndarray):
             2        |   
             1  |     |     |
             0 ---------------
-               0  1  2  3  4
+            0  1  2  3  4
 
             Notes
             -----
@@ -1251,6 +1225,21 @@ class ge_polyhedron(variable_ndarray):
                        [7, 0],
                        [8, 0],
                        [9, 1]])
+
+            See also
+            --------
+                row_stretch      : Proportion of the number of value spots for each row equation.
+                row_stretch_int  : Row bounds range from one number to another.
+
+            Raises
+            ------
+                Exception
+                    | Row index out of bounds.
+                    | If variable mismatch between polyhedron variables and equation.
+
+            Returns
+            -------
+                out : numpy.ndarray
         """
         if not (row_index >= 0 and row_index < self.shape[0]):
             raise Exception(f"row index {row_index} is out of bounds in polyhedron of shape {self.shape}")
@@ -1298,6 +1287,20 @@ class ge_polyhedron(variable_ndarray):
             It will return a vector of equal size as number of rows in polyhedron. Each value
             less than 1 means that there are more value spots than the number 
             of possible combinations for that row.
+
+            See also
+            --------
+                row_distribution : Distribution of possible equation outcomes.
+                row_stretch_int  : Row bounds range from one number to another.
+
+            Examples
+            --------
+                >>> ge_polyhedron([[1,1,1,0,0],[2,2,2,0,0]]).row_stretch()
+                integer_ndarray([1.33333333, 0.8       ])
+
+            Returns
+            -------
+                out : numpy.array
         """
         cm_bnds = self.column_bounds()
         rw_bnds = self.row_bounds()
@@ -1319,6 +1322,7 @@ class ge_polyhedron(variable_ndarray):
             See also
             --------
                 row_distribution : Distribution of possible equation outcomes.
+                row_stretch      : Proportion of the number of value spots for each row equation.
 
             Examples
             --------
@@ -1334,6 +1338,10 @@ class ge_polyhedron(variable_ndarray):
             -----
             This operation uses `row_distribution` which will generate all combinations from variable bounds and may require heavy computation. 
             It is supposed to be used as an analysis tool. Use it with caution.
+
+            Returns
+            -------
+                out : numpy.ndarray
         """
         rng, n = self.row_distribution(row_index).T
         return int((n != 0).sum() - (rng[-1]-rng[0]) -1)
@@ -1921,9 +1929,11 @@ class InfeasibleError(Exception):
 
 class ge_polyhedron_config(ge_polyhedron):
 
-    def __new__(cls, input_array, default_prio_vector: numpy.ndarray, variables: typing.List[puan.variable] = [], index: typing.List[typing.Union[int, puan.variable]] = [], dtype=numpy.int64):
+    """A ``puan.ge_polyhedron`` sub class with specific configurator features."""
+
+    def __new__(cls, input_array, default_prio_vector: numpy.ndarray = None, variables: typing.List[puan.variable] = [], index: typing.List[typing.Union[int, puan.variable]] = [], dtype=numpy.int64):
         arr = super().__new__(cls, input_array, variables=variables, index=index, dtype=dtype)
-        arr.default_prio_vector = default_prio_vector
+        arr.default_prio_vector = default_prio_vector if default_prio_vector is not None else -numpy.ones((arr.A.shape[1]))
         return arr
 
     def _vectors_from_prios(self, prios: typing.List[typing.Dict[str, int]]) -> numpy.ndarray:
@@ -1971,6 +1981,13 @@ class ge_polyhedron_config(ge_polyhedron):
                     a list of dicts where each entry's value is a prio
 
                 solver : a mixed integer linear programming solver
+
+            Examples
+            --------
+                >>> ph = ge_polyhedron_config([[1,1,1,1,0],[-1,-1,-1,-1,0]])
+                >>> def dummy_solver(A, b, ints, objs): return numpy.ones((objs.shape[0], A.shape[1]))
+                >>> list(ph.select({"1": 1}, solver=dummy_solver))[0]
+                [SolutionVariable(id=1, bounds=(0, 1)), SolutionVariable(id=2, bounds=(0, 1)), SolutionVariable(id=3, bounds=(0, 1)), SolutionVariable(id=4, bounds=(0, 1))]
 
             Raises
             ------
@@ -2038,6 +2055,11 @@ class ge_polyhedron_config(ge_polyhedron):
             Parameters
             ----------
                 base64_str: str
+
+            Raises
+            ------
+                Exception
+                    When error occurred during decompression.
 
             Returns
             -------
