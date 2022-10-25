@@ -82,8 +82,12 @@ class AtLeast(puan.StatementInterface):
             self.variable = puan.variable(id=AtLeast._id_generator(self.propositions, value, sign))
         elif type(variable) == str:
             self.variable = puan.variable(id=variable, bounds=(0,1))
-        else:
+        elif type(variable) == puan.variable:
+            if variable.bounds != (0,1):
+                raise ValueError(f"variable of a compound proposition cannot have bounds other than (0, 1), got: {variable.bounds}")
             self.variable = variable
+        else:
+            raise ValueError(f"`variable` must be of type `str` or `puan.variable`, got: {type(variable)}")
 
     def __repr__(self) -> str:
         atoms = sorted(
@@ -945,7 +949,9 @@ class Imply(Any):
     def __init__(self, condition, consequence, variable: typing.Union[str, puan.variable] = None):
         if type(condition) in [str, puan.variable]:
             condition = All(condition)
-        super().__init__(condition.negate(), consequence, variable=variable)
+        self.condition = condition.negate()
+        self.consequence = consequence
+        super().__init__(self.condition, self.consequence, variable=variable)
 
     @staticmethod
     def from_json(data: dict, class_map) -> "Imply":
@@ -980,8 +986,8 @@ class Imply(Any):
         return {
             'id': self.id,
             'type': self.__class__.__name__,
-            'condition': self.propositions[0].negate().to_json(),
-            'consequence': self.propositions[1].to_json(),
+            'condition': self.condition.negate().to_json(),
+            'consequence': self.consequence.to_json(),
         }
 
     @staticmethod

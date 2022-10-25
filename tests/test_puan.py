@@ -26,8 +26,17 @@ def atom_proposition_strategy():
         ),
     )
 
+def atom_boolean_proposition_strategy():
+    return st.builds(
+        puan.variable,
+        id=st.text(),
+    )
+
 def variable_proposition_strategy():
     return st.one_of(atom_proposition_strategy(), st.none())
+
+def variable_boolean_proposition_strategy():
+    return st.one_of(atom_boolean_proposition_strategy(), st.none())
 
 def atoms_propositions_strategy(mn_size: int = 1, mx_size: int = 5):
     return st.iterables(
@@ -40,7 +49,7 @@ def atleast_proposition_strategy():
     return st.builds(
         pg.AtLeast, 
         propositions=atoms_propositions_strategy(),
-        variable=variable_proposition_strategy(), 
+        variable=variable_boolean_proposition_strategy(), 
         value=st.integers(min_value=-5, max_value=5),
     )
 
@@ -48,7 +57,7 @@ def atmost_proposition_strategy():
     return st.builds(
         pg.AtMost, 
         propositions=atoms_propositions_strategy(),
-        variable=variable_proposition_strategy(), 
+        variable=variable_boolean_proposition_strategy(), 
         value=st.integers(min_value=-5, max_value=5),
     )
 
@@ -56,14 +65,22 @@ def all_proposition_strategy():
     return st.builds(
         pg.All.from_list,
         atoms_propositions_strategy(),
-        variable=variable_proposition_strategy(),
+        variable=variable_boolean_proposition_strategy(),
     )
 
 def any_proposition_strategy():
     return st.builds(
         pg.Any.from_list,
         atoms_propositions_strategy(),
-        variable=variable_proposition_strategy(),
+        variable=variable_boolean_proposition_strategy(),
+    )
+
+def any_cc_proposition_strategy():
+    return st.builds(
+        cc.Any.from_list,
+        atoms_propositions_strategy(),
+        variable=variable_boolean_proposition_strategy(),
+        default=atoms_propositions_strategy(),
     )
 
 def imply_proposition_strategy():
@@ -71,21 +88,29 @@ def imply_proposition_strategy():
         pg.Imply,
         condition=atom_proposition_strategy(),
         consequence=atom_proposition_strategy(),
-        variable=variable_proposition_strategy(),
+        variable=variable_boolean_proposition_strategy(),
     )
 
 def xor_proposition_strategy():
     return st.builds(
         pg.Xor.from_list,
         atoms_propositions_strategy(),
-        variable=variable_proposition_strategy(),
+        variable=variable_boolean_proposition_strategy(),
+    )
+
+def xor_cc_proposition_strategy():
+    return st.builds(
+        cc.Xor.from_list,
+        atoms_propositions_strategy(),
+        variable=variable_boolean_proposition_strategy(),
+        default=atoms_propositions_strategy(),
     )
 
 def xnor_proposition_strategy():
     return st.builds(
         pg.XNor.from_list,
         atoms_propositions_strategy(),
-        variable=variable_proposition_strategy(),
+        variable=variable_boolean_proposition_strategy(),
     )
 
 def not_proposition_strategy():
@@ -106,35 +131,76 @@ def proposition_strategy():
         not_proposition_strategy(),
     )
 
+def cc_proposition_strategy():
+    return st.one_of(
+        atleast_proposition_strategy(),
+        atmost_proposition_strategy(),
+        all_proposition_strategy(),
+        any_proposition_strategy(),
+        any_cc_proposition_strategy(),
+        imply_proposition_strategy(),
+        xor_proposition_strategy(),
+        xor_cc_proposition_strategy(),
+        xnor_proposition_strategy(),
+        not_proposition_strategy(),
+    )
+
 def propositions_strategy():
-    return st.lists(proposition_strategy())
+    return st.lists(proposition_strategy(), min_size=1)
+
+def cc_propositions_strategy():
+    return st.lists(cc_proposition_strategy(), min_size=1)
 
 
 @given(propositions_strategy())
 @settings(deadline=None)
 def test_model_properties_hypothesis(propositions):
-    if len(propositions) > 0:
-        model = pg.All(*propositions, variable="main")
-        
-        # Properties that should never fail when accessing
-        model.variables
-        model.is_contradiction
-        model.is_tautologi
-        model.id
-        model.bounds
-        model.equation_bounds
-        list(model.compound_propositions)
-        list(model.atomic_propositions)
+    model = pg.All(*propositions, variable="main")
+    
+    # Properties that should never fail when accessing
+    model.variables
+    model.is_contradiction
+    model.is_tautologi
+    model.id
+    model.bounds
+    model.equation_bounds
+    list(model.compound_propositions)
+    list(model.atomic_propositions)
 
-        # Methods that should never fail when running
-        model.flatten()
-        model.negate()
-        model.to_short()
-        model.to_text()
-        model.to_polyhedron()
-        model.to_polyhedron(True)
-        model.to_dict()
-        model.to_b64()
+    # Methods that should never fail when running
+    model.flatten()
+    model.negate()
+    model.to_short()
+    model.to_text()
+    model.to_polyhedron()
+    model.to_polyhedron(True)
+    model.to_dict()
+    model.to_b64()
+
+@given(cc_propositions_strategy())
+@settings(deadline=None)
+def test_model_json_conversion(propositions):
+    model = cc.StingyConfigurator(*propositions, id="main")
+    _model = cc.StingyConfigurator.from_json(model.to_json())
+    assert model == _model
+
+def test_json_conversion_special():
+
+    model = cc.StingyConfigurator(
+        cc.Any(
+            pg.Any(
+                puan.variable(id='', bounds=(4, 4)),
+            ),
+            default=[
+                puan.variable(id='', bounds=(-4, 2)),
+            ],
+            variable=""
+        ),
+        id="main"
+    )
+    _model = cc.StingyConfigurator.from_json(model.to_json())
+    assert model == _model
+
 
 def test_application_to_rules():
     items = [
@@ -1366,11 +1432,11 @@ def test_dont_override_propositions():
                 ]
             ), 
             consequence=pg.All(*"abc"), 
-            variable=puan.variable("xor_xy", bounds=(0,50)),
+            variable=puan.variable("xor_xy"),
         ),
         pg.Xor("x","y", variable="xor_xy"),
     )
-    assert model.propositions[0].variable.bounds != model.propositions[1].variable.bounds
+    assert model.propositions[0].variable.bounds == model.propositions[1].variable.bounds
 
 def test_reduce_columns_with_column_variables():
 

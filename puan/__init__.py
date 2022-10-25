@@ -56,12 +56,10 @@ class variable(StatementInterface):
         return hash(self.id)
 
     def __lt__(self, other):
-        if not hasattr(other, "id"):
-            return True
         return self.id < other.id
 
     def __eq__(self, other):
-        return (self.id == getattr(other, "id", other)) and (self.bounds == getattr(other,"bounds",(0,1)))
+        return self.id == getattr(other, "id", other)
 
     def to_json(self):
         d = {'id': self.id}
