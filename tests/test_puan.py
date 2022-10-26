@@ -852,10 +852,10 @@ def test_application_to_rules():
     )
     assert len(model.propositions) == 1
     first_prop = model.propositions[0]
-    assert first_prop.propositions[0].sign == -1
-    assert len(first_prop.propositions[0].propositions) == 6
-    assert first_prop.propositions[1].sign == 1
-    assert len(first_prop.propositions[1].propositions) == 3
+    assert first_prop.propositions[0].sign == 1
+    assert len(first_prop.propositions[0].propositions) == 3
+    assert first_prop.propositions[1].sign == -1
+    assert len(first_prop.propositions[1].propositions) == 6
 
 def test_application_to_rules_with_condition_relation():
     items = [
@@ -1520,7 +1520,7 @@ def test_proposition_polyhedron_conversions():
         variable="all_not"
     ).to_polyhedron(True)
     assert not all(actual.A.dot(actual.A.construct(*{"x": 1}.items())) >= actual.b)
-    assert all(actual.A.dot(actual.A.construct(*{"VARfe372293ac6fc8767d248278e9ceacbb53aa57de8d3b30ef20813933935d1332": 1}.items())) >= actual.b)
+    assert all(actual.A.dot(actual.A.construct(*{"VARc96efc8ea4acc75f6dbddd0acac8f189b4c566f77b76b6299161a14e4eeb2caf": 1}.items())) >= actual.b)
 
     actual = pg.Not(
         pg.All("x","y","z", variable="all_xyz")
@@ -1549,11 +1549,11 @@ def test_proposition_polyhedron_conversions():
             consequence=pg.Any("a","b","c")
         ),
     ).to_polyhedron(True)
-    assert all(actual.A.dot(actual.A.construct(*{"VARb6a05d7d91efc84e49117524cffa01cba8dcb1f14479be025342b909c9ab0cc2": 1, "VARc0f852a67830b3fb052513573b07057974eba4efd30675780affbc5ac374ae3c": 1, "x": 1, "y": 1, "z": 1}.items())) >= actual.b)
-    assert not all(actual.A.dot(actual.A.construct(*{"VARb6a05d7d91efc84e49117524cffa01cba8dcb1f14479be025342b909c9ab0cc2": 1, "VARc0f852a67830b3fb052513573b07057974eba4efd30675780affbc5ac374ae3c": 1, "x": 1, "y": 1, "z": 1, "a": 1}.items())) >= actual.b)
-    assert not all(actual.A.dot(actual.A.construct(*{"VARb6a05d7d91efc84e49117524cffa01cba8dcb1f14479be025342b909c9ab0cc2": 1, "VARc0f852a67830b3fb052513573b07057974eba4efd30675780affbc5ac374ae3c": 1, "x": 1, "y": 1, "z": 1, "b": 1}.items())) >= actual.b)
-    assert not all(actual.A.dot(actual.A.construct(*{"VARb6a05d7d91efc84e49117524cffa01cba8dcb1f14479be025342b909c9ab0cc2": 1, "VARc0f852a67830b3fb052513573b07057974eba4efd30675780affbc5ac374ae3c": 1, "x": 1, "y": 1, "z": 1, "c": 1}.items())) >= actual.b)
-    assert not all(actual.A.dot(actual.A.construct(*{"VARb6a05d7d91efc84e49117524cffa01cba8dcb1f14479be025342b909c9ab0cc2": 1, "VARc0f852a67830b3fb052513573b07057974eba4efd30675780affbc5ac374ae3c": 1, "x": 1, "y": 1}.items())) >= actual.b)
+    assert all(actual.A.dot(actual.A.construct(*{"VARb6a05d7d91efc84e49117524cffa01cba8dcb1f14479be025342b909c9ab0cc2": 1, "VARe3918cdbd4ac804be32d2b5a3f2890d6ae5f6d3fb9246b429be1bb973edd157a": 1, "x": 1, "y": 1, "z": 1}.items())) >= actual.b)
+    assert not all(actual.A.dot(actual.A.construct(*{"VARb6a05d7d91efc84e49117524cffa01cba8dcb1f14479be025342b909c9ab0cc2": 1, "VARe3918cdbd4ac804be32d2b5a3f2890d6ae5f6d3fb9246b429be1bb973edd157a": 1, "x": 1, "y": 1, "z": 1, "a": 1}.items())) >= actual.b)
+    assert not all(actual.A.dot(actual.A.construct(*{"VARb6a05d7d91efc84e49117524cffa01cba8dcb1f14479be025342b909c9ab0cc2": 1, "VARe3918cdbd4ac804be32d2b5a3f2890d6ae5f6d3fb9246b429be1bb973edd157a": 1, "x": 1, "y": 1, "z": 1, "b": 1}.items())) >= actual.b)
+    assert not all(actual.A.dot(actual.A.construct(*{"VARb6a05d7d91efc84e49117524cffa01cba8dcb1f14479be025342b909c9ab0cc2": 1, "VARe3918cdbd4ac804be32d2b5a3f2890d6ae5f6d3fb9246b429be1bb973edd157a": 1, "x": 1, "y": 1, "z": 1, "c": 1}.items())) >= actual.b)
+    assert not all(actual.A.dot(actual.A.construct(*{"VARb6a05d7d91efc84e49117524cffa01cba8dcb1f14479be025342b909c9ab0cc2": 1, "VARe3918cdbd4ac804be32d2b5a3f2890d6ae5f6d3fb9246b429be1bb973edd157a": 1, "x": 1, "y": 1}.items())) >= actual.b)
 
     actual = pg.Not(
         pg.AtLeast(propositions=["x","y","z"], value=2)
