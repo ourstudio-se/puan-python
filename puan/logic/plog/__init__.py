@@ -55,6 +55,7 @@ class AtLeast(puan.StatementInterface):
     """
     
     def __init__(self, value: int, propositions: typing.List[typing.Union[str, puan.variable]], variable: typing.Union[str, puan.variable] = None, sign: int = 1):
+        self.generated_id = False
         self.value = value
         self.sign = sign
         if not sign in [-1,1]:
@@ -87,6 +88,7 @@ class AtLeast(puan.StatementInterface):
 
         if variable is None:
             self.variable = puan.variable(id=AtLeast._id_generator(self.propositions, value, sign))
+            self.generated_id = True
         elif type(variable) == str:
             self.variable = puan.variable(id=variable, bounds=(0,1))
         elif type(variable) == puan.variable:
@@ -324,7 +326,7 @@ class AtLeast(puan.StatementInterface):
         negated = AtLeast(
             value=(self.value*-1)+1,
             propositions=self.propositions,
-            variable=self.variable,
+            variable=None if self.generated_id else self.variable,
             sign=-1*self.sign,
         )
         

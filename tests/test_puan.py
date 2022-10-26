@@ -151,6 +151,12 @@ def propositions_strategy():
 def cc_propositions_strategy():
     return st.lists(cc_proposition_strategy(), min_size=1)
 
+@given(cc_propositions_strategy())
+@settings(deadline=None)
+def test_negated_propositions_are_unique(propositions):
+    # negated propositions will never have same id as before negated
+    for prop1, prop2 in zip(propositions, map(operator.methodcaller("negate"), propositions)):
+        assert not prop1.generated_id or prop1.id != prop2.id
 
 @given(propositions_strategy())
 @settings(deadline=None)
