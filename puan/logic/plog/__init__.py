@@ -90,7 +90,7 @@ class AtLeast(puan.StatementInterface):
         elif type(variable) == str:
             self.variable = puan.variable(id=variable, bounds=(0,1))
         elif type(variable) == puan.variable:
-            if variable.bounds != (0,1):
+            if variable.bounds.as_tuple() != (0,1):
                 raise ValueError(f"variable of a compound proposition cannot have bounds other than (0, 1), got: {variable.bounds}")
             self.variable = variable
         else:
@@ -162,7 +162,7 @@ class AtLeast(puan.StatementInterface):
             --------
                 >>> proposition = AtLeast(value=1, propositions=["a", AtLeast(value=2, propositions=list("xy"), variable="B")], variable="A")
                 >>> list(proposition.atomic_propositions)
-                [variable(id='a', bounds=(0, 1))]
+                [variable(id='a', bounds=Bounds(lower=0, upper=1))]
         """
         return filter(lambda x: type(x) == puan.variable, self.propositions)
 
@@ -196,7 +196,7 @@ class AtLeast(puan.StatementInterface):
             --------
                 >>> proposition = AtLeast(1, [AtLeast(1, ["a", "b"], "B"), AtLeast(1, ["c", "d"], "C"), "e"], "A")
                 >>> proposition.flatten()
-                [A: +(B,C,e)>=1, B: +(a,b)>=1, C: +(c,d)>=1, variable(id='a', bounds=(0, 1)), variable(id='b', bounds=(0, 1)), variable(id='c', bounds=(0, 1)), variable(id='d', bounds=(0, 1)), variable(id='e', bounds=(0, 1))]
+                [A: +(B,C,e)>=1, B: +(a,b)>=1, C: +(c,d)>=1, variable(id='a', bounds=Bounds(lower=0, upper=1)), variable(id='b', bounds=Bounds(lower=0, upper=1)), variable(id='c', bounds=Bounds(lower=0, upper=1)), variable(id='d', bounds=Bounds(lower=0, upper=1)), variable(id='e', bounds=Bounds(lower=0, upper=1))]
         """
 
         return sorted(
@@ -246,7 +246,7 @@ class AtLeast(puan.StatementInterface):
                 map(
                     lambda x: pst.StatementPy(
                         variable_id_map[x.id][0],
-                        variable_id_map[x.id][1].bounds,
+                        variable_id_map[x.id][1].bounds.as_tuple(),
                         pst.AtLeastPy(
                             list(
                                 map(
@@ -411,8 +411,8 @@ class AtLeast(puan.StatementInterface):
     def _equation_mm(self) -> tuple:
 
         """Max min value of equation exclusive bias"""
-        can_min_val = sum(map(lambda x: min(x.bounds)*self.sign, self.propositions))
-        can_max_val = sum(map(lambda x: max(x.bounds)*self.sign, self.propositions))
+        can_min_val = sum(map(lambda x: min(x.bounds.as_tuple())*self.sign, self.propositions))
+        can_max_val = sum(map(lambda x: max(x.bounds.as_tuple())*self.sign, self.propositions))
         min_val = min(can_min_val, can_max_val)
         max_val = max(can_min_val, can_max_val)
         return (min_val, max_val)
@@ -595,7 +595,7 @@ class AtLeast(puan.StatementInterface):
             -------
                 out : tuple
         """
-        return (self.id, self.sign, list(map(operator.attrgetter("id"), self.propositions)), -1*self.value, list(self.bounds))
+        return (self.id, self.sign, list(map(operator.attrgetter("id"), self.propositions)), -1*self.value, list(self.bounds.as_tuple()))
 
     def to_text(self) -> str:
 
@@ -736,7 +736,7 @@ class AtLeast(puan.StatementInterface):
                 A: +(a,b,c)>=1
 
                 >>> AtLeast.from_short(("x", 1, [], 0, [-10,10]))
-                variable(id='x', bounds=(-10, 10))
+                variable(id='x', bounds=Bounds(lower=-10, upper=10))
 
             Raises
             ------
