@@ -2414,3 +2414,17 @@ def test_cc_any_will_init_properly():
     # Test that the id is new inside the automatic created sub proposition
     # Also that it exists and is an pg.Any
     assert next(filter(lambda x: type(x) == pg.Any, model.propositions[0].propositions)).id != model.propositions[0].id
+
+def test_json_dump_puan_variables():
+
+    import json
+
+    assert json.dumps(puan.variable("x"))                                   == '{"id": "x"}'
+    assert json.dumps(puan.variable("x", (-10,10)))                         == '{"id": "x", "bounds": {"lower": -10, "upper": 10}}'
+    assert json.dumps(puan.variable("x", dtype="int"))                      == '{"id": "x", "bounds": {"lower": -32768, "upper": 32767}}'
+    assert json.dumps(puan.variable("x", dtype="bool"))                     == '{"id": "x"}'
+    assert json.dumps(puan.SolutionVariable("x", value=1))                  == '{"id": "x", "value": 1}'
+    assert json.dumps(puan.SolutionVariable("x", (-10,10), value=1))        == '{"id": "x", "bounds": {"lower": -10, "upper": 10}, "value": 1}'
+    assert json.dumps(puan.SolutionVariable("x", dtype="int", value=1))     == '{"id": "x", "bounds": {"lower": -32768, "upper": 32767}, "value": 1}'
+    assert json.dumps(puan.SolutionVariable("x", dtype="int", value=-9999)) == '{"id": "x", "bounds": {"lower": -32768, "upper": 32767}, "value": -9999}'
+    assert json.dumps(puan.SolutionVariable("x", dtype="int", value=None))  == '{"id": "x", "bounds": {"lower": -32768, "upper": 32767}, "value": null}'

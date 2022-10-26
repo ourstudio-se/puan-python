@@ -4,6 +4,7 @@ import typing
 import maz
 import itertools
 import dataclasses
+from json import JSONEncoder
 
 default_min_int     : int        = numpy.iinfo(numpy.int16).min
 default_max_int     : int        = numpy.iinfo(numpy.int16).max
@@ -11,6 +12,9 @@ default_int_bounds  : (int, int) = (default_min_int, default_max_int)
 
 def _default(self, obj):
     return getattr(obj.__class__, "to_json", _default.default)(obj)
+
+_default.default = JSONEncoder().default
+JSONEncoder.default = _default
 
 class StatementInterface:
 
@@ -36,6 +40,18 @@ class StatementInterface:
         raise NotImplementedError()
 
 @dataclasses.dataclass
+class Bounds:
+
+    lower: int = default_min_int
+    upper: int = default_max_int
+
+    def __iter__(self):
+        return iter([self.lower, self.upper])
+
+    def as_tuple(self) -> tuple:
+        return (self.lower, self.upper)
+
+@dataclasses.dataclass
 class variable(StatementInterface):
 
     """
@@ -44,13 +60,13 @@ class variable(StatementInterface):
     """
 
     id: str
-    bounds: typing.Tuple[int, int] = (0, 1)
+    bounds: Bounds
 
     def __init__(self, id: str, bounds: typing.Tuple[int, int] = (0, 1), dtype: str = None):
         self.id = id
-        self.bounds = tuple(bounds)
+        self.bounds = Bounds(*bounds)
         if dtype is not None:
-            self.bounds = {"int": default_int_bounds, "bool": (0, 1)}.get(dtype, (0, 1))
+            self.bounds = Bounds(*{"int": default_int_bounds, "bool": (0, 1)}.get(dtype, (0, 1)))
 
     def __hash__(self):
         return hash(self.id)
@@ -62,16 +78,16 @@ class variable(StatementInterface):
         return self.id == getattr(other, "id", other)
 
     def to_json(self):
-        d = {'id': self.id}
-        if self.bounds != (0, 1):
-            d['bounds'] = {'min': self.bounds[0], 'max': self.bounds[1]}
+        d = dataclasses.asdict(self)
+        if self.bounds.as_tuple() == (0,1):
+            del d['bounds']
         return d
 
     def to_short(self):
-        return (self.id, 1, [], 0, self.bounds)
+        return (self.id, 1, [], 0, self.bounds.as_tuple())
 
     def to_dict(self):
-        return {self.id: (1, [], 0, self.bounds)}
+        return {self.id: (1, [], 0, self.bounds.as_tuple())}
 
     @staticmethod
     def support_vector_variable():
@@ -97,10 +113,10 @@ class variable(StatementInterface):
             Examples
             --------
                 >>> variable.from_strings("a","b")
-                [variable(id='a', bounds=(0, 1)), variable(id='b', bounds=(0, 1))]
+                [variable(id='a', bounds=Bounds(lower=0, upper=1)), variable(id='b', bounds=Bounds(lower=0, upper=1))]
 
                 >>> variable.from_strings("a","b", default_bounds=(-1,10))
-                [variable(id='a', bounds=(-1, 10)), variable(id='b', bounds=(-1, 10))]
+                [variable(id='a', bounds=Bounds(lower=-1, upper=10)), variable(id='b', bounds=Bounds(lower=-1, upper=10))]
 
             Returns
             -------
@@ -123,10 +139,10 @@ class variable(StatementInterface):
             Examples
             --------
                 >>> variable.from_mixed("a",4,("b","c"),variable("x",(1,2)))
-                [variable(id="('b', 'c')", bounds=(0, 1)), variable(id='4', bounds=(0, 1)), variable(id='a', bounds=(0, 1)), variable(id='x', bounds=(1, 2))]
+                [variable(id="('b', 'c')", bounds=Bounds(lower=0, upper=1)), variable(id='4', bounds=Bounds(lower=0, upper=1)), variable(id='a', bounds=Bounds(lower=0, upper=1)), variable(id='x', bounds=Bounds(lower=1, upper=2))]
 
                 >>> variable.from_mixed("a",4,variable("x",(2,4)), default_bounds=(-1, 1))
-                [variable(id='4', bounds=(-1, 1)), variable(id='a', bounds=(-1, 1)), variable(id='x', bounds=(2, 4))]
+                [variable(id='4', bounds=Bounds(lower=-1, upper=1)), variable(id='a', bounds=Bounds(lower=-1, upper=1)), variable(id='x', bounds=Bounds(lower=2, upper=4))]
 
             Returns
             -------
@@ -153,22 +169,28 @@ class variable(StatementInterface):
 
     @staticmethod
     def from_json(data: dict, class_map):
-        bounds = data.get('bounds', {'min': 0, 'max': 1})
+        bounds = data.get('bounds', {'lower': 0, 'upper': 1})
         return variable(
             id=data['id'],
-            bounds=(bounds['min'], bounds['max'])
+            bounds=(bounds['lower'], bounds['upper'])
         )
 
 
 class SolutionVariable(variable):
 
     value: int = None
+
     def __init__(self, id: str, bounds: typing.Tuple[int, int] = (0, 1), dtype: str = None, value: int = None):
         super().__init__(id, bounds, dtype)
         self.value = value
 
     def __eq__(self, other):
         return self.id == other.id and self.value == other.value
+
+    def to_json(self):
+        d = super().to_json()
+        d['value'] = self.value
+        return d
 
     @staticmethod
     def from_variable(variable: variable, value: int) -> "SolutionVariable":

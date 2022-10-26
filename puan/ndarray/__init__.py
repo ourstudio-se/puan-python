@@ -114,7 +114,7 @@ class variable_ndarray(numpy.ndarray):
                 map(
                     operator.itemgetter(0),
                     filter(
-                        lambda x: 1*(x[1].bounds != (0,1)) + is_bool == 1,
+                        lambda x: 1*(x[1].bounds.as_tuple() != (0,1)) + is_bool == 1,
                         enumerate(self.variables)
                     )
                 )
@@ -1055,7 +1055,10 @@ class ge_polyhedron(variable_ndarray):
         return numpy.array(
             list(
                 map(
-                    operator.attrgetter("bounds"),
+                    maz.compose(
+                        operator.methodcaller("as_tuple"),
+                        operator.attrgetter("bounds"),
+                    ),
                     self.A.variables
                 )
             )
@@ -1987,7 +1990,7 @@ class ge_polyhedron_config(ge_polyhedron):
                 >>> ph = ge_polyhedron_config([[1,1,1,1,0],[-1,-1,-1,-1,0]])
                 >>> def dummy_solver(A, b, ints, objs): return numpy.ones((objs.shape[0], A.shape[1]))
                 >>> list(ph.select({"1": 1}, solver=dummy_solver))[0]
-                [SolutionVariable(id=1, bounds=(0, 1)), SolutionVariable(id=2, bounds=(0, 1)), SolutionVariable(id=3, bounds=(0, 1)), SolutionVariable(id=4, bounds=(0, 1))]
+                [SolutionVariable(id=1, bounds=Bounds(lower=0, upper=1)), SolutionVariable(id=2, bounds=Bounds(lower=0, upper=1)), SolutionVariable(id=3, bounds=Bounds(lower=0, upper=1)), SolutionVariable(id=4, bounds=Bounds(lower=0, upper=1))]
 
             Raises
             ------
