@@ -190,6 +190,19 @@ def test_model_json_conversion(propositions):
     _model = cc.StingyConfigurator.from_json(model.to_json())
     assert model == _model
 
+@given(cc_proposition_strategy())
+def test_to_from_b64(proposition):
+    string = proposition.to_b64()
+    _proposition = pg.from_b64(string)
+    assert proposition.id == _proposition.id
+    assert proposition.bounds == _proposition.bounds
+
+@given(proposition_strategy())
+def test_json_conversion_id_should_be_returned_if_explicitly_defined(proposition):
+    json_model = pg.from_json(proposition.to_json()).to_json()
+    # generated id (i.e. no ID was explicitly defined) implies that there shouldn't be an ID in the json
+    assert not (proposition.generated_id and 'id' in json_model)
+
 def test_json_conversion_special_cases():
 
     model = cc.StingyConfigurator(
@@ -1504,6 +1517,9 @@ def test_json_conversion():
 
     converted = cc.StingyConfigurator.from_json(model.to_json())
     assert model == converted
+
+    json_model = {"type": "All", "propositions": [{"id": "x", "bounds": {"lower": -10, "upper": 10}}]}
+    assert json_model == pg.from_json(json_model).to_json()
 
 def test_xnor_proposition():
     
