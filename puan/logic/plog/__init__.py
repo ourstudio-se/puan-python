@@ -658,8 +658,7 @@ class AtLeast(puan.StatementInterface):
             -------
                 out : dict
         """
-        return {
-            'id': self.id,
+        d = {
             'type': self.__class__.__name__,
             'propositions': list(
                 map(
@@ -669,6 +668,10 @@ class AtLeast(puan.StatementInterface):
             ),
             'value': self.value
         }
+        if not self.generated_id:
+            d['id'] = self.id
+
+        return d
 
     def to_b64(self, str_decoding: str = 'utf8') -> str:
 
@@ -810,17 +813,9 @@ class AtMost(AtLeast):
             -------
                 out : dict
         """
-        return {
-            'id': self.id,
-            'type': self.__class__.__name__,
-            'propositions': list(
-                map(
-                    operator.methodcaller("to_json"),
-                    self.propositions
-                )
-            ),
-            'value': -1*self.value
-        }
+        d = super().to_json()
+        d['value'] = -1*self.value
+        return d
 
 class All(AtLeast):
 
@@ -871,16 +866,15 @@ class All(AtLeast):
             -------
                 out : dict
         """
-        return {
-            'id': self.id,
-            'type': self.__class__.__name__,
-            'propositions': list(
-                map(
-                    operator.methodcaller("to_json"),
-                    self.propositions
-                )
-            ),
-        }
+        d = super().to_json()
+        del d['value']
+        d['propositions'] = list(
+            map(
+                operator.methodcaller("to_json"),
+                self.propositions
+            )
+        )
+        return d
 
 class Any(AtLeast):
 
@@ -931,16 +925,15 @@ class Any(AtLeast):
             -------
                 out : dict
         """
-        return {
-            'id': self.id,
-            'type': self.__class__.__name__,
-            'propositions': list(
-                map(
-                    operator.methodcaller("to_json"),
-                    self.propositions
-                )
-            ),
-        }
+        d = super().to_json()
+        del d['value']
+        d['propositions'] = list(
+            map(
+                operator.methodcaller("to_json"),
+                self.propositions
+            )
+        )
+        return d
 
 class Imply(Any):
 
@@ -1002,12 +995,14 @@ class Imply(Any):
             -------
                 out : dict
         """
-        return {
-            'id': self.id,
+        d = {
             'type': self.__class__.__name__,
             'condition': self.condition.negate().to_json(),
             'consequence': self.consequence.to_json(),
         }
+        if not self.generated_id:
+            d['id'] = self.id
+        return d
 
     @staticmethod
     def from_cicJE(data: dict, id_ident: str = "id") -> "Imply":
@@ -1131,8 +1126,7 @@ class Xor(All):
             -------
                 out : dict
         """
-        return {
-            'id': self.id,
+        d = {
             'type': self.__class__.__name__,
             'propositions': list(
                 map(
@@ -1141,6 +1135,9 @@ class Xor(All):
                 )
             ) if len(self.propositions) > 0 else [],
         }
+        if not self.generated_id:
+            d['id'] = self.id
+        return d
 
 class Not():
 
@@ -1212,6 +1209,28 @@ class XNor():
     @staticmethod
     def from_list(propositions: list, variable: typing.Union[str, puan.variable] = None):
         return XNor(*propositions, variable=variable)
+
+    def to_json(self) -> dict:
+
+        """
+            Returns proposition as a readable json.
+
+            Returns
+            -------
+                out : dict
+        """
+        d = {
+            'type': self.__class__.__name__,
+            'propositions': list(
+                map(
+                    operator.methodcaller("to_json"),
+                    self.propositions[0].propositions
+                )
+            ) if len(self.propositions) > 0 else [],
+        }
+        if not self.generated_id:
+            d['id'] = self.id
+        return d
 
 def from_json(data: dict, class_map: list = [puan.variable,AtLeast,AtMost,All,Any,Xor,Not,XNor,Imply]) -> typing.Any:
 
