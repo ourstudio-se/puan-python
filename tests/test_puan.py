@@ -16,6 +16,21 @@ import math
 
 from hypothesis import example, given, strategies as st, settings, assume
 
+def short_proposition_strategy():
+    mn,mx = -99,99
+    return st.tuples(
+        st.text(), 
+        st.sampled_from([-1,1]), 
+        st.lists(
+            st.text(),
+        ), 
+        st.integers(mn,mx), 
+        st.tuples(
+            st.integers(mn,mx),
+            st.integers(mn,mx),
+        )
+    )
+
 def atom_proposition_strategy():
     return st.builds(
         puan.variable,
@@ -202,6 +217,17 @@ def test_json_conversion_id_should_be_returned_if_explicitly_defined(proposition
     json_model = pg.from_json(proposition.to_json()).to_json()
     # generated id (i.e. no ID was explicitly defined) implies that there shouldn't be an ID in the json
     assert not (proposition.generated_id and 'id' in json_model)
+
+@given(short_proposition_strategy())
+@settings(deadline=None)
+def test_from_short_wont_crash(short_proposition):
+
+    # Should raise if has sub propositions and bounds are other than (0,1) 
+    if len(short_proposition[2]) > 0 and short_proposition[4] != (0,1):
+        with pytest.raises(Exception):
+            pg.AtLeast.from_short(short_proposition)
+    else:
+        pg.AtLeast.from_short(short_proposition)
 
 def test_json_conversion_special_cases():
 
@@ -2450,3 +2476,74 @@ def test_json_dump_puan_variables():
     assert json.dumps(puan.SolutionVariable("x", dtype="int", value=1))     == '{"id": "x", "bounds": {"lower": -32768, "upper": 32767}, "value": 1}'
     assert json.dumps(puan.SolutionVariable("x", dtype="int", value=-9999)) == '{"id": "x", "bounds": {"lower": -32768, "upper": 32767}, "value": -9999}'
     assert json.dumps(puan.SolutionVariable("x", dtype="int", value=None))  == '{"id": "x", "bounds": {"lower": -32768, "upper": 32767}, "value": null}'
+
+def test_from_dict():
+
+    data = {
+        'x': [1, [], 0, [-10,10]],
+    }
+    model = pg.from_dict(data)
+    assert model.id == "x"
+    assert type(model) == puan.variable
+
+    # should raise because of multiple top nodes (require exactly one)
+    data = {
+        'x': [1, [], 0, [-10,10]],
+        'y': [1, [], 0, [-10,10]],
+    }
+    with pytest.raises(Exception):
+        pg.from_dict(data)
+
+    # should raise because of multiple top nodes (require exactly one)
+    data = {
+        'a': [1, ['x','y'], 0, [0,1]],
+        'b': [1, ['x','y'], 0, [0,1]],
+        'x': [1, [], 0, [-10,10]],
+        'y': [1, [], 0, [-10,10]],
+    }
+    with pytest.raises(Exception):
+        pg.from_dict(data)
+    
+    # should raise exception because of circular reference
+    data = {
+        'a': [1, ['b'], 0, [0,1]],
+        'b': [1, ['c'], 0, [0,1]],
+        'c': [1, ['a'], 0, [0,1]],
+    }
+    with pytest.raises(Exception):
+        pg.from_dict(data)
+    
+    data = {
+        'a': [1, ['x','y'], 0, [10,11]], # <- should raise because of this
+        'x': [1, [], 0, [0,10]],
+        'y': [1, [], 0, [-2,5]],
+    }
+    with pytest.raises(Exception):
+        pg.from_dict(data)
+
+    # Common model structure with specific variable bounds
+    data = {
+        'a': [1, ['x','y'], -2, [0,1]],
+        'x': [1, [], 0, [-10,10]],
+        'y': [1, [], 0, [-10,10]],
+    }
+    model = pg.from_dict(data)
+    assert model.id == 'a'
+    assert len(model.propositions) == 2
+    assert all(map(lambda prop: prop.bounds == puan.Bounds(-10,10), model.propositions))
+
+    # Model with variable sharing propositions
+    data = {
+        'a': [1, ['b','c'], -2, [0,1]],
+        'b': [1, ['x','y'], -2, [0,1]],
+        'c': [1, ['x','y'], -1, [0,1]],
+        'x': [1, [], 0, [-10,10]],
+        'y': [1, [], 0, [-10,10]],
+    }
+    model = pg.from_dict(data)
+    assert model.id == 'a'
+    assert len(model.propositions) == 2
+    assert len(model.propositions[0].propositions) == 2
+    assert len(model.propositions[1].propositions) == 2
+    assert all(map(lambda prop: prop.bounds == puan.Bounds(-10,10), model.propositions[0].propositions))
+    assert all(map(lambda prop: prop.bounds == puan.Bounds(-10,10), model.propositions[1].propositions))

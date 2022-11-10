@@ -854,7 +854,22 @@ class All(AtLeast):
         )
 
     @staticmethod
-    def from_list(propositions: list, variable: typing.Union[str, puan.variable] = None):
+    def from_list(propositions: list, variable: typing.Union[str, puan.variable] = None) -> "All":
+
+        """
+            Convert from list of propositions to an object of this proposition class.
+
+            Examples
+            --------
+                >>> model = All.from_list([puan.variable("x"), puan.variable("y")], variable="a")
+                >>> type(model) == All
+                True
+
+            Returns
+            -------
+                out : All
+        """
+
         return All(*propositions, variable=variable)
 
     def to_json(self) -> dict:
@@ -913,7 +928,22 @@ class Any(AtLeast):
         )
 
     @staticmethod
-    def from_list(propositions: list, variable: typing.Union[str, puan.variable] = None):
+    def from_list(propositions: list, variable: typing.Union[str, puan.variable] = None) -> "Any":
+
+        """
+            Convert from list of propositions to an object of this proposition class.
+
+            Examples
+            --------
+                >>> model = Any.from_list([puan.variable("x"), puan.variable("y")], variable="a")
+                >>> type(model) == Any
+                True
+
+            Returns
+            -------
+                out : Any
+        """
+
         return Any(*propositions, variable=variable)
 
     def to_json(self) -> dict:
@@ -1114,7 +1144,22 @@ class Xor(All):
         )
 
     @staticmethod
-    def from_list(propositions: list, variable: typing.Union[str, puan.variable] = None):
+    def from_list(propositions: list, variable: typing.Union[str, puan.variable] = None) -> "Xor":
+
+        """
+            Convert from list of propositions to an object of this proposition class.
+
+            Examples
+            --------
+                >>> model = Xor.from_list([puan.variable("x"), puan.variable("y")], variable="a")
+                >>> type(model) == Xor
+                True
+
+            Returns
+            -------
+                out : Xor
+        """
+
         return Xor(*propositions, variable=variable)
 
     def to_json(self) -> dict:
@@ -1207,7 +1252,26 @@ class XNor():
         )
 
     @staticmethod
-    def from_list(propositions: list, variable: typing.Union[str, puan.variable] = None):
+    def from_list(propositions: list, variable: typing.Union[str, puan.variable] = None) -> AtLeast:
+
+        """
+            Convert from list of propositions to an object of this proposition class.
+
+            Notes
+            -----    
+                XNor is not its own type but instead returns an AtLeast proposition which preserves the same logic.
+
+            Examples
+            --------
+                >>> model = XNor.from_list([puan.variable("x"), puan.variable("y")], variable="a")
+                >>> type(model) == AtLeast
+                True
+
+            Returns
+            -------
+                out : AtLeast
+        """
+
         return XNor(*propositions, variable=variable)
 
     def to_json(self) -> dict:
@@ -1349,7 +1413,7 @@ def from_dict(d: dict, id: str = None) -> AtLeast:
         raise Exception(f"dict has multiple top nodes ({sort_order[-1]}) but exactly one is required")
 
     for level in sort_order:
-        for i in filter(lambda x: x in d_conv, level):
+        for i in filter(lambda x: x in d_conv and hasattr(d_conv[x], "propositions"), level):
             d_conv[i].propositions = list(
                 map(
                     lambda j: d_conv[j] if j in d_conv else j,
