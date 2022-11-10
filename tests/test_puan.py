@@ -1644,6 +1644,23 @@ def test_not_when_single_str_or_variable():
     for entity in ["a", puan.variable("a")]:
         assert type(pg.Not(entity)) in [pg.All, pg.AtLeast]
 
+def test_multiple_defaults():
+    #a -> p ^ q (q)
+    #a -> p ^ r (r)
+    model = cc.StingyConfigurator(pg.All(pg.Imply("a", cc.Xor(*"pq", default="q")), pg.Imply("a", cc.Xor(*"pr", default="r"))))
+    config1 = {"a": 1, "p": 0, "q": 1, "r": 1}
+    config2 = {"a": 1, "p": 1}
+    full_config1 = model.evaluate_propositions(config1)
+    full_config2 = model.evaluate_propositions(config2)
+    keys1 = numpy.array(list(full_config1.keys()))[:-1]
+    keys1.sort()
+    int_ndarray1 = numpy.array(list(map(lambda x: full_config1[x], keys1)))
+    keys2 = numpy.array(list(full_config2.keys()))[:-1]
+    keys2.sort()
+    int_ndarray2 = numpy.array(list(map(lambda x: full_config2[x], keys2)))
+    objective_function = puan.ndarray.ndint_compress(model.polyhedron.default_prio_vector, method="shadow")
+    assert objective_function.dot(int_ndarray1) > objective_function.dot(int_ndarray2)
+
 # def test_assuming_integer_variables():
 
 #     """
@@ -1738,7 +1755,7 @@ def test_bound_approx():
     ])
     assert (actual == expected).all()
 
-    # When a taighter bound exists
+    # When a tighter bound exists
     actual = puan.ndarray.ge_polyhedron([
         [ 3, 1, 0, 0, 0], # a_lb = 3
         [ 3, 0, 1, 0, 0], # a_lb = 3
