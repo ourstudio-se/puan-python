@@ -283,43 +283,6 @@ class StingyConfigurator(pg.All):
             *(self.propositions + [proposition]), 
             id=self.id,
         )
-    
-    def assume(self, fixed: typing.Dict[str, int]) -> tuple:
-
-        """
-            Assumes variables in `fixed`-list. Passes prio onwards as well.
-
-            Returns
-            -------
-                out : tuple(StingyConfigurator, dict)
-        """
-        # Prepare to put pack prio's
-        self_flatten = self.flatten()
-        d_flatten = dict(
-            zip(
-                map(
-                    operator.attrgetter("id"), 
-                    self_flatten,
-                ), 
-                self_flatten,
-            ),
-        )
-
-        assumed_sub, variable_consequence = pg.AtLeast(
-            *self.propositions, 
-            value=len(self.propositions), 
-            id=self._id,
-        ).assume(fixed)
-        
-        # Put back prio into proposition with prio set
-        for proposition in filter(lambda x: isinstance(x, pg.Any), assumed_sub.flatten()):
-            proposition.__class__ = Any
-            proposition.prio = getattr(d_flatten.get(proposition.id, {}), "prio", -1)
-
-        return StingyConfigurator(
-            *assumed_sub.propositions,
-            id=self._id,
-        ), variable_consequence
 
     def from_json(data: dict) -> "StingyConfigurator":
 
