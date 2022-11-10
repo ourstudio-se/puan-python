@@ -560,11 +560,12 @@ class AtLeast(puan.StatementInterface):
         )
         return self.evaluate_propositions(interpretation_map)[self.id] > 0
 
-    def evaluate_propositions(self, dict: typing.Dict) -> dict:
+    def evaluate_propositions(self, dict: typing.Dict[str, int]) -> typing.Dict[str, int]:
         """
-            Evaluates propositions on this model given a dict with variabled and their values.
-            The final result is a dict with all variables in the model and their value. A variable
-            which is not included in the initial dict is calculated from it's subpropositions or
+            Evaluates propositions on this model given a dict with variables and their values.
+            Notes
+            -----
+            A variable which is not included in the initial dict is calculated from it's sub propositions or
             defaulted to zero (if variable doesn't have any subpropositions). 
 
             Examples
@@ -580,6 +581,10 @@ class AtLeast(puan.StatementInterface):
 
                 >>> AtLeast(propositions=[puan.variable("x", dtype="int")], value=10).evaluate_propositions({"x": 10})
                 {'x': 10, 'VARa6aef82726db5033e4b25e6fec8b5770cf89fe44ff8336731eef2bfa9a8ab35f': 1}
+
+            Returns
+            -------
+                out : typing.Dict[str, int]
         """
         def _get_variable_val(id, dict):
             if not id in dict.keys():
@@ -587,7 +592,20 @@ class AtLeast(puan.StatementInterface):
             return dict
         if not self.id in dict.keys():
             # Calculate variable value and add to dict
-            dict[self.id] = 1*(sum(map( lambda x: x.evaluate_propositions(dict)[x.id]*self.sign if type(x)!=puan.variable else _get_variable_val(x.id, dict)[x.id]*self.sign, itertools.chain(self.atomic_propositions, self.compound_propositions))) -self.value >= 0)
+            dict[self.id] = 1*(
+                sum(
+                    itertools.chain(
+                        map(
+                            lambda x: x.evaluate_propositions(dict)[x.id]*self.sign,
+                            self.compound_propositions
+                        ),
+                        map(
+                            lambda x: _get_variable_val(x.id, dict)[x.id]*self.sign,
+                            self.atomic_propositions
+                        )
+                    )
+                ) -self.value >= 0
+            )
         return dict
 
     def to_short(self) -> tuple:
