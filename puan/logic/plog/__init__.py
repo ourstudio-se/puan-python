@@ -634,8 +634,7 @@ class AtLeast(puan.StatementInterface):
                     )
             return interpretation
         interpretation_map = dict(map(lambda x: (x.id, x), filter(lambda x: type(x) == puan.variable, self.flatten())))
-        for x, y in interpretation.items():
-            if x in interpretation_map:
+        for x, y in filter(lambda x: x[0] in interpretation_map, interpretation.items()):
                 _check_variable_in_bounds(x, y, interpretation_map[x].bounds)
         return _evaluate_propositions(self, interpretation)
 
