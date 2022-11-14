@@ -45,6 +45,12 @@ class Bounds:
     lower: int = default_min_int
     upper: int = default_max_int
 
+    def __init__(self, lower: int, upper: int):
+        if lower > upper:
+            raise ValueError(f"upper bound must be higher than lower bound, got: ({lower}, {upper})")
+        self.lower = lower
+        self.upper = upper
+
     def __iter__(self):
         return iter([self.lower, self.upper])
 

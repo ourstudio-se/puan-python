@@ -36,8 +36,8 @@ def atom_proposition_strategy():
         puan.variable,
         id=st.text(), 
         bounds=st.tuples(
-            st.integers(min_value=-10, max_value=10),
-            st.integers(min_value=-10, max_value=10),
+            st.integers(min_value=-5, max_value=0),
+            st.integers(min_value=0, max_value=5),
         ),
     )
 
@@ -1670,6 +1670,56 @@ def test_not_when_single_str_or_variable():
     for entity in ["a", puan.variable("a")]:
         assert type(pg.Not(entity)) in [pg.All, pg.AtLeast]
 
+def test_multiple_defaults():
+    #a -> p ^ q (q)
+    #a -> p ^ r (r)
+    model = cc.StingyConfigurator(pg.All(pg.Imply("a", cc.Xor(*"pq", default="q")), pg.Imply("a", cc.Xor(*"pr", default="r"))))
+    config1 = {"a": 1, "p": 0, "q": 1, "r": 1}
+    config2 = {"a": 1, "p": 1}
+    full_config1 = model.evaluate_propositions(config1)
+    full_config2 = model.evaluate_propositions(config2)
+    keys1 = list(full_config1.keys())[:-1]
+    keys1.sort()
+    keys2 = list(full_config2.keys())[:-1]
+    keys2.sort()
+    int_ndarray1 = numpy.array(list(map(lambda x: full_config1[x], keys1)))
+    int_ndarray2 = numpy.array(list(map(lambda x: full_config2[x], keys2)))
+    objective_function = puan.ndarray.ndint_compress(model.polyhedron.default_prio_vector, method="shadow")
+    assert objective_function.dot(int_ndarray1) > objective_function.dot(int_ndarray2)
+
+def test_evaluate_propositions():
+    # Raises ValueError when configuration variable is out of bounds
+    with pytest.raises(ValueError):
+        pg.All(*"xy", variable="A").evaluate_propositions({"x": 3})
+    
+    # Unsatisfiable model
+    assert pg.AtLeast(2, "x").evaluate_propositions({"x": 0}) == {'VAR13c463c68a23bc633637b613e63e0025e2d498cf52ef76877ae6ed3475f4aba6': 0, "x": 0}
+
+    # Faulty configuration input
+    with pytest.raises(ValueError):
+        pg.All(*"xy", variable="A").evaluate_propositions({"x": "str"})
+
+    # Variable defaults to lower bounds when not given as configuration
+    assert pg.AtLeast(1, [puan.variable("x", bounds=(0,1))], variable="A").evaluate_propositions({}) == {"A": 0, "x": 0}
+    assert pg.AtLeast(1, [puan.variable("x", bounds=(1,10))], variable="A").evaluate_propositions({}) == {"A": 1, "x": 1}
+
+    # Puan.variable as input in configuration
+    assert pg.All(*"xy", variable="A").evaluate_propositions({puan.variable("x"): 1}) == {puan.variable(id='x', bounds=(0, 1)): 1, 'A': 0, 'y': 0}
+
+def configuration_dict_strategy():
+    return st.dictionaries(st.text(), st.integers(-2,2))
+
+@given(proposition_strategy(), configuration_dict_strategy())
+def test_propositions_evaluations(proposition, configuration):
+    value_error_raised = False
+    try:
+        evaluate_propositions_result = proposition.evaluate_propositions(configuration)[proposition.variable.id] > 0
+        evaluate_result = proposition.evaluate(configuration)
+    except ValueError:
+        value_error_raised = True
+    if not value_error_raised:
+        assert evaluate_propositions_result == evaluate_result
+            
 # def test_assuming_integer_variables():
 
 #     """
@@ -1764,7 +1814,7 @@ def test_bound_approx():
     ])
     assert (actual == expected).all()
 
-    # When a taighter bound exists
+    # When a tighter bound exists
     actual = puan.ndarray.ge_polyhedron([
         [ 3, 1, 0, 0, 0], # a_lb = 3
         [ 3, 0, 1, 0, 0], # a_lb = 3
@@ -2416,22 +2466,22 @@ def test_plog_evaluate_method():
         variable="fridge"
     )
 
-    cart = [
-        puan.SolutionVariable.from_variable(milk_home, 1),
-        puan.SolutionVariable.from_variable(milk_bought, 0),
-        puan.SolutionVariable.from_variable(tomatoes, 2+2),
-        puan.SolutionVariable.from_variable(cucumbers, 0),
-    ]
+    cart = {
+        milk_home: 1,
+        milk_bought: 0,
+        tomatoes: 2+2,
+        cucumbers: 0
+    }
 
     assert not fridge_model.evaluate(cart)
 
-    new_cart = [
-        puan.SolutionVariable.from_variable(chips, 1),
-        puan.SolutionVariable.from_variable(milk_home, 1),
-        puan.SolutionVariable.from_variable(milk_bought, 0),
-        puan.SolutionVariable.from_variable(tomatoes, 2+2),
-        puan.SolutionVariable.from_variable(cucumbers, 1),
-    ]
+    new_cart = {
+        chips: 1,
+        milk_home: 1,
+        milk_bought: 0,
+        tomatoes: 2+2,
+        cucumbers: 1
+    }
 
     assert fridge_model.evaluate(new_cart)
 

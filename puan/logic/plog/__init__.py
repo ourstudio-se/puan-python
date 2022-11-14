@@ -196,7 +196,8 @@ class AtLeast(puan.StatementInterface):
 
             Examples
             --------
-                >>> proposition = AtLeast(1, [AtLeast(1, ["a", "b"], "B"), AtLeast(1, ["c", "d"], "C"), "e"], "A")
+                >>> proposition = AtLeast(1, [AtLeast(1, ["a", "b"], "B"),
+                ... AtLeast(1, ["c", "d"], "C"), "e"], "A")
                 >>> proposition.flatten()
                 [A: +(B,C,e)>=1, B: +(a,b)>=1, C: +(c,d)>=1, variable(id='a', bounds=Bounds(lower=0, upper=1)), variable(id='b', bounds=Bounds(lower=0, upper=1)), variable(id='c', bounds=Bounds(lower=0, upper=1)), variable(id='d', bounds=Bounds(lower=0, upper=1)), variable(id='e', bounds=Bounds(lower=0, upper=1))]
         """
@@ -515,6 +516,7 @@ class AtLeast(puan.StatementInterface):
                 >>> model = AtMost(-1,["x","y"])
                 >>> model.is_contradiction
                 True
+            
 
             Returns
             -------
@@ -523,7 +525,7 @@ class AtLeast(puan.StatementInterface):
         # When the highest sum from equation still not satisfied inequality, this is a contradition
         return self.equation_bounds[1] < 0
 
-    def evaluate(self, interpretation: typing.List[puan.SolutionVariable]) -> bool:
+    def evaluate(self, interpretation: typing.Dict[typing.Union[str, puan.variable], int]) -> bool:
 
         """
             Evaluates interpretation on this model. It will evaluate sub propositions
@@ -531,52 +533,110 @@ class AtLeast(puan.StatementInterface):
             intermediate variables are not set in interpretation, they receive a value
             based on the evaluation of its propositions.
 
+            Parameters
+            ----------
+                interpretation: typing.Dict[typing.Union[str, puan.variable], int]
+                    the values of the variables in the model to evaluate it for
+
             Examples
             --------
-                >>> All(*"xy", variable="A").evaluate([puan.SolutionVariable("x", value=1)])
+                >>> All(*"xy", variable="A").evaluate({"x": 1})
                 False
 
-                >>> All(*"xy", variable="A").evaluate([puan.SolutionVariable("x", value=1), puan.SolutionVariable("y", value=1)])
+                >>> All(*"xy", variable="A").evaluate(
+                ... {puan.variable("x"): 1, puan.variable("y"): 1})
                 True
 
-                >>> AtLeast(propositions=[puan.variable("x", dtype="int")], value=10).evaluate([puan.SolutionVariable("x", value=9)])
+                >>> AtLeast(propositions=[puan.variable("x", dtype="int")],
+                ... value=10).evaluate({puan.variable("x"): 9})
                 False
 
-                >>> AtLeast(propositions=[puan.variable("x", dtype="int")], value=10).evaluate([puan.SolutionVariable("x", value=10)])
+                >>> AtLeast(propositions=[puan.variable("x", dtype="int")],
+                ... value=10).evaluate({puan.variable("x"): 10})
                 True
+            
+            See also
+            --------
+                evaluate_propositions      : Evaluates propositions on this model given a dict with variables and their values.
+            
+            Returns
+            -------
+                bool
         """
 
-        interpretation_map = dict(
-            zip(
-                map(
-                    operator.attrgetter("id"),
-                    interpretation
-                ),
-                map(
-                    operator.attrgetter("value"),
-                    interpretation
-                ),
-            )
-        )
+        return self.evaluate_propositions(interpretation)[self.variable.id] > 0
 
-        return (
-            sum(
-                map(
-                    lambda x: interpretation_map.get(x.id, 0)*self.sign if not type(x) == bool else x*1,
-                    itertools.chain(
-                        self.atomic_propositions,
-                        map(
-                            operator.methodcaller(
-                                "evaluate", 
-                                interpretation=interpretation,
-                            ),
-                            self.compound_propositions
+    def evaluate_propositions(self, interpretation: typing.Dict[typing.Union[str, puan.variable], int]) -> typing.Dict[typing.Union[str, puan.variable], int]:
+        """
+            Evaluates propositions on this model given a dict with variables and their values.
+
+            Parameters
+            ----------
+                interpretation: typing.Dict[typing.Union[str, puan.variable]
+                    the values of the variables in the model to evaluate it for
+            
+            Notes
+            -----
+            Bounds and dtypes of puan.variables in the interpretation are neglected, those values are only considered for the variables of the model.
+
+            A variable which is not included in the initial dict is calculated from its sub propositions or
+            defaulted to its lower bound (if variable doesn't have any subpropositions).
+
+            Examples
+            --------
+                >>> All(*"xy", variable="A").evaluate_propositions({"x": 1})
+                {'x': 1, 'y': 0, 'A': 0}
+
+                >>> All(*"xy", variable="A").evaluate_propositions({"x": 1, "y": 1})
+                {'x': 1, 'y': 1, 'A': 1}
+
+                >>> AtLeast(propositions=[puan.variable("x", dtype="int")],
+                ... value=10).evaluate_propositions({"x": 9})
+                {'x': 9, 'VARa6aef82726db5033e4b25e6fec8b5770cf89fe44ff8336731eef2bfa9a8ab35f': 0}
+
+                >>> AtLeast(propositions=[puan.variable("x", dtype="int")],
+                ... value=10).evaluate_propositions({"x": 10})
+                {'x': 10, 'VARa6aef82726db5033e4b25e6fec8b5770cf89fe44ff8336731eef2bfa9a8ab35f': 1}
+            
+            See also
+            --------
+                evaluate : Evaluates interpretation on this model.
+
+            Returns
+            -------
+                out : typing.Dict[typing.Union[str, puan.variable], int]
+        """
+        def _check_variable_in_bounds(id, val, bounds):
+            if val not in range(bounds.lower, bounds.upper+1):
+                raise ValueError("Variable {} is out of bounds, value: {}, bounds: {}".format(id, val, bounds))
+        def _get_variable_val(variable, interpretation):
+            if not variable in interpretation.keys():
+                interpretation[variable.id] = variable.bounds.lower
+            return interpretation
+        def _evaluate_propositions(prop, interpretation):
+            if not prop.variable.id in interpretation.keys():
+                # Calculate variable value and add to dict
+                val = sum(
+                            itertools.chain(
+                                map(
+                                    lambda x: _evaluate_propositions(x, interpretation)[x.id]*prop.sign,
+                                    prop.compound_propositions
+                                ),
+                                map(
+                                    lambda x: _get_variable_val(x, interpretation)[x.id]*prop.sign,
+                                    prop.atomic_propositions
+                                )
+                            )
                         )
+                _check_variable_in_bounds(prop.variable.id, 1*(val-prop.value >= 0), prop.variable.bounds)
+                interpretation[prop.variable.id] = 1*(
+                        val-prop.value >= 0
                     )
-                )
-            )-self.value
-        ) >= 0
-
+            return interpretation
+        interpretation_map = dict(map(lambda x: (x.id, x), filter(lambda x: type(x) == puan.variable, self.flatten())))
+        for x, y in filter(lambda x: x[0] in interpretation_map, interpretation.items()):
+                _check_variable_in_bounds(x, y, interpretation_map[x].bounds)
+        return _evaluate_propositions(self, interpretation)
 
     def to_short(self) -> tuple:
 

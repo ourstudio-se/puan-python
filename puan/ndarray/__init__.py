@@ -1170,33 +1170,38 @@ class ge_polyhedron(variable_ndarray):
             Column index 0 is a range from lowest to highest value of row equation. 
             Column index 1 is a counter of how many combinations, generated from variable bounds, evaluated into that value.
 
-            Example 1:
-            Equation = x+y+0
-            Result   = array([
-                [0, 1],
-                [1, 2],
-                [2, 1]
-            ])
+        
+            .. code-block::
+                :caption: Example 1
+                
+                Equation = x+y+0
+                Result   = array([
+                    [0, 1],
+                    [1, 2],
+                    [2, 1]
+                ])
 
-            2     |         <- 2 combinations ([1,0], [0,1]) results in value 1
-            1  |  |  |      <- 1 combination  ([0,0]) results in value 0 and 1 combination ([1,1]) results in value 2
-            0 ----------
-            0  1  2   
+                2     |         <- 2 combinations ([1,0], [0,1]) results in value 1
+                1  |  |  |      <- 1 combination  ([0,0]) results in value 0
+                  ----------       and 1 combination ([1,1]) results in value 2
+                   0  1  2   
 
-            Example 2:
-            Equation = 2x+2y+0
-            Result   = array([
-                [0, 1],
-                [1, 0],
-                [2, 2],
-                [3, 0],
-                [4, 1]
-            ])
+            .. code-block::
+                :caption: Example 2
 
-            2        |   
-            1  |     |     |
-            0 ---------------
-            0  1  2  3  4
+                Equation = 2x+2y+0
+                Result   = array([
+                    [0, 1],
+                    [1, 0],
+                    [2, 2],
+                    [3, 0],
+                    [4, 1]
+                ])
+
+                2        |   
+                1  |     |     |
+                  ---------------
+                   0  1  2  3  4
 
             Notes
             -----
