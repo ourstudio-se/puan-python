@@ -47,7 +47,7 @@ class Bounds:
 
     def __init__(self, lower: int, upper: int):
         if lower > upper:
-            raise ValueError
+            raise ValueError(f"upper bound must be higher than lower bound, got: ({lower}, {upper})")
         self.lower = lower
         self.upper = upper
 
