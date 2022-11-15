@@ -215,7 +215,7 @@ class AtLeast(puan.StatementInterface):
             )
         )
 
-    def to_polyhedron(self, active: bool = False) -> pnd.ge_polyhedron:
+    def to_polyhedron(self, active: bool = False, reduced: bool = True) -> pnd.ge_polyhedron:
 
         """
             Converts into a polyhedron.
@@ -244,7 +244,7 @@ class AtLeast(puan.StatementInterface):
                 )
             )
         )
-        lineqs = pst.TheoryPy(
+        polyhedron_rs = pst.TheoryPy(
             list(
                 map(
                     lambda x: pst.StatementPy(
@@ -263,46 +263,27 @@ class AtLeast(puan.StatementInterface):
                     flatten_dict.values()
                 )
             )
-        ).to_lineqs()
-        M = np.zeros((len(lineqs), 1+len(variable_id_map)))
-        for i, lineq in enumerate(lineqs):
-            M[i, list(map(lambda x: x+1, lineq.indices))] = lineq.coeffs
-            M[i, 0] = -1*lineq.bias
+        ).to_polyhedron(active, reduced)
 
-        polyhedron = pnd.ge_polyhedron(
-            M, 
-            variables=[puan.variable.support_vector_variable()]+list(
-                itertools.chain(
-                    map(
-                        lambda x: x[1].variable if hasattr(x[1], "variable") else x[1], 
-                        variable_id_map.values()
-                    )
-                )
-            ),
-            index=list(
-                map(
-                    lambda x: x[1].variable,
-                    filter(
-                        lambda x: type(x[1]) != puan.variable, 
-                        variable_id_map.values()
-                    )
-                )
+        id_variable_map = dict(variable_id_map.values())
+        polyedron_array = np.hstack(
+            (
+                np.array(polyhedron_rs.b).reshape(-1,1), 
+                np.array(np.array_split(polyhedron_rs.a.val, polyhedron_rs.a.nrows))
             )
         )
-
-        # assume top node for now until
-        # this is default in puan-rspy
-        if self.variable in polyhedron.variables and active:
-
-            polyhedron = polyhedron.reduce_columns(
-                polyhedron.A.construct(
-                    *{self.variable.id: 1}.items(), 
-                    default_value=np.nan,
-                    dtype=float,
+        return pnd.ge_polyhedron(
+            polyedron_array, 
+            variables=[puan.variable.support_vector_variable()]+list(
+                map(
+                    maz.compose(
+                        id_variable_map.get,
+                        operator.attrgetter("id")
+                    ), 
+                    polyhedron_rs.variables
                 )
-            )
-
-        return polyhedron
+            ),
+        )
 
     def negate(self) -> "AtLeast":
 
