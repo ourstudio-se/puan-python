@@ -223,7 +223,8 @@ def test_json_conversion_id_should_be_returned_if_explicitly_defined(proposition
 def test_from_short_wont_crash(short_proposition):
 
     # Should raise if has sub propositions and bounds are other than (0,1) 
-    if len(short_proposition[2]) > 0 and short_proposition[4] != (0,1):
+    # OR if upper bound is strict lower than lower bound
+    if (len(short_proposition[2]) > 0 and short_proposition[4] != (0,1)) or (short_proposition[4][1] < short_proposition[4][0]):
         with pytest.raises(Exception):
             pg.AtLeast.from_short(short_proposition)
     else:

@@ -215,7 +215,7 @@ class AtLeast(puan.StatementInterface):
             )
         )
 
-    def to_polyhedron(self, active: bool = False, reduced: bool = True) -> pnd.ge_polyhedron:
+    def to_polyhedron(self, active: bool = False, reduced: bool = False) -> pnd.ge_polyhedron:
 
         """
             Converts into a polyhedron.
