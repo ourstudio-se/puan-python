@@ -68,11 +68,17 @@ class variable(StatementInterface):
     id: str
     bounds: Bounds
 
-    def __init__(self, id: str, bounds: typing.Tuple[int, int] = (0, 1), dtype: str = None):
+    def __init__(self, id: str, bounds: typing.Tuple[int, int] = None, dtype: str = None):
         self.id = id
-        self.bounds = Bounds(*bounds)
         if dtype is not None:
-            self.bounds = Bounds(*{"int": default_int_bounds, "bool": (0, 1)}.get(dtype, (0, 1)))
+            if bounds is not None:
+                if (dtype == "bool") != ((dtype == "bool") and (bounds == (0, 1))):
+                    raise ValueError("Dtype is bool thus bounds must be (0, 1), got: {}".format(bounds))
+            else:
+                bounds = {"int": default_int_bounds, "bool": (0, 1)}.get(dtype, (0, 1))
+        elif bounds is None:
+            bounds = (0, 1)
+        self.bounds = Bounds(*bounds)
 
     def __hash__(self):
         return hash(self.id)
@@ -186,7 +192,7 @@ class SolutionVariable(variable):
 
     value: int = None
 
-    def __init__(self, id: str, bounds: typing.Tuple[int, int] = (0, 1), dtype: str = None, value: int = None):
+    def __init__(self, id: str, bounds: typing.Tuple[int, int] = None, dtype: str = None, value: int = None):
         super().__init__(id, bounds, dtype)
         self.value = value
 
