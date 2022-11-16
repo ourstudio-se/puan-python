@@ -1,7 +1,8 @@
 [![Documentation Status](https://readthedocs.org/projects/puan/badge/?version=latest)](https://puan.readthedocs.io/en/latest/?badge=latest)
 
-# Puan
-A package for combinatorial optimization tools.
+![](https://github.com/ourstudio-se/puan-python/blob/main/header.png)
+
+<h3 align="center">A combinatorial optimization python package.</h3>
 
 ### Install
 ```
