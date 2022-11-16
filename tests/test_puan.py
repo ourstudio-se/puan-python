@@ -228,7 +228,11 @@ def test_from_short_wont_crash(short_proposition):
         with pytest.raises(Exception):
             pg.AtLeast.from_short(short_proposition)
     else:
-        pg.AtLeast.from_short(short_proposition)
+        if short_proposition[4][0] > short_proposition[4][1]:
+            with pytest.raises(Exception):
+                pg.AtLeast.from_short(short_proposition)
+        else:
+            pg.AtLeast.from_short(short_proposition)
 
 def test_json_conversion_special_cases():
 
@@ -1720,6 +1724,11 @@ def test_propositions_evaluations(proposition, configuration):
         value_error_raised = True
     if not value_error_raised:
         assert evaluate_propositions_result == evaluate_result
+
+def test_puan_variable():
+    assert puan.variable("x", (1,5), "int").bounds.as_tuple() == (1, 5)
+    with pytest.raises(ValueError):
+        puan.variable("x", (1, 5), "bool")
             
 # def test_assuming_integer_variables():
 
