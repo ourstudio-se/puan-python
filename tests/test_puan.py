@@ -193,8 +193,12 @@ def test_model_properties_hypothesis(propositions):
     model.negate()
     model.to_short()
     model.to_text()
-    model.to_polyhedron()
-    model.to_polyhedron(True)
+    try:
+        model.to_polyhedron()
+        model.to_polyhedron(True)
+    except Exception as e:
+        if not "circular statement references" in e:
+            raise Exception(e)
     model.to_dict()
     model.to_b64()
 
