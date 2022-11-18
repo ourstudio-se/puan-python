@@ -884,7 +884,7 @@ class AtLeast(puan.StatementInterface):
                         - 3: solution is infeasible
                         - 4: no feasible solution exists
                         - 5: solution is optimal
-                        - 5: optimal solution was found
+                        - 6: solution is unbounded
 
                     Checkout https://github.com/ourstudio-se/puan-solvers for quick how-to's for common solvers.
 
