@@ -1,4 +1,3 @@
-[![Documentation Status](https://readthedocs.org/projects/puan/badge/?version=latest)](https://puan.readthedocs.io/en/latest/?badge=latest)
 
 <h1 align="center">
 <img src="https://github.com/ourstudio-se/puan-python/blob/main/puan-logo.svg" width="350">
@@ -6,6 +5,7 @@
 
 <h4 align="center">A combinatorial optimization python package.</h4>
 
+[![Documentation Status](https://readthedocs.org/projects/puan/badge/?version=latest)](https://puan.readthedocs.io/en/latest/?badge=latest)
 ### Install
 ```
 pip install puan
