@@ -930,7 +930,7 @@ class AtLeast(puan.StatementInterface):
                                 )
                             )
                         )
-                    ) if x.status_code == 5 else None,
+                    ) if x.status_code in [5,6] else None,
                     pyrs_theory.solve(
                         list(
                             map(

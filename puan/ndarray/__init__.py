@@ -2105,7 +2105,7 @@ class ge_polyhedron_config(ge_polyhedron):
                                 )
                             )
                         )
-                    ) if status_code == 5 else None,
+                    ) if status_code in [5,6] else None,
                     solutions,
                 )
             )
