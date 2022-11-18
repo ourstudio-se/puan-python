@@ -2152,8 +2152,8 @@ def test_configuring_using_ge_polyhedron_config():
         pg.Any(*"pqr")
     )
 
-    def dummy_solver(A, b, ints, objs):
-        return numpy.ones((objs.shape[0], A.shape[1]))
+    def dummy_solver(x, y):
+        return list(map(lambda x: (x, 0, 5), numpy.ones((len(y), x.shape[1]))))
 
     expected = [
         puan.SolutionVariable("a",value=1.0),
@@ -2168,14 +2168,14 @@ def test_configuring_using_ge_polyhedron_config():
     actual = list(model.select({"a": 1}, solver=dummy_solver, only_leafs=True))
     assert actual[0] == expected
 
-    # Test should raise error when solution is None
-    def dummy_solver_none(A, b, ints, objs):
-        return [None]
+    # Test should NOT raise error when solution is None
+    def dummy_solver_none(x, y):
+        return [(None, 0, 1)]
 
-    with pytest.raises(puan.ndarray.InfeasibleError):
-        list(model.select({"a": 1}, solver=dummy_solver_none))
+    res = model.select({"a": 1}, solver=dummy_solver_none)
+    assert res == [None]
 
-    def dummy_solver_raises(A, b, ints, objs):
+    def dummy_solver_raises(x,y):
         raise Exception("error from solver")
 
     with pytest.raises(puan.ndarray.InfeasibleError):
@@ -2192,8 +2192,8 @@ def test_dump_load_ge_polyhedron_config():
         pg.Any(*"pqr")
     )
 
-    def dummy_solver(A, b, ints, objs):
-        return numpy.ones((objs.shape[0], A.shape[1]))
+    def dummy_solver(x, y):
+        return list(map(lambda x: (x, 0, 5), numpy.ones((y.shape[0], x.A.shape[1]))))
 
     expected = puan.ndarray.ge_polyhedron_config.from_b64(
         model.polyhedron.to_b64()

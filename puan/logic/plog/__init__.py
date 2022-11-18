@@ -215,6 +215,50 @@ class AtLeast(puan.StatementInterface):
             )
         )
 
+    def _to_pyrs_theory(self) -> (pst.TheoryPy, typing.Dict[str, tuple]):
+
+        """
+            Converts this plog model into a puan-rspy Theory.
+
+            Returns
+            -------
+                out : (pst.TheoryPy, typing.Dict[str, tuple])
+        """
+        flatten = self.flatten()
+        flatten_dict = dict(zip(map(lambda x: x.id, flatten), flatten))
+        variable_id_map = dict(
+            zip(
+                map(
+                    lambda x: x.id, 
+                    flatten_dict.values()
+                ), 
+                zip(
+                    range(len(flatten_dict)), 
+                    flatten_dict.values()
+                )
+            )
+        )
+        return pst.TheoryPy(
+            list(
+                map(
+                    lambda x: pst.StatementPy(
+                        variable_id_map[x.id][0],
+                        variable_id_map[x.id][1].bounds.as_tuple(),
+                        pst.AtLeastPy(
+                            list(
+                                map(
+                                    lambda y: variable_id_map[y.id][0], 
+                                    x.propositions
+                                )
+                            ),
+                            bias=-1*x.value,
+                        ) if type(x) != puan.variable else None,
+                    ),
+                    flatten_dict.values()
+                )
+            )
+        ), variable_id_map
+
     def to_polyhedron(self, active: bool = False, reduced: bool = False) -> pnd.ge_polyhedron:
 
         """
@@ -224,6 +268,9 @@ class AtLeast(puan.StatementInterface):
             ----------
                 active : bool = False
                     If true, then the top node id will be assumed to be true.
+
+                reduced: : bool = False
+                    If true, then methods will be applied to the polyhedron in an attempt to reduce its size. 
 
             Returns
             -------
@@ -807,6 +854,138 @@ class AtLeast(puan.StatementInterface):
             )
         else:
             return puan.variable(_id, bounds)
+
+    def solve(
+        self, 
+        objectives: typing.List[typing.Dict[typing.Union[str, puan.variable], int]], 
+        solver: typing.Callable[[pnd.ge_polyhedron, typing.Dict[str, int]], typing.Iterable[typing.Tuple[np.ndarray, int, int]]] = None,
+        try_reduce_before: bool = False,
+    ) -> typing.List[typing.Optional[typing.List[puan.SolutionVariable]]]:
+
+        """
+            Maximises objective in objectives such that this model's constraints are fulfilled and returns a solution for each objective.
+
+            Parameters
+            ----------
+                objectives: typing.List[typing.Dict[typing.Union[str, puan.variable], int]]
+                    A list of objectives as dictionaries. Keys are either variable IDs as strings or a puan.variable.
+                    Values are objective value for the key.
+
+                solver: typing.Callable[[pnd.ge_polyhedron, typing.Dict[str, int]], typing.List[(np.ndarray, int, int)]] = None
+                    If None is provided puan's own (beta) solver is used. If you want to provide another solver
+                    you have to send a function as solver parameter. That function has to take a `ge_polyhedron` and
+                    a 2D numpy array representing all objectives, as input. NOTE that the polyhedron DOES NOT provide constraints for variable
+                    bounds. Variable bounds are found under each variable under `polyhedron.variables` and constraints for 
+                    these has to manually be created and added to the polyhedron matrix. The function should return a list, one for each
+                    objective, of tuples of (solution vector, objective value, status code). The solution vector is an integer ndarray vector
+                    of size equal to width of `polyhedron.A`. There are six different status codes from 0-5:
+                        - 0: ...
+                        - 1: ...
+                        - 2: ...
+                        - 3: ...
+                        - 4: ...
+                        - 5: optimal solution was found
+
+                    Checkout https://github.com/ourstudio-se/puan-solvers for quick how-to's for common solvers.
+
+                try_reduce_before: bool = False
+                    If true, then methods will be applied to try and reduce size of this model before
+                    running solve function.
+
+            Examples
+            --------
+                >>> All(*"ab").solve([{"a": 1, "b": 1}])
+                [[SolutionVariable(id='a', bounds=Bounds(lower=0, upper=1))]]
+                
+                >>> dummy_solver = lambda x,y: list(map(lambda v: (v, 0, 5), y))
+                >>> All(*"ab").solve([{"a": 1, "b": 1}], dummy_solver)
+                [[SolutionVariable(id='a', bounds=Bounds(lower=0, upper=1)), SolutionVariable(id='b', bounds=Bounds(lower=0, upper=1))]]
+
+            Notes
+            -----
+                Currently a beta solver is used, *DO NOT USE THIS IN PRODUCTION*.
+                If no solution could be found, None is returned.
+
+            Returns
+            -------
+                out : typing.List[typing.Optional[typing.List[puan.SolutionVariable]]]:
+        """
+
+        if solver is None:
+            pyrs_theory, variable_id_map = self._to_pyrs_theory()
+            id_map = dict(variable_id_map.values())
+            return list(
+                map(
+                    lambda x: list(
+                        itertools.starmap(
+                            lambda i,v: puan.SolutionVariable.from_variable(
+                                id_map[i],
+                                v
+                            ), 
+                            filter(
+                                lambda y: y[1] != 0,
+                                zip(
+                                    id_map.keys(),
+                                    x.x,
+                                )
+                            )
+                        )
+                    ) if x.status_code == 5 else None,
+                    pyrs_theory.solve(
+                        list(
+                            map(
+                                lambda objective: dict(
+                                    zip(
+                                        map(
+                                            lambda k: variable_id_map[k][0],
+                                            objective, 
+                                        ),
+                                        objective.values(),
+                                    )
+                                ),
+                                objectives, 
+                            ),
+                        ),
+                        False,
+                    ),
+                )
+            )
+        else:
+            polyhedron = self.to_polyhedron(
+                active=True, 
+                reduced=try_reduce_before,
+            )
+            id_map = dict(
+                zip(
+                    range(polyhedron.A.shape[1]), 
+                    polyhedron.A.variables
+                )
+            )
+            return list(
+                itertools.starmap(
+                    lambda x, _, status_code: list(
+                        itertools.starmap(
+                            lambda i,v: puan.SolutionVariable.from_variable(
+                                id_map[i],
+                                v
+                            ), 
+                            filter(
+                                lambda y: y[1] != 0,
+                                zip(
+                                    id_map.keys(),
+                                    x,
+                                )
+                            )
+                        )
+                    ) if status_code == 5 else None,
+                    solver(
+                        polyhedron, 
+                        polyhedron.A.construct(*map(lambda x: x.items(), objectives)),
+                    )
+                )
+            )
+
+
 
 class AtMost(AtLeast):
 

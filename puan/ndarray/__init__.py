@@ -11,6 +11,7 @@ import math
 import puan
 import puan.npufunc as npufunc
 import sys
+import puan_rspy as prs
 
 from collections import Counter
 
@@ -1978,23 +1979,46 @@ class ge_polyhedron_config(ge_polyhedron):
             )
         ).ndint_compress(method="shadow", axis=0)
 
-    def select(self, *prios: typing.List[typing.Dict[str, int]], solver) -> typing.Iterable[typing.List[puan.variable]]:
+    def select(
+        self, 
+        *prios: typing.List[typing.Dict[str, int]], 
+        solver: typing.Callable[[ge_polyhedron, typing.Dict[str, int]], typing.Iterable[typing.Tuple[typing.List[int], int, int]]] = None,
+    ) -> typing.List[typing.List[puan.SolutionVariable]]:
 
         """
-            Select items to prioritize and receive a solution.
+            Select items to prioritize and receives a solution for each in prio's list.
 
             Parameters
             ----------
                 *prios : typing.List[typing.Dict[str, int]]
                     a list of dicts where each entry's value is a prio
 
-                solver : a mixed integer linear programming solver
+                solver: typing.Callable[[ge_polyhedron, typing.Dict[str, int]], typing.List[(np.ndarray, int, int)]] = None
+                    If None is provided puan's own (beta) solver is used. If you want to provide another solver
+                    you have to send a function as solver parameter. That function has to take a `ge_polyhedron` and
+                    a 2D numpy array representing all objectives, as input. NOTE that the polyhedron DOES NOT provide constraints for variable
+                    bounds. Variable bounds are found under each variable under `polyhedron.variables` and constraints for 
+                    these has to manually be created and added to the polyhedron matrix. The function should return a list, one for each
+                    objective, of tuples of (solution vector, objective value, status code). The solution vector is an integer ndarray vector
+                    of size equal to width of `polyhedron.A`. There are six different status codes from 0-5:
+                        - 0: ...
+                        - 1: ...
+                        - 2: ...
+                        - 3: ...
+                        - 4: ...
+                        - 5: ...
+
+                    Checkout https://github.com/ourstudio-se/puan-solvers for quick how-to's for common solvers.
 
             Examples
             --------
                 >>> ph = ge_polyhedron_config([[1,1,1,1,0],[-1,-1,-1,-1,0]])
-                >>> def dummy_solver(A, b, ints, objs): return numpy.ones((objs.shape[0], A.shape[1]))
-                >>> list(ph.select({"1": 1}, solver=dummy_solver))[0]
+                >>> ph.select({"1": 1})[0]
+                [SolutionVariable(id=1, bounds=Bounds(lower=0, upper=1))]
+
+                >>> ph = ge_polyhedron_config([[1,1,1,1,0],[-1,-1,-1,-1,0]])
+                >>> dummy_solver = lambda x, y: list(map(lambda v: (v, 0, 5), y))
+                >>> ph.select({"1": 1}, solver=dummy_solver)[0]
                 [SolutionVariable(id=1, bounds=Bounds(lower=0, upper=1)), SolutionVariable(id=2, bounds=Bounds(lower=0, upper=1)), SolutionVariable(id=3, bounds=Bounds(lower=0, upper=1)), SolutionVariable(id=4, bounds=Bounds(lower=0, upper=1))]
 
             Raises
@@ -2005,27 +2029,84 @@ class ge_polyhedron_config(ge_polyhedron):
 
             Returns
             -------
-                out : typing.List[typing.List[puan.variable]]
+                out : typing.List[typing.List[puan.SolutionVariable]]
         """
-        def map_solutions(solution) -> list:
-            try:
-                return list(
-                    itertools.starmap(
-                        puan.SolutionVariable.from_variable,
-                        zip(self.A.variables[solution > 0], solution[solution > 0].tolist())
+        try:
+            variables = self.A.variables
+            objectives = self._vectors_from_prios(prios)
+            id_map = dict(
+                zip(
+                    range(self.A.shape[1]), 
+                    variables
+                )
+            )
+            if solver is None:
+                id_map_rev = dict(zip(map(lambda x: x.id, id_map.values()), id_map.keys()))
+                solutions = list(
+                    map(
+                        lambda int_sol: (
+                            int_sol.x, 
+                            int_sol.z, 
+                            int_sol.status_code,
+                        ),
+                        prs.PolyhedronPy(
+                            prs.MatrixPy(
+                                self.A.flatten().tolist(),
+                                *self.A.shape
+                            ),
+                            self.b.tolist(),
+                            list(
+                                map(
+                                    lambda variable: prs.VariableFloatPy(
+                                        id_map_rev[variable.id],
+                                        (
+                                            float(variable.bounds.lower),
+                                            float(variable.bounds.upper),
+                                        ),
+                                    ),
+                                    variables
+                                )
+                            ),
+                            list(range(self.A.shape[0])),
+                        ).solve(
+                            list(
+                                map(
+                                    lambda v: dict(
+                                        zip(
+                                            id_map.keys(), 
+                                            v
+                                        )
+                                    ),
+                                    objectives,
+                                )
+                            )
+                        )
                     )
                 )
-            except:
-                raise InfeasibleError("no solution exists")
+            else:
+                solutions = solver(
+                    self,
+                    objectives,
+                )
 
-        try:
-            return map(
-                map_solutions, 
-                solver(
-                    self.A, 
-                    self.b,
-                    self.A.integer_variable_indices,
-                    self._vectors_from_prios(prios),
+            return list(
+                itertools.starmap(
+                    lambda x, _, status_code: list(
+                        itertools.starmap(
+                            lambda i,v: puan.SolutionVariable.from_variable(
+                                id_map[i],
+                                v
+                            ), 
+                            filter(
+                                lambda y: y[1] != 0,
+                                zip(
+                                    id_map.keys(),
+                                    x,
+                                )
+                            )
+                        )
+                    ) if status_code == 5 else None,
+                    solutions,
                 )
             )
         except Exception as e:
