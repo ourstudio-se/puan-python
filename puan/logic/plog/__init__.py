@@ -882,7 +882,7 @@ class AtLeast(puan.StatementInterface):
                         - 1: solution is undefined
                         - 2: solution is feasible
                         - 3: solution is infeasible
-                        - 3: ...
+                        - 4: no feasible solution exists
                         - 4: ...
                         - 5: optimal solution was found
 
