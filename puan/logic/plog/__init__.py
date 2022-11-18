@@ -878,13 +878,13 @@ class AtLeast(puan.StatementInterface):
                     bounds. Variable bounds are found under each variable under `polyhedron.variables` and constraints for 
                     these has to manually be created and added to the polyhedron matrix. The function should return a list, one for each
                     objective, of tuples of (solution vector, objective value, status code). The solution vector is an integer ndarray vector
-                    of size equal to width of `polyhedron.A`. There are six different status codes from 0-5:
-                        - 0: ...
-                        - 1: ...
-                        - 2: ...
-                        - 3: ...
-                        - 4: ...
-                        - 5: optimal solution was found
+                    of size equal to width of `polyhedron.A`. There are six different status codes from 1-6:
+                        - 1: solution is undefined
+                        - 2: solution is feasible
+                        - 3: solution is infeasible
+                        - 4: no feasible solution exists
+                        - 5: solution is optimal
+                        - 6: solution is unbounded
 
                     Checkout https://github.com/ourstudio-se/puan-solvers for quick how-to's for common solvers.
 
