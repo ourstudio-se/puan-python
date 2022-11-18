@@ -981,69 +981,7 @@ class ge_polyhedron(variable_ndarray):
         """
         return boolean_ndarray.construct(self.A, variables)
 
-    @staticmethod
-    def convert_priorities(priorities: list, variables: typing.List[str]) -> "ge_polyhedron":
-        """
-            Creates a ge polyhedron to the problem of finding default weights given a list of priorities.
-            Solving the optimization problem
-
-                max :math:`\\sum x` \n
-                s.t. :math:`Ax \\ge b`
-
-            where A and b is given by the polyhedron, the solution :math:`x^*` gives the weights to an
-            objective function which respects the priorities.
-
-            Parameters
-            ----------
-                priorities : list[list[str]]
-                    list of lists of size 2 where variable at index 0 has higher priority than vairable at index 1,
-                    e.g. priorities = [["a", "b"]] means variable *a* has higher priority than *b*.
-                variables : list[str]
-
-            Returns
-            -------
-                out : ge_polyhedorn
-                    Ge polyhedron with constraints to find weights for objective function respecting priorities.
-
-            Notes
-            -----
-            Constraints in :math:`A` limits :math:`x` to be :math:`<0`.
-
-            Examples
-            --------
-                >>> priorities = [["a", "b"]]
-                >>> variables = ["a", "b"]
-                >>> ge_polyhedron.convert_priorities(priorities, variables)
-                ge_polyhedron([[ 1,  1, -1],
-                               [ 1, -1,  0],
-                               [ 1,  0, -1]])
-
-                >>> priorities = [["a", "b"], ["c", "a"], ["e", "f"]]
-                >>> variables = ["a", "b", "c", "d", "e", "f", "g"]
-                >>> ge_polyhedron.convert_priorities(priorities, variables)
-                ge_polyhedron([[ 1,  1, -1,  0,  0,  0,  0,  0],
-                               [ 1, -1,  0,  1,  0,  0,  0,  0],
-                               [ 1,  0,  0,  0,  0,  1, -1,  0],
-                               [ 1, -1,  0,  0,  0,  0,  0,  0],
-                               [ 1,  0, -1,  0,  0,  0,  0,  0],
-                               [ 1,  0,  0, -1,  0,  0,  0,  0],
-                               [ 1,  0,  0,  0, -1,  0,  0,  0],
-                               [ 1,  0,  0,  0,  0, -1,  0,  0],
-                               [ 1,  0,  0,  0,  0,  0, -1,  0],
-                               [ 1,  0,  0,  0,  0,  0,  0, -1]])
-        """
-        polyhedron = numpy.zeros([len(priorities), len(variables)+1])
-        polyhedron[:,0] = 1
-        lez_constraint = numpy.concatenate((numpy.ones((len(variables),1)), -numpy.eye(len(variables))), axis=1)
-        priority_indices = list(map(lambda x: [variables.index(x[0]) + 1, variables.index(x[1]) + 1], priorities))
-        def _priorities_constraints(x):
-            x[0][x[1][0]] = 1
-            x[0][x[1][1]] = -1
-            return x
-        list(map(_priorities_constraints, zip(polyhedron,priority_indices)))
-        variables = [puan.variable("0")] + list(map(puan.variable, variables))
-        return ge_polyhedron(numpy.concatenate((polyhedron, lez_constraint), axis=0), variables)
-
+    
     def column_bounds(self) -> numpy.array:
 
         """
