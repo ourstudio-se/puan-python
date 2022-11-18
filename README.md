@@ -1,6 +1,6 @@
 [![Documentation Status](https://readthedocs.org/projects/puan/badge/?version=latest)](https://puan.readthedocs.io/en/latest/?badge=latest)
 
-![](https://github.com/ourstudio-se/puan-python/blob/main/header.png)
+![](https://github.com/ourstudio-se/puan-python/blob/main/puan-logo.svg)
 
 <h3 align="center">A combinatorial optimization python package.</h3>
 
