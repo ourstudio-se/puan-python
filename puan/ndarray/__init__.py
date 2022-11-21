@@ -334,7 +334,7 @@ class ge_polyhedron(variable_ndarray):
 
 
     @property
-    def A_max(self) -> numpy.array:
+    def A_max(self) -> numpy.ndarray:
 
         """
             Returns the maximum coefficient value based on variable's initial bounds.
@@ -347,7 +347,7 @@ class ge_polyhedron(variable_ndarray):
         return (init[0]*(self.A<0)*self.A)+(init[1]*(self.A>0)*self.A)
 
     @property
-    def A_min(self) -> numpy.array:
+    def A_min(self) -> numpy.ndarray:
 
         """
             Returns the minimum coefficient value based on variable's initial bounds.
@@ -982,7 +982,7 @@ class ge_polyhedron(variable_ndarray):
         return boolean_ndarray.construct(self.A, variables)
 
     
-    def column_bounds(self) -> numpy.array:
+    def column_bounds(self) -> numpy.ndarray:
 
         """
             Returns the initial bounds for each variable.
@@ -1004,10 +1004,10 @@ class ge_polyhedron(variable_ndarray):
         ).T
 
     @property
-    def n_row_combinations(self) -> int:
+    def n_row_combinations(self) -> numpy.ndarray:
 
         """
-            The number of combinations row wise excluding its constraint.
+            The number of combinations for variables with non-zero coefficients row wise excluding its constraint.
 
             Examples
             --------
@@ -1023,7 +1023,7 @@ class ge_polyhedron(variable_ndarray):
         bnds = self.column_bounds()
         return numpy.array(numpy.prod((self.A != 0)*(bnds[1]-bnds[0]+1) + (self.A == 0)*1, axis=1))
 
-    def tighten_column_bounds(self) -> numpy.array:
+    def tighten_column_bounds(self) -> numpy.ndarray:
         
         """
             Returns maybe tighter column/variable bounds based on row constraints.
@@ -1106,8 +1106,8 @@ class ge_polyhedron(variable_ndarray):
         """
             Returns a distribution of all combinations for each row and their values.
             Data type is a 2D numpy array with two columns: 
-            Column index 0 is a range from lowest to highest value of row equation. 
-            Column index 1 is a counter of how many combinations, generated from variable bounds, evaluated into that value.
+            Column index 0 is a range from lowest to highest value spot of row equation. 
+            Column index 1 is a counter of how many combinations, generated from variable bounds, evaluated into that value spot.
 
         
             .. code-block::
@@ -1226,7 +1226,7 @@ class ge_polyhedron(variable_ndarray):
 
         return numpy.array([list(keys), list(values)]).T
 
-    def row_stretch(self) -> numpy.array:
+    def row_stretch(self) -> numpy.ndarray:
 
         """
             This shows the proportion of the number of value spots for each
@@ -1253,17 +1253,17 @@ class ge_polyhedron(variable_ndarray):
         rw_bnds = self.row_bounds()
         return numpy.prod((cm_bnds[1]-cm_bnds[0])*(self.A != 0)+1, axis=1) / (rw_bnds[:,1]-rw_bnds[:,0]+1)
 
-    def row_stretch_int(self, row_index: int) -> numpy.ndarray:
+    def row_stretch_int(self, row_index: int) -> int:
 
         """
             Row bounds range from one number to another. They normally
             have at least one combination for each number in this range.
-            This function returns a number <=0 for each row bound representing
-            its "stretch". If the number is <0, then there exists a gap in
+            This function returns a number $\leq0$ for each row bound representing
+            its "stretch". If the number is $<0$, then there exists a gap in
             that row's bounds.
 
-            As in example 2, there are no valid combinations summing up to 2 or 4. What this
-            means is that the equation has unnecessary large coefficients and may have negative
+            As in example 2, there are no valid combinations summing up to the value spots 2 or 4. What this
+            means is that the equation has unnecessary large coefficients which may have negative
             effects on other methods assuming a certain underlying equation structure.
 
             See also
@@ -1288,7 +1288,7 @@ class ge_polyhedron(variable_ndarray):
 
             Returns
             -------
-                out : numpy.ndarray
+                out : int
         """
         rng, n = self.row_distribution(row_index).T
         return int((n != 0).sum() - (rng[-1]-rng[0]) -1)
@@ -1939,12 +1939,12 @@ class ge_polyhedron_config(ge_polyhedron):
                     these has to manually be created and added to the polyhedron matrix. The function should return a list, one for each
                     objective, of tuples of (solution vector, objective value, status code). The solution vector is an integer ndarray vector
                     of size equal to width of `polyhedron.A`. There are six different status codes from 1-6:
-                        - 1: solution is undefined
-                        - 2: solution is feasible
-                        - 3: solution is infeasible
-                        - 4: no feasible solution exists
-                        - 5: solution is optimal
-                        - 6: solution is unbounded
+                    - 1: solution is undefined
+                    - 2: solution is feasible
+                    - 3: solution is infeasible
+                    - 4: no feasible solution exists
+                    - 5: solution is optimal
+                    - 6: solution is unbounded
 
                     Checkout https://github.com/ourstudio-se/puan-solvers for quick how-to's for common solvers.
 
