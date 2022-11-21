@@ -5,3 +5,4 @@ more_itertools>=8.12.0
 dictdiffer==0.9.0
 toposort==1.7
 puan-rspy==0.2.4
+sphinx<5.0.0
