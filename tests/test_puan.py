@@ -2145,6 +2145,16 @@ def test_constructing_empty_array():
     arr = polyhedron.construct(*{}.items(), default_value=numpy.nan, dtype=float)
     assert numpy.isnan(arr).all()
 
+def test_doc_build():
+    import tempfile
+    import subprocess
+    import pathlib
+    p = pathlib.Path().resolve()
+    tempdir = tempfile.mkdtemp()
+    result = subprocess.run(['sphinx-build', '-M', 'html', p.__str__()+"/docs/source", tempdir], stdout=subprocess.PIPE)
+    assert "build succeeded." in result.stdout.__str__()
+
+
 def test_configuring_using_ge_polyhedron_config():
 
     model = cc.StingyConfigurator(
