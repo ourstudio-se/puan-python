@@ -13,7 +13,6 @@ description = "Tools for combinatorial optimization"
 readme = "README.md"
 classifiers = [
     "Programming Language :: Python :: 3",
-    "License :: OSI Approved :: Apache Software License v2.0",
     "Operating System :: OS Independent",
 ]
 dependencies = [
@@ -25,6 +24,7 @@ dependencies = [
     "toposort==1.7"
 ]
 keywords = ["combinatorial optimization", "milp", "mllp", "ilp", "linear-programming", "optimization"]
+license = "Apache-2.0"
 
 [tool.setuptools]
 packages = [
