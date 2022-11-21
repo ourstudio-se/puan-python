@@ -2,16 +2,34 @@ name: Publish to PyPI.org
 on:
   release:
     types: [published]
+  
 jobs:
-  pypi:
-    runs-on: ubuntu-latest
+  macos-build:
+    runs-on: macos-latest
+    strategy:
+      matrix:
+        python-version: ['3.8', '3.9']
     steps:
-      - name: Checkout
-        uses: actions/checkout@v3
+      - uses: actions/checkout@v3
+      - uses: actions/setup-python@v4
         with:
-          fetch-depth: 0
+          python-version: ${{ matrix.python-version }}
       - run: python3 -m pip install --upgrade build && python3 -m build
-      - name: Publish package
+      - name: Upload wheels
+        uses: actions/upload-artifact@v3
+        with:
+          name: wheels
+          path: dist
+
+  publish:
+    runs-on: ubuntu-latest
+    needs: [macos-build] 
+    steps:
+      - uses: actions/download-artifact@v3
+        with:
+          name: wheels
+          path: dist
+      - name: Publish package to PyPI
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
           password: ${{ secrets.PYPI_API_TOKEN }}

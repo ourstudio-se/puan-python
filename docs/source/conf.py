@@ -57,5 +57,5 @@ autodoc_default_flags = ['members', 'private-members', 'special-members',
 autosectionlabel_prefix_document = True
 numpydoc_show_class_members = False
 numpydoc_class_members_toctree = False
-autodoc_mock_imports = ["puan.logic.logicfunc", "puan.npufunc"]
+autodoc_mock_imports = ["puan.npufunc"]
 
