@@ -1,6 +1,5 @@
 # Doc requirements
 -r docs/requirements.txt
-sphinx<5.0.0
 
 hypothesis==6.50.1
 numpy>=1.22.3
