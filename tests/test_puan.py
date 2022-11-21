@@ -6,7 +6,6 @@ import puan
 import puan.misc
 import puan.ndarray
 import puan.logic
-import puan.logic.logicfunc as lf
 import puan.logic.plog as pg
 import puan.modules.configurator as cc
 import numpy

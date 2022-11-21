@@ -38,12 +38,5 @@ if __name__ == "__main__":
                     get_paths()['include']
                 ]
             ),
-            Extension(
-                'puan/logic/logicfunc',
-                ['puan/logic/plog/logicfunc.c'],
-                include_dirs=[
-                    get_paths()['include']
-                ]
-            ),
         ]
     )
