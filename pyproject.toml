@@ -4,4 +4,36 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "puan"
-requires-python = ">=3.9"
+requires-python = ">=3.8"
+version = "0.4.9"
+authors = [
+  { name="Our Studio Void AB", email="moa@ourstudio.se" },
+]
+description = "Tools for combinatorial optimization"
+readme = "README.md"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: Apache License 2.0",
+    "Operating System :: OS Independent",
+]
+dependencies = [
+    "numpy==1.22.3",
+    "more-itertools==8.12.0",
+    "maz==0.0.1",
+    "dictdiffer==0.9.0",
+    "puan-rspy==0.2.5",
+    "toposort==1.7"
+]
+keywords = ["combinatorial optimization", "milp", "mllp", "ilp", "linear-programming", "optimization"]
+
+[tool.setuptools]
+packages = [
+    'puan',
+    'puan.logic',
+    'puan.logic.sta',
+    'puan.logic.plog',
+    'puan.misc',
+    'puan.ndarray',
+    'puan.modules',
+    'puan.modules.configurator',
+]

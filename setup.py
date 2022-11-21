@@ -5,30 +5,6 @@ from sysconfig import get_paths
 
 if __name__ == "__main__":
     setup(
-        name="puan",
-        version="0.4.9",
-        description = "Function tools for combinatorial optimization",
-        author = "Our Studio Void AB",
-        author_email = "moa@ourstudio.se",
-        install_requires=[
-            "numpy>=1.22.3",
-            "more-itertools",
-            "maz>=0.0.1",
-            "dictdiffer==0.9.0",
-            "puan-rspy==0.2.5",
-            "toposort==1.7"
-        ],
-        packages=[
-            'puan',
-            'puan.logic',
-            'puan.logic.sta',
-            'puan.logic.plog',
-            'puan.misc',
-            'puan.ndarray',
-            'puan.modules',
-            'puan.modules.configurator',
-        ],
-        url = "https://puan.io",
         ext_modules=[
             Extension(
                 'puan/npufunc',
