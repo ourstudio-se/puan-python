@@ -29,7 +29,6 @@ if __name__ == "__main__":
             'puan.modules.configurator',
         ],
         url = "https://puan.io",
-        long_description = "",
         ext_modules=[
             Extension(
                 'puan/npufunc',
