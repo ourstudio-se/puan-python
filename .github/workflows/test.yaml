@@ -36,3 +36,4 @@ jobs:
         uses: ammaraskar/sphinx-action@master
         with:
           docs-folder: "docs/"
+          sphinx-version: "3.5.4"
