@@ -198,7 +198,6 @@ def test_model_properties_hypothesis(propositions):
     except Exception as e:
         if not "circular statement references" in e:
             raise Exception(e)
-    model.to_dict()
     model.to_b64()
 
 @given(cc_propositions_strategy())
@@ -1468,14 +1467,6 @@ def test_ndint_compress():
         actual_output = inpt.ndint_compress(method="shadow", axis=axis)
         assert numpy.array_equal(actual_output, expected_output)
 
-def test_implication_propositions_should_not_share_id():
-
-    a_req_b = pg.Imply("a","b", variable="a_req_b").to_dict()
-    b_req_c = pg.Imply("b","c", variable="b_req_c").to_dict()
-
-    for k,v in a_req_b.items():
-        assert (not k in b_req_c) or b_req_c[k] == v, f"{k} is ambivalent: means both {v} and {b_req_c[k]}"
-
 def test_bind_relations_to_compound_id():
 
     model = pg.All(
@@ -2539,77 +2530,6 @@ def test_json_dump_puan_variables():
     assert json.dumps(puan.SolutionVariable("x", dtype="int", value=1))     == '{"id": "x", "bounds": {"lower": -32768, "upper": 32767}, "value": 1}'
     assert json.dumps(puan.SolutionVariable("x", dtype="int", value=-9999)) == '{"id": "x", "bounds": {"lower": -32768, "upper": 32767}, "value": -9999}'
     assert json.dumps(puan.SolutionVariable("x", dtype="int", value=None))  == '{"id": "x", "bounds": {"lower": -32768, "upper": 32767}, "value": null}'
-
-def test_from_dict():
-
-    data = {
-        'x': [1, [], 0, [-10,10]],
-    }
-    model = pg.from_dict(data)
-    assert model.id == "x"
-    assert type(model) == puan.variable
-
-    # should raise because of multiple top nodes (require exactly one)
-    data = {
-        'x': [1, [], 0, [-10,10]],
-        'y': [1, [], 0, [-10,10]],
-    }
-    with pytest.raises(Exception):
-        pg.from_dict(data)
-
-    # should raise because of multiple top nodes (require exactly one)
-    data = {
-        'a': [1, ['x','y'], 0, [0,1]],
-        'b': [1, ['x','y'], 0, [0,1]],
-        'x': [1, [], 0, [-10,10]],
-        'y': [1, [], 0, [-10,10]],
-    }
-    with pytest.raises(Exception):
-        pg.from_dict(data)
-    
-    # should raise exception because of circular reference
-    data = {
-        'a': [1, ['b'], 0, [0,1]],
-        'b': [1, ['c'], 0, [0,1]],
-        'c': [1, ['a'], 0, [0,1]],
-    }
-    with pytest.raises(Exception):
-        pg.from_dict(data)
-    
-    data = {
-        'a': [1, ['x','y'], 0, [10,11]], # <- should raise because of this
-        'x': [1, [], 0, [0,10]],
-        'y': [1, [], 0, [-2,5]],
-    }
-    with pytest.raises(Exception):
-        pg.from_dict(data)
-
-    # Common model structure with specific variable bounds
-    data = {
-        'a': [1, ['x','y'], -2, [0,1]],
-        'x': [1, [], 0, [-10,10]],
-        'y': [1, [], 0, [-10,10]],
-    }
-    model = pg.from_dict(data)
-    assert model.id == 'a'
-    assert len(model.propositions) == 2
-    assert all(map(lambda prop: prop.bounds == puan.Bounds(-10,10), model.propositions))
-
-    # Model with variable sharing propositions
-    data = {
-        'a': [1, ['b','c'], -2, [0,1]],
-        'b': [1, ['x','y'], -2, [0,1]],
-        'c': [1, ['x','y'], -1, [0,1]],
-        'x': [1, [], 0, [-10,10]],
-        'y': [1, [], 0, [-10,10]],
-    }
-    model = pg.from_dict(data)
-    assert model.id == 'a'
-    assert len(model.propositions) == 2
-    assert len(model.propositions[0].propositions) == 2
-    assert len(model.propositions[1].propositions) == 2
-    assert all(map(lambda prop: prop.bounds == puan.Bounds(-10,10), model.propositions[0].propositions))
-    assert all(map(lambda prop: prop.bounds == puan.Bounds(-10,10), model.propositions[1].propositions))
 
 def test_proposition_errors_function():
     actual = pg.All(*"A", variable="A").errors()
