@@ -283,7 +283,7 @@ class StingyConfigurator(pg.All):
             Raises
             ------
                 Exception
-                    If already proposition with same ID exists among this proposition's sub propositions.
+                    If already proposition with same id exists among this proposition's sub propositions.
 
 
             Returns
