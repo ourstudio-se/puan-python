@@ -237,6 +237,7 @@ class AtLeast(puan.StatementInterface):
             ------- 
                 out : typing.List[typing.Tuple[puan.variable, typing.List[puan.variable]]]
         """
+        print("called")
         return list(
             itertools.chain(
                 [
@@ -486,54 +487,6 @@ class AtLeast(puan.StatementInterface):
             negated.value += len(compounds)
 
         return negated
-
-    def diff(self, other) -> list:
-
-        """
-            Diff method is part of the model versioning methods helping users
-            to keep track of model changes. 
-            Diff computes difference between this proposition and another proposition.
-
-            See also
-            --------
-            revert: Reverts a patch change back to it's original.
-            patch: Apply's diff-result onto this proposition.
-
-            Returns
-            -------
-                out : list
-        """
-        return list(dictdiffer.diff(self.to_dict(), other.to_dict()))
-
-    def patch(self, diff):
-
-        """
-            Patch method is part of the model versioning methods helping users to
-            keep track of model changes. Patch apply's diff-result onto this proposition.
-
-            See also
-            --------
-            revert: Reverts a patch change back to it's original.
-            diff: Computes difference between this proposition and another proposition.
-
-            Returns
-            -------
-                out : AtLeast
-        """
-        return from_dict(dictdiffer.patch(diff, self.to_dict()))
-
-    def revert(self, diff):
-
-        """
-            Revert method is part of the model versioning methods helping user to keep track
-            of model changes. Revert reverts a patch change back to it's original.
-
-            See also
-            --------
-            diff: Computes difference between this proposition and another proposition.
-            patch: Apply's diff-result onto this proposition.
-        """
-        return from_dict(dictdiffer.revert(diff, self.to_dict()))
 
     @property
     def _equation_mm(self) -> tuple:
@@ -804,35 +757,6 @@ class AtLeast(puan.StatementInterface):
                 ),
             )
         )
-
-    def to_dict(self) -> typing.Dict[str, list]:
-
-        """
-            Transforms model into a dictionary representation.
-            The key is the id of a proposition.
-            The value is a list of three elements:
-
-            #. sign of coeffs (e.g. sign=1 means :math:`a+b+c`, sign=-1 means :math:`-a-b-c`)
-            #. sub propositions / variables (e.g. a,b,c)
-            #. value of support vector (e.g. 3 as in :math:`a+b+c \ge 3`)
-
-            Examples
-            --------
-                >>> All(All("a","b", variable="B"), Any("c","d", variable="C"), variable="A").to_dict()
-                {'A': (1, ['B', 'C'], -2, [0, 1]), 'B': (1, ['a', 'b'], -2, [0, 1]), 'a': (1, [], 0, (0, 1)), 'b': (1, [], 0, (0, 1)), 'C': (1, ['c', 'd'], -1, [0, 1]), 'c': (1, [], 0, (0, 1)), 'd': (1, [], 0, (0, 1))}
-            
-            Returns
-            -------
-                out : typing.Dict[str, list]
-        """
-
-        t = self.to_short()
-        return {
-            **{
-                t[0]: t[1:],
-            },
-            **functools.reduce(lambda x,y: dict(x,**y), map(operator.methodcaller("to_dict"), self.propositions), {})
-        }
 
     def to_json(self) -> dict:
 
@@ -1669,74 +1593,3 @@ def from_b64(base64_str: str) -> typing.Any:
         )
     except:
         raise Exception("could not decompress and load polyhedron from string: version mismatch.")
-
-def from_dict(d: dict, id: str = None) -> AtLeast:
-
-    """
-        Transform from dictionary to a compound proposition.
-        Values data type is following:
-        [int, [str...], int] where 0 is the sign value,
-        1 contains the variable names and 2 is the support vector value.
-        
-        Examples
-        --------
-            >>> from_dict({'a': [1, ['b','c'], 1, [0,1]], 'b': [1, ['x','y'], 1, [0,1]], 'c': [1, ['p','q'], 1, [0,1]]})
-            a: +(b,c)>=-1
-
-        Raises
-        ------
-            Exception
-                | If there exists no topological sort order or a circular dependency exists.
-                | If there are more than one top node.
-        
-        Returns
-        -------
-            out : AtLeast
-    """
-    d_conv = dict(
-        zip(
-            d.keys(),
-            map(
-                AtLeast.from_short,
-                itertools.starmap(
-                    maz.compose(
-                        tuple,
-                        more_itertools.prepend
-                    ),
-                    d.items()
-                ),
-            )
-        )
-    )
-
-    # Find top sort order
-    try:
-        sort_order = list(
-            toposort.toposort(
-                dict(
-                    zip(
-                        d.keys(),
-                        map(
-                            lambda x: set(x[1]),
-                            d.values()
-                        )
-                    )
-                )
-            )
-        )
-    except Exception as e:
-        raise Exception(f"could not create topological sort order from dict: {e}")
-
-    if not len(sort_order[-1]) == 1:
-        raise Exception(f"dict has multiple top nodes ({sort_order[-1]}) but exactly one is required")
-
-    for level in sort_order:
-        for i in filter(lambda x: x in d_conv and hasattr(d_conv[x], "propositions"), level):
-            d_conv[i].propositions = list(
-                map(
-                    lambda j: d_conv[j] if j in d_conv else j,
-                    d_conv[i].propositions
-                )
-            )
-
-    return d_conv[list(sort_order[-1])[0]]

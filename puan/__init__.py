@@ -28,11 +28,6 @@ class StatementInterface:
         """json representation of class"""
         raise NotImplementedError()
 
-    def to_dict() -> dict:
-
-        """dict representation of class"""
-        raise NotImplementedError()
-
     @staticmethod
     def from_json(self, class_map) -> typing.Any:
 
@@ -97,9 +92,6 @@ class variable(StatementInterface):
 
     def to_short(self):
         return (self.id, 1, [], 0, self.bounds.as_tuple())
-
-    def to_dict(self):
-        return {self.id: (1, [], 0, self.bounds.as_tuple())}
 
     @staticmethod
     def support_vector_variable():
