@@ -275,10 +275,24 @@ class StingyConfigurator(pg.All):
         """
             Add a new proposition to the model.
 
+            Parameters
+            ----------
+                proposition : pg.AtLeast
+                    Proposition to be added
+
+            Raises
+            ------
+                Exception
+                    If already proposition with same ID exists among this proposition's sub propositions.
+
+
             Returns
             -------
                 out : StingyConfigurator
         """
+        if proposition.id in map(operator.attrgetter("id"), self.propositions):
+            raise Exception(f"proposition with id `{proposition.id}` already exist among this proposition's sub propositions")
+
         return StingyConfigurator(
             *(self.propositions + [proposition]), 
             id=self.id,
