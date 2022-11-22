@@ -2644,3 +2644,22 @@ def test_proposition_errors_function():
         variable="A"
     ).errors()
     assert len(actual) == 0
+
+def test_function_add_for_stingy_configurator():
+
+    with pytest.raises(Exception):
+        cc.StingyConfigurator(
+            pg.All(*"efg", variable="A")
+        ).add(
+            pg.All(*"abc", variable="A")
+        )
+
+    with pytest.raises(Exception):
+        cc.StingyConfigurator(*"efg").add(
+            pg.All(*"abc", variable="e")
+        )
+
+    # Should be ok since it is not interfering directly
+    cc.StingyConfigurator(pg.All(*"efg", variable="A")).add(
+        pg.All(*"ABC")
+    )
