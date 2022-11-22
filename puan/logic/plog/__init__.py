@@ -237,7 +237,6 @@ class AtLeast(puan.StatementInterface):
             ------- 
                 out : typing.List[typing.Tuple[puan.variable, typing.List[puan.variable]]]
         """
-        print("called")
         return list(
             itertools.chain(
                 [
