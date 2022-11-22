@@ -278,6 +278,9 @@ class AtLeast(puan.StatementInterface):
                 >>> All(*"A", variable="A").errors()
                 [<PropositionValidationError.CIRCULAR_DEPENDENCIES: 'CIRCULAR_DEPENDENCIES'>]
 
+                >>> All(Any(*"ab", variable="A"), Any(puan.variable("A", (-10,10)))).errors()
+                [<PropositionValidationError.AMBIVALENT_VARIABLE_DEFINITIONS: 'AMBIVALENT_VARIABLE_DEFINITIONS'>]
+
             Return
             ------
                 out : typing.List[PropositionValidationError]
