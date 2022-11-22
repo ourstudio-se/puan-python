@@ -2620,3 +2620,37 @@ def test_from_dict():
     assert len(model.propositions[1].propositions) == 2
     assert all(map(lambda prop: prop.bounds == puan.Bounds(-10,10), model.propositions[0].propositions))
     assert all(map(lambda prop: prop.bounds == puan.Bounds(-10,10), model.propositions[1].propositions))
+
+def test_proposition_errors_function():
+    actual = pg.All(*"A", variable="A").errors()
+    assert len(actual) == 1
+    assert actual[0] == pg.PropositionValidationError.CIRCULAR_DEPENDENCIES
+    
+    actual = pg.All(*"AB", variable="A").errors()
+    assert len(actual) == 1
+    assert actual[0] == pg.PropositionValidationError.CIRCULAR_DEPENDENCIES
+
+    actual = pg.All(pg.All(*"A"), variable="A").errors()
+    assert len(actual) == 1
+    assert actual[0] == pg.PropositionValidationError.CIRCULAR_DEPENDENCIES
+
+    actual = pg.All(pg.All(pg.All(pg.All(pg.All(*"A")))), variable="A").errors()
+    assert len(actual) == 1
+    assert actual[0] == pg.PropositionValidationError.CIRCULAR_DEPENDENCIES
+
+    actual = pg.All(
+        pg.All(*"bc", variable="B"), 
+        # B is defined twice with DIFFERENT bounds (should return error)
+        pg.All(puan.variable("B", (-1,1)), "d", variable="C"), 
+        variable="A"
+    ).errors()
+    assert len(actual) == 1 
+    assert actual[0] == pg.PropositionValidationError.AMBIVALENT_VARIABLE_DEFINITIONS
+
+    actual = pg.All(
+        pg.All(*"bc", variable="B"), 
+        # B is defined twice with SAME bounds (should not return error)
+        pg.All(*"Bd", variable="C"), 
+        variable="A"
+    ).errors()
+    assert len(actual) == 0

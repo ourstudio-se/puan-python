@@ -1,3 +1,4 @@
+import enum
 import hashlib
 import maz
 import base64
@@ -13,8 +14,14 @@ import puan.ndarray as pnd
 import puan_rspy as pst
 import dictdiffer
 import more_itertools
-from toposort import toposort
+import toposort
 from dataclasses import dataclass
+
+class PropositionValidationError(str, enum.Enum):
+
+    CIRCULAR_DEPENDENCIES = "CIRCULAR_DEPENDENCIES"
+    AMBIVALENT_VARIABLE_DEFINITIONS = "AMBIVALENT_VARIABLE_DEFINITIONS"
+
 
 class AtLeast(puan.StatementInterface):
 
@@ -214,6 +221,93 @@ class AtLeast(puan.StatementInterface):
                 )
             )
         )
+
+    def _dependencies(self) -> typing.List[typing.Tuple[puan.variable, typing.List[puan.variable]]]:
+
+        """
+            Returns a dependency graph from each proposition to it's
+            sub propositions.
+
+            Examples
+            --------
+                >>> All(*"abc", variable="A")._dependencies()
+                [(variable(id='A', bounds=Bounds(lower=0, upper=1)), [variable(id='a', bounds=Bounds(lower=0, upper=1)), variable(id='b', bounds=Bounds(lower=0, upper=1)), variable(id='c', bounds=Bounds(lower=0, upper=1))])]
+
+            Returns
+            ------- 
+                out : typing.List[typing.Tuple[puan.variable, typing.List[puan.variable]]]
+        """
+        return list(
+            itertools.chain(
+                [
+                    (
+                        self.variable,
+                        list(
+                            itertools.chain(
+                                self.atomic_propositions,
+                                map(
+                                    operator.attrgetter("variable"),
+                                    self.compound_propositions
+                                )
+                            )   
+                        )
+                    )
+                ],
+                functools.reduce(
+                    lambda a,b: a+b, 
+                    map(
+                        operator.methodcaller("_dependencies"),
+                        self.compound_propositions
+                    ),
+                    []
+                )
+            )
+        )
+
+
+    def errors(self) -> typing.List[PropositionValidationError]:
+
+        """
+            Checks this proposition and returns a list of PropositionValidationError's. 
+
+            Examples
+            --------
+                >>> All(*"xyz", variable="A").errors()
+                []
+
+                >>> All(*"A", variable="A").errors()
+                [<PropositionValidationError.CIRCULAR_DEPENDENCIES: 'CIRCULAR_DEPENDENCIES'>]
+
+            Return
+            ------
+                out : typing.List[PropositionValidationError]
+        """
+        errors = []
+        deps = self._dependencies()
+        try:
+            list(
+                toposort.toposort(
+                    dict(deps),
+                )
+            )
+        except toposort.CircularDependencyError:
+            errors.append(PropositionValidationError.CIRCULAR_DEPENDENCIES)
+        except Exception as e:
+            raise Exception(f"got unhandled error: {e}")
+
+        # covers (a -> a) case, when there's a direct circular dependency.
+        # this is not covered by `toposort` lib
+        if any(itertools.starmap(lambda a,b: a in b, deps)):
+            errors.append(PropositionValidationError.CIRCULAR_DEPENDENCIES)
+
+        # counts how many times anything has been defined
+        variables_flatten = list(itertools.chain(map(operator.itemgetter(0), deps), *map(operator.itemgetter(1), deps)))
+        if len(set(map(lambda x: x.id, variables_flatten))) != len(set(map(lambda x: (x.id, x.bounds.lower, x.bounds.upper), variables_flatten))):
+            errors.append(PropositionValidationError.AMBIVALENT_VARIABLE_DEFINITIONS)
+
+        return list(set(errors))
+
+
 
     def _to_pyrs_theory(self) -> (pst.TheoryPy, typing.Dict[str, tuple]):
 
@@ -1615,7 +1709,7 @@ def from_dict(d: dict, id: str = None) -> AtLeast:
     # Find top sort order
     try:
         sort_order = list(
-            toposort(
+            toposort.toposort(
                 dict(
                     zip(
                         d.keys(),
