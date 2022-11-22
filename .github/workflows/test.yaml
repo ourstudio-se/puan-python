@@ -32,3 +32,7 @@ jobs:
           python setup.py install
           mv build/lib.linux-x86_64-3.9/puan/*.so puan
           pytest
+      - name: Test build docs
+        uses: ammaraskar/sphinx-action@master
+        with:
+          docs-folder: "docs/"
