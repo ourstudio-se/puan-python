@@ -33,7 +33,6 @@ jobs:
           mv build/lib.linux-x86_64-3.9/puan/*.so puan
           pytest
       - name: Test build docs
-        uses: ammaraskar/sphinx-action@master
+        uses: znittzel/sphinx-action@master
         with:
           docs-folder: "docs/"
-          sphinx-version: "3.5.4"
