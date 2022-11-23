@@ -751,37 +751,67 @@ class AtLeast(puan.Proposition):
             -------
                 out : Dict[Union[str, :class:`puan.variable`], int]
         """
-        def _check_variable_in_bounds(id, val, bounds):
-            if val not in range(bounds.lower, bounds.upper+1):
-                raise ValueError("Variable {} is out of bounds, value: {}, bounds: {}".format(id, val, bounds))
-        def _get_variable_val(variable, interpretation):
-            if not variable in interpretation.keys():
-                interpretation[variable.id] = variable.bounds.lower
-            return interpretation
-        def _evaluate_propositions(prop, interpretation):
-            if not prop.variable.id in interpretation.keys():
-                # Calculate variable value and add to dict
-                val = sum(
-                            itertools.chain(
-                                map(
-                                    lambda x: _evaluate_propositions(x, interpretation)[x.id]*prop.sign,
-                                    prop.compound_propositions
+        def _check_and_get_variable_in_bounds(_interpretation: dict, variable: puan.variable):
+            val = _interpretation.get(variable.id, variable.bounds.lower) # Default value is the lower bound
+            if val not in range(variable.bounds.lower, variable.bounds.upper+1):
+                raise ValueError("Variable {} is out of bounds, value: {}, bounds: {}".format(variable.id, val, variable.bounds))
+            return val
+
+        _interpretation = functools.reduce(
+            lambda a,b: dict(
+                itertools.chain(
+                    b.items(),
+                    a.items(),
+                )
+            ),
+            itertools.chain(
+                map(
+                    operator.methodcaller(
+                        "evaluate_propositions", 
+                        interpretation=interpretation,
+                    ),
+                    self.compound_propositions
+                ),
+                [
+                    dict(
+                        zip(
+                            map(
+                                operator.attrgetter("id"), 
+                                self.atomic_propositions
+                            ),
+                            map(
+                                functools.partial(
+                                    _check_and_get_variable_in_bounds,
+                                    interpretation,
                                 ),
-                                map(
-                                    lambda x: _get_variable_val(x, interpretation)[x.id]*prop.sign,
-                                    prop.atomic_propositions
-                                )
-                            )
-                        )
-                _check_variable_in_bounds(prop.variable.id, 1*(val-prop.value >= 0), prop.variable.bounds)
-                interpretation[prop.variable.id] = 1*(
-                        val-prop.value >= 0
+                                self.atomic_propositions
+                            ),
+                        ),
                     )
-            return interpretation
-        interpretation_map = dict(map(lambda x: (x.id, x), filter(lambda x: type(x) == puan.variable, self.flatten())))
-        for x, y in filter(lambda x: x[0] in interpretation_map, interpretation.items()):
-                _check_variable_in_bounds(x, y, interpretation_map[x].bounds)
-        return _evaluate_propositions(self, interpretation)
+                ]
+            ),
+            {},
+        )
+
+        _interpretation[self.id] = 1*(
+            (
+                sum(
+                    map(
+                        maz.compose(
+                            functools.partial(
+                                operator.mul,
+                                self.sign
+                            ),
+                            _interpretation.get, 
+                            operator.attrgetter("id")
+                        ), 
+                        self.propositions
+                    )
+                ) - self.value
+            ) >= 0
+        )
+
+        return _interpretation
 
     def to_short(self) -> typing.Tuple[str, int, typing.List[str], int, typing.List[int]]:
 

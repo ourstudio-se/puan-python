@@ -172,6 +172,21 @@ def test_negated_propositions_are_unique(propositions):
     for prop1, prop2 in zip(propositions, map(operator.methodcaller("negate"), propositions)):
         assert not prop1.generated_id or prop1.id != prop2.id
 
+@given(propositions_strategy(), st.lists(st.integers(min_value=-3, max_value=3), min_size=99))
+@settings(deadline=None)
+def test_proposition_polyhedron_conversion(propositions, integers):
+    model = pg.All(*propositions)
+    if len(model.errors()) == 0:
+        polyhedron = model.to_polyhedron(True)
+        model_variables = sorted(set(map(operator.attrgetter("id"), model.flatten())).difference({model.id}))
+        polyhedron_variables = sorted(set(map(operator.attrgetter("id"), polyhedron.A.variables)))
+        assert model_variables == polyhedron_variables
+        integers_clipped = list(itertools.starmap(lambda x,i: numpy.clip(i, x.bounds.lower, x.bounds.upper), zip(polyhedron.A.variables, integers)))
+        model_interpretation = dict(zip(model_variables, integers_clipped))
+        polyhedron_interpretation = polyhedron.A.construct(*model_interpretation.items())
+        assert model.evaluate(model_interpretation) == (polyhedron.A.dot(polyhedron_interpretation) >= polyhedron.b).all()
+
+
 @given(propositions_strategy())
 @settings(deadline=None)
 def test_model_properties_hypothesis(propositions):
@@ -1687,6 +1702,35 @@ def test_evaluate_propositions():
 
     # Puan.variable as input in configuration
     assert pg.All(*"xy", variable="A").evaluate_propositions({puan.variable("x"): 1}) == {puan.variable(id='x', bounds=(0, 1)): 1, 'A': 0, 'y': 0}
+
+    # Test giving values to other nodes than the leafs
+    # Each node's value, except leafs, should be evaluated and not got from input
+    assert pg.All(puan.variable("a"), variable="A").evaluate_propositions({"A": 1, "a": 0}) == {'A': 0, 'a': 0}
+
+    # Test such that B is zero and thus A should be zero, even though result from C will say B = 1
+    result = pg.All(
+        pg.AtMost( 0, [puan.variable('a')], variable="B"),
+        pg.AtMost( 0, [puan.variable('b')], variable="C"),
+        variable="A",
+    ).evaluate_propositions({'a': 1, 'b': 0, 'A': 1, 'B': 1, 'C': 1})
+    assert result['A'] == 0
+    assert result['B'] == 0
+
+    # Test competition of dependent variable's value when shared variables
+    # We know that this yields circular dependency error but we still
+    # want to test that correct value will be propagated
+    model = pg.All(
+        pg.All(*"Ba", variable="C"),
+        pg.All(*"Ca", variable="B"),
+        variable="A",
+    )
+    # We want B to be evaluated to 0 since C's default value is 0
+    # We want (then!) C to be evaluated to 0 since B is 0
+    # We want A to be evaluated to 0 since B and C are zero 
+    assert model.evaluate_propositions({'a': 1, 'B': 1}) == {'A': 0, 'B': 0, 'C': 0, 'a': 1}
+    # while evaluating with C=1 instead, we expects all to be set to 1's
+    assert model.evaluate_propositions({'a': 1, 'C': 1}) == {'A': 1, 'B': 1, 'C': 1, 'a': 1}
+
 
 def configuration_dict_strategy():
     return st.dictionaries(st.text(), st.integers(-2,2))
