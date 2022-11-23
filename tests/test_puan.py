@@ -182,9 +182,8 @@ def test_proposition_polyhedron_conversion(propositions, integers):
         polyhedron_variables = sorted(set(map(operator.attrgetter("id"), polyhedron.A.variables)))
         assert model_variables == polyhedron_variables
         integers_clipped = list(itertools.starmap(lambda x,i: numpy.clip(i, x.bounds.lower, x.bounds.upper), zip(polyhedron.A.variables, integers)))
-        model_interpretation = dict(zip(model_variables, integers_clipped))
-        polyhedron_interpretation = polyhedron.A.construct(*model_interpretation.items())
-        assert model.evaluate(model_interpretation) == (polyhedron.A.dot(polyhedron_interpretation) >= polyhedron.b).all()
+        model_interpretation_evaluated = model.evaluate_propositions(dict(zip(model_variables, integers_clipped)))
+        assert model_interpretation_evaluated[model.id] == (polyhedron.A.dot(polyhedron.A.construct(*sorted(model_interpretation_evaluated.items()))) >= polyhedron.b).all()
 
 
 @given(propositions_strategy())
@@ -279,7 +278,6 @@ def test_json_conversion_special_cases():
     )
     _model = cc.StingyConfigurator.from_json(model.to_json())
     assert model == _model
-
 
 def test_application_to_rules():
     items = [
