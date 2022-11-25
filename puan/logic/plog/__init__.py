@@ -16,6 +16,7 @@ import dictdiffer
 import more_itertools
 import toposort
 from dataclasses import dataclass
+from collections import Counter
 
 class PropositionValidationError(str, enum.Enum):
 
@@ -107,18 +108,18 @@ class AtLeast(puan.Proposition):
             raise Exception("Sub propositions cannot be `None`")
 
         self.propositions = sorted(
-            set(
-                itertools.chain(
-                    filter(
+            itertools.chain(
+                filter(
+                    lambda x: type(x) != str, 
                         lambda x: type(x) != str, 
+                    lambda x: type(x) != str, 
+                    propositions_list
+                ),
+                map(
+                    puan.variable,
+                    filter(
+                        lambda x: type(x) == str,
                         propositions_list
-                    ),
-                    map(
-                        puan.variable,
-                        filter(
-                            lambda x: type(x) == str,
-                            propositions_list
-                        )
                     )
                 )
             ),
@@ -152,7 +153,7 @@ class AtLeast(puan.Proposition):
         return (self.id == other.id) & (self.equation_bounds == other.equation_bounds) & (self.value == other.value)
 
     def __hash__(self):
-        return hash(self.variable.id)
+        return hash((self.variable, self.sign, self.value, tuple(self.propositions)))
 
     def _id_generator(propositions, value: int, sign: int, prefix: str = "VAR") -> str:
         return prefix + hashlib.sha256(
@@ -300,7 +301,7 @@ class AtLeast(puan.Proposition):
             Examples
             --------
                 >>> All(*"abc", variable="A")._dependencies()
-                [(variable(id='A', bounds=Bounds(lower=0, upper=1)), [variable(id='a', bounds=Bounds(lower=0, upper=1)), variable(id='b', bounds=Bounds(lower=0, upper=1)), variable(id='c', bounds=Bounds(lower=0, upper=1))])]
+                [('A', ['a', 'b', 'c'])]
 
             Returns
             ------- 
@@ -310,12 +311,15 @@ class AtLeast(puan.Proposition):
             itertools.chain(
                 [
                     (
-                        self.variable,
+                        self.variable.id,
                         list(
                             itertools.chain(
-                                self.atomic_propositions,
                                 map(
-                                    operator.attrgetter("variable"),
+                                    operator.attrgetter("id"),
+                                    self.atomic_propositions,
+                                ),
+                                map(
+                                    operator.attrgetter("id"),
                                     self.compound_propositions
                                 )
                             )   
@@ -371,9 +375,20 @@ class AtLeast(puan.Proposition):
         if any(itertools.starmap(lambda a,b: a in b, deps)):
             errors.append(PropositionValidationError.CIRCULAR_DEPENDENCIES)
 
+        flatten = self.flatten()
         # counts how many times anything has been defined
-        variables_flatten = list(itertools.chain(map(operator.itemgetter(0), deps), *map(operator.itemgetter(1), deps)))
-        if len(set(map(lambda x: x.id, variables_flatten))) != len(set(map(lambda x: (x.id, x.bounds.lower, x.bounds.upper), variables_flatten))):
+        flat_compound = list(filter(maz.compose(lambda x: x != puan.variable, type), flatten))
+        flat_atomic = list(filter(maz.compose(lambda x: x == puan.variable, type), flatten))
+        flat_variable = list(itertools.chain(flat_atomic, map(lambda x: x.variable, flat_compound)))
+
+        # check if any two variables share id but have different props
+        flat_variable_counter = Counter(dict(zip(map(hash, flat_variable), map(operator.attrgetter("id"), flat_variable))).values())
+        if any(map(lambda x: x > 1, flat_variable_counter.values())):
+            errors.append(PropositionValidationError.AMBIVALENT_VARIABLE_DEFINITIONS)
+        
+        # check if any two propositions share id but have different props
+        flat_compound_counter = Counter(dict(zip(map(hash, flat_compound), map(operator.attrgetter("id"), flat_compound))).values())
+        if any(map(lambda x: x > 1, flat_compound_counter.values())):
             errors.append(PropositionValidationError.AMBIVALENT_VARIABLE_DEFINITIONS)
 
         return list(set(errors))
@@ -688,16 +703,15 @@ class AtLeast(puan.Proposition):
                 >>> All(*"xy", variable="A").evaluate({"x": 1})
                 False
 
-                >>> All(*"xy", variable="A").evaluate(
-                ... {puan.variable("x"): 1, puan.variable("y"): 1})
+                >>> All(*"xy", variable="A").evaluate({"x": 1, "y": 1})
                 True
 
                 >>> AtLeast(propositions=[puan.variable("x", dtype="int")],
-                ... value=10).evaluate({puan.variable("x"): 9})
+                ... value=10).evaluate({"x": 9})
                 False
 
                 >>> AtLeast(propositions=[puan.variable("x", dtype="int")],
-                ... value=10).evaluate({puan.variable("x"): 10})
+                ... value=10).evaluate({"x": 10})
                 True
             
             See also
@@ -711,7 +725,7 @@ class AtLeast(puan.Proposition):
 
         return self.evaluate_propositions(interpretation)[self.variable.id] > 0
 
-    def evaluate_propositions(self, interpretation: typing.Dict[typing.Union[str, puan.variable], int]) -> typing.Dict[typing.Union[str, puan.variable], int]:
+    def evaluate_propositions(self, interpretation: typing.Dict[str, int]) -> typing.Dict[str, int]:
         """
             Evaluates propositions on this model given a ``dict`` with variables and their values.
 

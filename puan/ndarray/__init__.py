@@ -222,13 +222,11 @@ class variable_ndarray(numpy.ndarray):
             )
             variable_indices = list(
                 map(
-                    variable_ids.index,
-                    puan.variable.from_mixed(
-                        *map(
-                            operator.itemgetter(0),
-                            filtered_variable_values
-                        )
-                    )
+                    maz.compose(
+                        variable_ids.index,
+                        operator.itemgetter(0),
+                    ),
+                    filtered_variable_values
                 )
             )
             v = numpy.ones(len(self.variables), dtype=dtype) * default_value

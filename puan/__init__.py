@@ -61,6 +61,9 @@ class Bounds:
         self.lower = lower
         self.upper = upper
 
+    def __hash__(self) -> int:
+        return hash(self.lower)+hash(self.upper)
+
     def __iter__(self):
         return iter([self.lower, self.upper])
 
@@ -107,7 +110,7 @@ class variable(Proposition):
         self.bounds = Bounds(*bounds)
 
     def __hash__(self):
-        return hash(self.id)
+        return hash(self.id)+hash(self.bounds)
 
     def __lt__(self, other):
         return self.id < other.id
@@ -156,7 +159,7 @@ class variable(Proposition):
             -------
                 out : :class:`variable`
         """
-        return variable(0, dtype="int")
+        return variable(0, bounds=Bounds(lower=1, upper=1))
 
     @staticmethod
     def from_strings(*variables: typing.List[str], default_bounds: typing.Tuple[int, int] = (0,1)) -> typing.List["variable"]:
@@ -258,6 +261,9 @@ class variable(Proposition):
             id=data['id'],
             bounds=(bounds['lower'], bounds['upper'])
         )
+
+    def rebuilt(self) -> str:
+        return f"puan.variable('{self.id}', ({self.bounds.lower},{self.bounds.upper}))"
 
 
 class SolutionVariable(variable):

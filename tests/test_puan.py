@@ -180,10 +180,53 @@ def test_proposition_polyhedron_conversion(propositions, integers):
         polyhedron = model.to_polyhedron(True)
         model_variables = sorted(set(map(operator.attrgetter("id"), model.flatten())).difference({model.id}))
         polyhedron_variables = sorted(set(map(operator.attrgetter("id"), polyhedron.A.variables)))
-        assert model_variables == polyhedron_variables
+        if not model_variables == polyhedron_variables:
+            raise Exception("model variables not equal polyhedron variables")
         integers_clipped = list(itertools.starmap(lambda x,i: numpy.clip(i, x.bounds.lower, x.bounds.upper), zip(polyhedron.A.variables, integers)))
         model_interpretation_evaluated = model.evaluate_propositions(dict(zip(model_variables, integers_clipped)))
-        assert model_interpretation_evaluated[model.id] == (polyhedron.A.dot(polyhedron.A.construct(*sorted(model_interpretation_evaluated.items()))) >= polyhedron.b).all()
+        polyhedron_eval = bool((polyhedron.A.dot(polyhedron.A.construct(*sorted(model_interpretation_evaluated.items()))) >= polyhedron.b).all())
+        model_eval = model_interpretation_evaluated[model.id] == 1
+        if not model_eval == polyhedron_eval:
+            raise Exception("model evaluation not equal polyhedron evaluation")
+
+@given(st.lists(st.text(), min_size=3, max_size=3))
+@settings(deadline=None)
+def test_polyhedron_construct_function(vrs):
+    arr = numpy.zeros((1, len(vrs)))
+    set_vars = numpy.array(list(map(puan.variable, set(vrs))))
+    polyhedron = puan.ndarray.ge_polyhedron(arr[:,:set_vars.size], variables=set_vars)
+    interpretation = dict(zip(map(lambda x: x.id, set_vars), range(polyhedron.variables.size)))
+    ph_interpretation = dict(zip(map(lambda x: x.id, polyhedron.variables), polyhedron.construct(*interpretation.items())))
+    assert interpretation == ph_interpretation
+
+def test_proposition_polyhedron_conversion_specifics():
+    
+    for model in [
+        pg.All(
+            pg.AtMost(
+                -5, 
+                [
+                    puan.variable('a', (-5,3)),
+                    puan.variable('b', ( 0,2)),
+                    puan.variable('c', (-4,4)),
+                    puan.variable('d', (-4,5))
+                ], 
+                variable=puan.variable('B', (0,1))
+            ), 
+            variable=puan.variable('A', (0,1))
+        )
+    ]:
+        if len(model.errors()) == 0:
+            polyhedron = model.to_polyhedron(True)
+            model_variables = sorted(set(map(operator.attrgetter("id"), model.flatten())).difference({model.id}))
+            polyhedron_variables = sorted(set(map(operator.attrgetter("id"), polyhedron.A.variables)))
+            if not model_variables == polyhedron_variables:
+                raise Exception("fail variable comparison")
+            integers_clipped = list(itertools.starmap(lambda x,i: numpy.clip(i, x.bounds.lower, x.bounds.upper), zip(polyhedron.A.variables, range(polyhedron.A.variables.size))))
+            model_interpretation_evaluated = model.evaluate_propositions(dict(zip(model_variables, integers_clipped)))
+            if not model_interpretation_evaluated[model.id] == (polyhedron.A.dot(polyhedron.A.construct(*sorted(model_interpretation_evaluated.items()))) >= polyhedron.b).all():
+                raise Exception("fail interpretation comparison")
+
 
 
 @given(propositions_strategy())
@@ -206,12 +249,9 @@ def test_model_properties_hypothesis(propositions):
     model.negate()
     model.to_short()
     model.to_text()
-    try:
-        model.to_ge_polyhedron()
-        model.to_ge_polyhedron(True)
-    except Exception as e:
-        if not "circular statement references" in e:
-            raise Exception(e)
+    if not model.errors():
+        model.to_polyhedron()
+        model.to_polyhedron(True)
     model.to_b64()
 
 @given(cc_propositions_strategy())
@@ -1698,9 +1738,6 @@ def test_evaluate_propositions():
     assert pg.AtLeast(1, [puan.variable("x", bounds=(0,1))], variable="A").evaluate_propositions({}) == {"A": 0, "x": 0}
     assert pg.AtLeast(1, [puan.variable("x", bounds=(1,10))], variable="A").evaluate_propositions({}) == {"A": 1, "x": 1}
 
-    # Puan.variable as input in configuration
-    assert pg.All(*"xy", variable="A").evaluate_propositions({puan.variable("x"): 1}) == {puan.variable(id='x', bounds=(0, 1)): 1, 'A': 0, 'y': 0}
-
     # Test giving values to other nodes than the leafs
     # Each node's value, except leafs, should be evaluated and not got from input
     assert pg.All(puan.variable("a"), variable="A").evaluate_propositions({"A": 1, "a": 0}) == {'A': 0, 'a': 0}
@@ -1728,6 +1765,24 @@ def test_evaluate_propositions():
     assert model.evaluate_propositions({'a': 1, 'B': 1}) == {'A': 0, 'B': 0, 'C': 0, 'a': 1}
     # while evaluating with C=1 instead, we expects all to be set to 1's
     assert model.evaluate_propositions({'a': 1, 'C': 1}) == {'A': 1, 'B': 1, 'C': 1, 'a': 1}
+
+    # This should in the end evaluate to True
+    # Note that the AtMost results in the
+    # -a-b-c-d-e >= 5 constraint. Adding the values
+    # to it results in -(3)-(1)-(-3)-(-3)-(-3) >= 5 and
+    # to -3-1+3+3+3 >= 5 and finally 5 >= 5, which yields True.
+    model = pg.AtMost(
+        -5, 
+        [
+            puan.variable('a', (-5,3)),
+            puan.variable('b', ( 0,2)),
+            puan.variable('c', (-4,4)),
+            puan.variable('d', (-3,4)),
+            puan.variable('e', (-4,5))
+        ], 
+        variable=puan.variable('A', (0,1))
+    )
+    assert model.evaluate_propositions({'A': 1, 'a': 3, 'b': 1, 'c': -3, 'd': -3, 'e': -3}) == {'A': 1, 'a': 3, 'b': 1, 'c': -3, 'd': -3, 'e': -3}
 
 
 def configuration_dict_strategy():
@@ -2506,20 +2561,20 @@ def test_plog_evaluate_method():
     )
 
     cart = {
-        milk_home: 1,
-        milk_bought: 0,
-        tomatoes: 2+2,
-        cucumbers: 0
+        milk_home.id: 1,
+        milk_bought.id: 0,
+        tomatoes.id: 2+2,
+        cucumbers.id: 0
     }
 
     assert not fridge_model.evaluate(cart)
 
     new_cart = {
-        chips: 1,
-        milk_home: 1,
-        milk_bought: 0,
-        tomatoes: 2+2,
-        cucumbers: 1
+        chips.id: 1,
+        milk_home.id: 1,
+        milk_bought.id: 0,
+        tomatoes.id: 2+2,
+        cucumbers.id: 1
     }
 
     assert fridge_model.evaluate(new_cart)
@@ -2599,6 +2654,31 @@ def test_proposition_errors_function():
         variable="A"
     ).errors()
     assert len(actual) == 0
+
+    # Share same id on same level but different sub propositions
+    actual = pg.All(
+        pg.AtMost(0, [puan.variable('a')], variable=''),
+        pg.AtMost(0, [puan.variable('b')], variable='')
+    ).errors()
+    assert len(actual) == 1
+    assert actual[0] == pg.PropositionValidationError.AMBIVALENT_VARIABLE_DEFINITIONS
+
+    # Share same id on same level and same sub propositions
+    actual = pg.All(
+        pg.AtMost(0, [puan.variable('a')], variable=''),
+        pg.AtMost(0, [puan.variable('a')], variable='')
+    ).errors()
+    assert len(actual) == 0
+
+    # Share same id on different level and different sub propositions
+    actual = pg.All(
+        pg.AtMost(0, [puan.variable('a')], variable=''),
+        pg.All(
+            pg.AtMost(0, [puan.variable('b')], variable='')
+        )
+    ).errors()
+    assert len(actual) == 1
+    assert actual[0] == pg.PropositionValidationError.AMBIVALENT_VARIABLE_DEFINITIONS
 
 def test_function_add_for_stingy_configurator():
 
