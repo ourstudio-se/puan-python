@@ -12,33 +12,33 @@ import puan
 import puan.npufunc as npufunc
 import sys
 import puan_rspy as prs
+from enum import IntEnum
 
 from collections import Counter
 
+class Selection(IntEnum):
+    """
+        An :class:`IntEnum` class to define variable selections, boolean och integer.  
+    """
+    BOOL = 0
+    INT = 1
+
 class variable_ndarray(numpy.ndarray):
     """
-        A numpy.ndarray sub class which ties variables to the indices of the ndarray.
+        A :class:`numpy.ndarray` sub class which ties variables to the indices of the :class:`numpy.ndarray`.
 
         Attributes
         ----------
-        See numpy.array
+            See : :class:`numpy.ndarray`
 
         Methods
         -------
         variable_indices
-            Returns the indices of variable of the input type.
         boolean_variable_indices
-            Returns the indices of boolean variables
         integer_variable_indices
-            Returns the indices of integer variables
         construct
-            Constructs a variable_ndarray from a list of tuples of variable IDs and integers.
-        to_value_map
-            Reduces the polyhedron into a value map.
-        
-
     """
-    def __new__(cls, input_array, variables: typing.List[puan.variable] = [], index: typing.List[typing.Union[int, puan.variable]] = [], dtype=numpy.int64):
+    def __new__(cls, input_array: numpy.ndarray, variables: typing.List[puan.variable] = [], index: typing.List[typing.Union[int, puan.variable]] = [], dtype: typing.Type=numpy.int64):
         arr = numpy.asarray(input_array, dtype=dtype).view(cls)
         if len(variables) == 0:
             variables = variable_ndarray._default_variable_list(arr.shape[arr.ndim-1])
@@ -68,15 +68,15 @@ class variable_ndarray(numpy.ndarray):
         return target
 
     @staticmethod
-    def _default_variable_list(n, default_bounds_type: str = "bool") -> list:
+    def _default_variable_list(n, default_bounds_type: str = "bool") -> typing.List[puan.variable]:
 
         """
             Generates a default list of variables with first variable
-            as the support vector variable default from `puan.variable`.
+            as the support vector variable default from :class:`puan.variable`.
 
             Returns
             -------
-                out : list
+                out : List[:class:`puan.variable`]
         """
         return list(
             itertools.chain(
@@ -100,16 +100,25 @@ class variable_ndarray(numpy.ndarray):
             )
         )
 
-    def variable_indices(self, variable_type: int) -> numpy.ndarray:
+    def variable_indices(self, variable_type: Selection) -> numpy.ndarray:
 
         """
-            Variable indices of variable type 0 (bool) or 1 (int).
+            Variable indices of variable type 0 (``bool``) or 1 (``int``).
+
+            Parameters
+            ----------
+            variable_type : :class:`Selection`
+                Variable type where 0 gives ``bool`` and 1 gives ``int``. 
 
             Returns
             -------
-                out : numpy.ndarray 
+                out : :class:`numpy.ndarray`
         """
-        is_bool = 1*(variable_type==0)
+        
+        is_bool = 1*(variable_type==Selection.BOOL)
+        is_int = 1*(variable_type==Selection.INT)
+        if is_bool + is_int != 1:
+            raise ValueError("Unrecognized variable type, must be Selection got {}".format(variable_type))
         return numpy.array(
             sorted(
                 map(
@@ -126,11 +135,11 @@ class variable_ndarray(numpy.ndarray):
     def boolean_variable_indices(self) -> numpy.ndarray:
 
         """
-            Variable indices where variable dtype is bool.
+            Variable indices where variable dtype is ``bool``.
 
             Returns
             -------
-                out : numpy.ndarray
+                out : :class:`numpy.ndarray`
 
             Examples
             --------
@@ -149,11 +158,11 @@ class variable_ndarray(numpy.ndarray):
     def integer_variable_indices(self) -> numpy.ndarray:
 
         """
-            Variable indices where variable dtype is int.
+            Variable indices where variable dtype is ``int``.
 
             Returns
             -------
-                out : numpy.ndarray
+                out : :class:`numpy.ndarray`
 
             Examples
             --------
@@ -168,20 +177,29 @@ class variable_ndarray(numpy.ndarray):
 
         return self.variable_indices(1)
 
-    def construct(self, *variable_values: typing.List[typing.Tuple[str, int]], default_value: int = 0, dtype=numpy.int64) -> numpy.ndarray:
+    def construct(self, *variable_values: typing.List[typing.Tuple[str, int]], default_value: int = 0, dtype: typing.Type = numpy.int64) -> numpy.ndarray:
 
         """
-            Constructs a variable_ndarray from a list of tuples of variable IDs and integers.
+            Constructs a :class:`variable_ndarray` from a list of tuples of variable ids and integers.
+
+            Parameters
+            ----------
+                variable_values: List[Tuple[str, int]]
+                    List of tuples with variable id and value
+                default_value : int
+                    Default value of variable if not in `variable_values`. Default is ``0``.
+                dtype : Type
+                    Type of resulting :class:`numpy.ndarray`. Default is ``numpy.int64``.
 
             Examples
             --------
 
-            Constructing a new 1D variable ndarray shadow from this array and setting x = 5
+            Constructing a new 1d variable ndarray shadow from this array and setting x = 5
                 >>> vnd = variable_ndarray([[1,2,3], [2,3,4]], [puan.variable("x"), puan.variable("y"), puan.variable("z")])
                 >>> vnd.construct(("x", 5))
                 array([5, 0, 0])
 
-            Constructing a new 2D variable ndarray shadow from this array and setting x0 = 5, y0 = 4 and y1 = 3
+            Constructing a new 2d variable ndarray shadow from this array and setting x0 = 5, y0 = 4 and y1 = 3
                 >>> vnd = variable_ndarray([[1,2,3], [2,3,4]], [puan.variable("x"), puan.variable("y"), puan.variable("z")])
                 >>> vnd.construct([("x", 5), ("y", 4)], [("y", 3)])
                 array([[5, 4, 0],
@@ -189,11 +207,11 @@ class variable_ndarray(numpy.ndarray):
 
             Notes
             -----
-            If a variable in `variable_values` is not in self.variables, then it will be ignored.
+            If a variable in ``variable_values`` is not in ``self.variables``, it will be ignored.
 
             Returns
             -------
-                out : variable_ndarray
+                out : :class:`numpy.ndarray`
         """
         variable_ids = list(map(lambda x: x.id, self.variables))
         if len(variable_values) == 0:
@@ -233,92 +251,49 @@ class variable_ndarray(numpy.ndarray):
                 dtype=dtype
             )
 
-    def to_value_map(self: numpy.ndarray) -> dict:
-
-        """
-            Reduces the polyhedron into a value map.
-
-            Returns
-            -------
-                out : dictionary: value -> indices
-
-            Notes
-            -----
-                Since zeros are excluded in a value map, leading zero rows/columns will not be included.
-
-            Examples
-            --------
-                >>> ge_polyhedron(numpy.array([
-                ...     [0,-1, 1, 0, 0],
-                ...     [0, 0,-1, 1, 0],
-                ...     [0, 0, 0,-1, 1]])).to_value_map()
-                {1: [[0, 1, 2], [2, 3, 4]], -1: [[0, 1, 2], [1, 2, 3]]}
-
-        """
-        return dict(map(lambda v:
-                    (v, # Dict key
-                    list(map(lambda x: x[1], enumerate(numpy.argwhere(self == v).T.tolist())))), # Dict value
-                    set(self[self != 0])))
-
 class ge_polyhedron(variable_ndarray):
     """
-        A numpy.ndarray sub class and a system of linear inequalities forming
+        A :class:`numpy.ndarray` sub class and a system of linear inequalities forming
         a polyhedron. The "ge" stands for "greater or equal" (:math:`\\ge`)
         which represents the relation between :math:`A` and :math:`b` (as in :math:`Ax \\ge b`), i.e.
         polyhedron :math:`P=\{x \\in R^n \ |\  Ax \\ge b\}`.
 
         Attributes
         ----------
-        See numpy.array
+            See : :class:`numpy.ndarray`
 
         Methods
         -------
         to_linalg
-            assumes support vector index 0 in polyhedron and returns :math:`A, b` as in :math:`Ax \\ge b`
         reducable_columns_approx
-            Returns what columns are reducable under approximate condition.
         reduce_columns
-            Reducing columns from polyhedron from columns_vector.
         reducable_rows
-            Returns a boolean vector indicating what rows are reducable.
         reduce_rows
-            Reduces rows from a rows_vector where num of rows of M equals
-            size of rows_vector.
         reducable_rows_and_columns
-            Returns reducable rows and columns of given polyhedron.
         reduce
-            Reduces matrix polyhedron by information passed in rows_vector and columns_vector.
         row_bounds
-            Returns the row equation bounds including bias.
         row_distribution
-            Returns a distribution of all combinations for each row and their values.
         row_stretch
-            Shows the proportion of the number of value spots for each row equation with respect to the number of combinations from active variable bounds.
         row_stretch_int
-            Row bounds range from one number to another.
         neglectable_columns
-            Returns neglectable columns of given polyhedron `ge_polyhedron`.
         neglect_columns
-            Neglects columns in :math:`A` from a columns_vector.
         separable
-            Checks if points are inside the polyhedron.
         ineq_separate_points
-            Checks if a linear inequality in the polyhedron separate any point of given points.
 
     """
 
-    def __new__(cls, input_array, variables: typing.List[puan.variable] = [], index: typing.List[typing.Union[int, puan.variable]] = [], dtype=numpy.int64):
+    def __new__(cls, input_array: numpy.ndarray, variables: typing.List[puan.variable] = [], index: typing.List[typing.Union[int, puan.variable]] = [], dtype: typing.Type=numpy.int64):
         return super().__new__(cls, input_array, variables=variables, index=index, dtype=dtype)
 
     @property
-    def A(self) -> numpy.ndarray:
+    def A(self) -> "integer_ndarray":
 
         """
-            Matrix 'A', as in Ax >= b.
+            Matrix :math:`A`, as in :math:`Ax \\ge b`.
 
             Returns
             -------
-                out : numpy.ndarray
+                out : :class:`integer_ndarray`
 
             Examples
             --------
@@ -334,23 +309,20 @@ class ge_polyhedron(variable_ndarray):
 
 
     @property
-    def A_max(self) -> numpy.ndarray:
+    def A_max(self) -> "integer_ndarray":
 
         """
             Returns the maximum coefficient value based on variable's initial bounds.
 
-            Returns
-            -------
-                out : numpy.ndarray
-        """
-        init = self.column_bounds()
-        return (init[0]*(self.A<0)*self.A)+(init[1]*(self.A>0)*self.A)
-
-    @property
-    def A_min(self) -> numpy.ndarray:
-
-        """
-            Returns the minimum coefficient value based on variable's initial bounds.
+            Examples
+            --------
+            >>> ge_polyhedron(numpy.array([
+            ...     [0,-1, 1, 0, 0],
+            ...     [0, 0,-1, 1, 0],
+            ...     [0, 0, 0,-1, 1]])).A_max
+            integer_ndarray([[0, 1, 0, 0],
+                             [0, 0, 1, 0],
+                             [0, 0, 0, 1]])
 
             Raises
             ------
@@ -359,7 +331,37 @@ class ge_polyhedron(variable_ndarray):
 
             Returns
             -------
-                out : numpy.ndarray
+                out : :class:`integer_ndarray`
+        """
+        init = self.column_bounds()
+        if init.size == 0:
+            raise Exception(f"Matrix A in polyhedron is empty")
+        return (init[0]*(self.A<0)*self.A)+(init[1]*(self.A>0)*self.A)
+
+    @property
+    def A_min(self) -> "integer_ndarray":
+
+        """
+            Returns the minimum coefficient value based on variable's initial bounds.
+
+            Examples
+            --------
+            >>> ge_polyhedron(numpy.array([
+            ...     [0,-1, 1, 0, 0],
+            ...     [0, 0,-1, 1, 0],
+            ...     [0, 0, 0,-1, 1]])).A_min
+            integer_ndarray([[-1,  0,  0,  0],
+                             [ 0, -1,  0,  0],
+                             [ 0,  0, -1,  0]])
+
+            Raises
+            ------
+                Exception
+                    If matrix A is empty.
+
+            Returns
+            -------
+                out : :class:`integer_ndarray`
         """
         init = self.column_bounds()
         if init.size == 0:
@@ -368,14 +370,14 @@ class ge_polyhedron(variable_ndarray):
         return (init[0]*(self.A>0)*self.A)+(init[1]*(self.A<0)*self.A)
 
     @property
-    def b(self) -> numpy.ndarray:
+    def b(self) -> "integer_ndarray":
 
         """
-            Support vector 'b', as in Ax >= b.
+            Support vector :math:`b`, as in :math:`Ax \\ge b`.
 
             Returns
             -------
-                out : numpy.ndarray
+                out : :class:`integer_ndarray`
 
             Examples
             --------
@@ -383,18 +385,18 @@ class ge_polyhedron(variable_ndarray):
                 ...     [0,-1, 1, 0, 0],
                 ...     [0, 0,-1, 1, 0],
                 ...     [0, 0, 0,-1, 1]])).b
-                array([0, 0, 0])
+                integer_ndarray([0, 0, 0])
         """
-        return numpy.array(self.T[0])
+        return integer_ndarray(self.T[0])
 
-    def to_linalg(self: numpy.ndarray) -> tuple:
+    def to_linalg(self) -> typing.Tuple["integer_ndarray", numpy.ndarray]:
         """
             Assumes support vector index 0 in polyhedron
             and returns :math:`A, b` as in :math:`Ax \\ge b`
 
             Returns
             -------
-                out : tuple
+                out : Tuple[:class:`integer_ndarray`, :class:`numpy.ndarray`]
                     out[0] : A\n
                     out[1] : b
 
@@ -406,14 +408,14 @@ class ge_polyhedron(variable_ndarray):
                 ...     [0, 0, 0,-1, 1]])).to_linalg()
                 (integer_ndarray([[-1,  1,  0,  0],
                                  [ 0, -1,  1,  0],
-                                 [ 0,  0, -1,  1]]), array([0, 0, 0]))
+                                 [ 0,  0, -1,  1]]), integer_ndarray([0, 0, 0]))
         """
         return self.A, self.b
 
-    def reducable_columns_approx(self: numpy.ndarray) -> numpy.ndarray:
+    def reducable_columns_approx(self) -> numpy.ndarray:
         """
             Returns which columns are reducable under approximate condition.
-            The approximate condition is that only one row of ge_polyhedron is
+            The approximate condition is that only one row of :class:`ge_polyhedron` is
             considered when deducing reducable columns. By considering combination of rows
             more reducable columns might be found.
 
@@ -421,16 +423,16 @@ class ge_polyhedron(variable_ndarray):
 
             Returns
             -------
-                out : numpy.ndarray (vector)
+                out : :class:`numpy.ndarray` (vector)
                     Columns with positive values could be assumed.
-                    Columns with negative values could be removed (not-assumed).
+                    Columns with nonpositive values could be removed (not-assumed).
 
             See also
             --------
-                reduce : Reduces matrix polyhedron by information passed in rows_vector and columns_vector.
-                reduce_columns : Reducing columns from polyhedron from columns_vector where a positive number meaning *assume* and a negative number meaning *not assume*.
+                reduce : Reduces matrix polyhedron by information passed in ``rows_vector`` and ``columns_vector``.
+                reduce_columns : Reducing columns from ``polyhedron`` from ``columns_vector`` where a positive number meaning *assume* and a nonpositive number meaning *not assume*.
                 reducable_rows_and_columns : Returns reducable rows and columns of given polyhedron.
-                reduce_rows : Reduces rows from a rows_vector where num of rows of M equals size of rows_vector.
+                reduce_rows : Reduces rows from ``rows_vector`` where num of rows of ``M`` equals size of ``rows_vector``.
                 reducable_rows : Returns a boolean vector indicating what rows are reducable.
 
             Examples
@@ -459,26 +461,26 @@ class ge_polyhedron(variable_ndarray):
             res[eq_bounds] = lb[eq_bounds]
         return res
 
-    def reduce_columns(self: numpy.ndarray, columns_vector: numpy.ndarray) -> numpy.ndarray:
+    def reduce_columns(self, columns_vector: numpy.ndarray) -> "ge_polyhedron":
 
         """
-            Reducing columns from polyhedron from columns_vector where a positive number meaning *assume*
-            and a negative number meaning *not assume*.
+            Reducing columns from polyhedron from ``columns_vector`` where a positive number meaning *assume*
+            and a nonpositive number meaning *not assume*.
 
             Parameters
             ----------
-            columns_vector : ndarray
-                The polyhedron is reduced column-wise by equally many positives and negatives in columns-vector.
+            columns_vector : :class:`numpy.ndarray`
+                The polyhedron is reduced column-wise by equally many positives and nonpositive in ``columns_vector``.
 
             Returns
             -------
-                out : numpy.ndarray
+                out : :class:`ge_polyhedron`
 
             See also
             --------
-                reduce : Reduces matrix polyhedron by information passed in rows_vector and columns_vector.
+                reduce : Reduces matrix polyhedron by information passed in ``rows_vector`` and ``columns_vector``.
                 reducable_rows_and_columns : Returns reducable rows and columns of given polyhedron.
-                reduce_rows : Reduces rows from a rows_vector where num of rows of M equals size of rows_vector.
+                reduce_rows : Reduces rows from ``rows_vector`` where num of rows of ``M`` equals size of ``rows_vector``.
                 reducable_rows : Returns a boolean vector indicating what rows are reducable.
                 reducable_columns_approx : Returns what columns are reducable under approximate condition.
 
@@ -504,7 +506,7 @@ class ge_polyhedron(variable_ndarray):
         res = ge_polyhedron(numpy.append(_b.reshape(-1,1), _A, axis=1), self.variables[[True]+numpy.isnan(columns_vector).tolist()], self.index).astype(numpy.int64)
         return res
 
-    def reducable_rows(self: numpy.ndarray) -> numpy.ndarray:
+    def reducable_rows(self) -> "boolean_ndarray":
         """
             Returns a boolean vector indicating what rows are reducable.
             A row is reducable iff it doesn't constrain any variable.
@@ -513,14 +515,14 @@ class ge_polyhedron(variable_ndarray):
 
             Returns
             -------
-                out : numpy.ndarray (vector)
+                out : :class:`integer_ndarray` (vector)
 
             See also
             --------
-                reduce : Reduces matrix polyhedron by information passed in rows_vector and columns_vector.
-                reduce_columns : Reducing columns from polyhedron from columns_vector where a positive number meaning *assume* and a negative number meaning *assume*.
+                reduce : Reduces matrix polyhedron by information passed in ``rows_vector`` and ``columns_vector``.
+                reduce_columns : Reducing columns from ``polyhedron`` from ``columns_vector`` where a positive number meaning *assume* and a nonpositive number meaning *assume*.
                 reducable_rows_and_columns : Returns reducable rows and columns of given polyhedron.
-                reduce_rows : Reduces rows from a rows_vector where num of rows of M equals size of rows_vector.
+                reduce_rows : Reduces rows from ``rows_vector`` where num of rows of ``M`` equals size of ``rows_vector``.
                 reducable_columns_approx : Returns what columns are reducable under approximate condition.
 
             Examples
@@ -529,35 +531,35 @@ class ge_polyhedron(variable_ndarray):
             :math:`Ax \\ge b` will always hold, regardless of :math:`x`.
 
                 >>> ge_polyhedron(numpy.array([[-3, -1, -1, 1, 0]])).reducable_rows()
-                integer_ndarray([ True])
+                boolean_ndarray([1])
 
             All elements of the row in :math:`A` is :math:`\\ge 0` and :math:`b` is :math:`\\le 0`,
             again :math:`Ax \\ge b` will always hold, regardless of :math:`x`.
 
                 >>> ge_polyhedron(numpy.array([[0, 1, 1, 1, 0]])).reducable_rows()
-                integer_ndarray([ True])
+                boolean_ndarray([1])
 
         """
-        return self.A_min.sum(axis=1) >= self.b
+        return boolean_ndarray(self.A_min.sum(axis=1) >= self.b)
 
-    def reduce_rows(self: numpy.ndarray, rows_vector: numpy.ndarray) -> numpy.ndarray:
+    def reduce_rows(self, rows_vector: "boolean_ndarray") -> "ge_polyhedron":
 
         """
-            Reduces rows from a rows_vector where num of rows of ge_polyhedron equals
-            size of rows_vector. Each row in rows_vector == 0 is kept.
+            Reduces rows from a ``rows_vector`` where num of rows of :class:`ge_polyhedron` equals
+            size of ``rows_vector``. Each row in ``rows_vector`` equal to 0 is kept.
 
             Parameters
             ----------
-                rows_vector : numpy.ndarray
+                rows_vector : :class:`boolean_ndarray`
 
             Returns
             -------
-                out : ge_polyhedron
+                out : :class:`ge_polyhedron`
 
             See also
             --------
-                reduce : Reduces matrix polyhedron by information passed in rows_vector and columns_vector.
-                reduce_columns : Reducing columns from polyhedron from columns_vector where a positive number meaning *assume* and a negative number meaning *assume*.
+                reduce : Reduces matrix polyhedron by information passed in ``rows_vector`` and ``columns_vector``.
+                reduce_columns : Reducing columns from ``polyhedron`` from ``columns_vector`` where a positive number meaning *assume* and a nonpositive number meaning *assume*.
                 reducable_rows_and_columns : Returns reducable rows and columns of given polyhedron.
                 reducable_rows : Returns a boolean vector indicating what rows are reducable.
                 reducable_columns_approx : Returns what columns are reducable under approximate condition.
@@ -587,23 +589,23 @@ class ge_polyhedron(variable_ndarray):
         msk = numpy.array(rows_vector) == 0
         return ge_polyhedron(self[msk], getattr(self, "variables", []), self.index[msk] if hasattr(self, "index") else [])
 
-    def reducable_rows_and_columns(self: numpy.ndarray) -> tuple:
+    def reducable_rows_and_columns(self) -> typing.Tuple["boolean_ndarray", numpy.ndarray]:
 
         """
             Returns reducable rows and columns of given polyhedron.
 
             Returns
             -------
-                out : tuple
-                    out[0] : a vector equal size as ge_polyhedron's row size where 1 represents a removed row and 0 represents a kept row\n
-                    out[1] : a vector with equal size as ge_polyhedron's column size where nan numbers represent a no-choice.
+                out : Tuple[:class:`boolean_ndarray`, :class:`numpy.ndarray`]
+                    out[0] : a vector equal size as ``ge_polyhedron``'s row size where 1 represents a removed row and 0 represents a kept row\n
+                    out[1] : a vector with equal size as ``ge_polyhedron``'s column size where nan numbers represent a no-choice.
 
             See also
             --------
-                reduce : Reduces matrix polyhedron by information passed in rows_vector and columns_vector.
-                reduce_rows : Reduces rows from a rows_vector where num of rows of M equals size of rows_vector.
+                reduce : Reduces matrix polyhedron by information passed in ``rows_vector`` and ``columns_vector``.
+                reduce_rows : Reduces rows from ``rows_vector`` where num of rows of ``M`` equals size of ``rows_vector``.
                 reducable_rows : Returns a boolean vector indicating what rows are reducable.
-                reduce_columns :  Reducing columns from polyhedron from columns_vector where a positive number meaning *assume* and a negative number meaning *assume*.
+                reduce_columns :  Reducing columns from ``polyhedron`` from ``columns_vector`` where a positive number meaning *assume* and a nonpositive number meaning *assume*.
                 reducable_columns_approx : Returns what columns are reducable under approximate condition.
 
             Examples
@@ -617,7 +619,7 @@ class ge_polyhedron(variable_ndarray):
                 ...     [ 0, 1, 1, 0, 1, 0],
                 ...     [ 0, 1, 1, 0, 1,-1] 
                 ... ])).reducable_rows_and_columns()
-                (array([0, 0, 0, 1, 1, 1, 1]), array([nan, nan, nan,  1.,  0.]))
+                (boolean_ndarray([0, 0, 0, 1, 1, 1, 1]), array([nan, nan, nan,  1.,  0.]))
 
         """
 
@@ -625,7 +627,7 @@ class ge_polyhedron(variable_ndarray):
         red_cols = ge_polyhedron.reducable_columns_approx(_M)
         red_rows = ge_polyhedron.reducable_rows(_M) * 1
         full_cols = numpy.zeros(_M.A.shape[1], dtype=int)*numpy.nan
-        full_rows = numpy.zeros(_M.shape[0], dtype=int)
+        full_rows = boolean_ndarray(numpy.zeros(_M.shape[0], dtype=int))
         while (~numpy.isnan(red_cols)).any() | red_rows.any():
             _M = ge_polyhedron.reduce_columns(_M, red_cols)
             full_cols[numpy.isnan(full_cols)] = red_cols
@@ -645,29 +647,29 @@ class ge_polyhedron(variable_ndarray):
 
         return full_rows, full_cols
 
-    def reduce(self: numpy.ndarray, rows_vector: numpy.ndarray=None, columns_vector: numpy.ndarray=None) -> numpy.ndarray:
+    def reduce(self, rows_vector: "boolean_ndarray"=None, columns_vector: numpy.ndarray=None) -> "ge_polyhedron":
         """
-            Reduces matrix polyhedron by information passed in rows_vector and columns_vector.
+            Reduces matrix polyhedron by information passed in ``rows_vector`` and ``columns_vector``.
 
             Parameters
             ----------
-            rows_vector : numpy.ndarray (optional)
+            rows_vector : :class:`boolean_ndarray` (optional)
                 A vector of 0's and 1's where rows matching index of value 1 are removed.
 
-            columns_vector : numpy.ndarray (optional)
-                A vector of positive, negative and NaN floats. The NaN's represent a no-choice.
+            columns_vector : :class:`numpy.ndarray` (optional)
+                A vector of positive, nonpositive and ``NaN floats``. The ``NaN``'s represent a no-choice.
 
             Returns
             -------
-                out : ge_polyhedron
+                out : :class:`ge_polyhedron`
                     Reduced polyhedron
 
             See also
             --------
                 reducable_rows_and_columns : Returns reducable rows and columns of given polyhedron.
-                reduce_rows : Reduces rows from a rows_vector where num of rows of M equals size of rows_vector.
+                reduce_rows : Reduces rows from ``rows_vector`` where num of rows of ``M`` equals size of ``rows_vector``.
                 reducable_rows : Returns a boolean vector indicating what rows are reducable.
-                reduce_columns :  Reducing columns from polyhedron from columns_vector where a positive number meaning *assume* and a negative number meaning *assume*.
+                reduce_columns :  Reducing columns from ``polyhedron`` from ``columns_vector`` where a positive number meaning *assume* and a nonpositive number meaning *assume*.
                 reducable_columns_approx : Returns what columns are reducable under approximate condition.
 
             Examples
@@ -691,38 +693,38 @@ class ge_polyhedron(variable_ndarray):
             gp = ge_polyhedron.reduce_columns(gp, columns_vector)
         return gp
 
-    def neglectable_columns(self: numpy.ndarray, patterns: numpy.ndarray) -> numpy.ndarray:
+    def neglectable_columns(self, patterns: numpy.ndarray) -> "integer_ndarray":
         """
-            Returns neglectable columns of given polyhedron `ge_polyhedron` based on given patterns.
-            Neglectable columns are the columns which doesn't differentiate the patterns in `ge_polyhedron`
-            from the patterns not in `ge_polyhedron`
+            Returns neglectable columns of given polyhedron :class:`ge_polyhedron` based on given patterns.
+            Neglectable columns are the columns which doesn't differentiate the patterns in :class:`ge_polyhedron`
+            from the patterns not in :class:`ge_polyhedron`
 
             Parameters
             ----------
-                patterns : numpy.ndarray
+                patterns : :class:`numpy.ndarray`
                     known patterns of variables in the polyhedron.
 
             Returns
             -------
-                out : numpy.ndarray
-                    A 1-d ndarray of length equal to the number of columns of the ge_polyhedron,
+                out : :class:`integer_ndarray`
+                    A 1d ndarray of length equal to the number of columns of the ge_polyhedron,
                     with ones at corresponding columns which can be neglected, zero otherwise.
 
             See also
             --------
-                neglect_columns : Neglects columns in :math:`A` from a columns_vector.
+                :meth:`neglect_columns` : Neglects columns in :math:`A` from ``columns_vector``.
 
             Notes
             -----
-                This method is differentiating the patterns which are in ge_polyhedron from those that are not.
-                Variables which are not in the patterns and has a positive number for any row in ge_polyhedron
+                This method is differentiating the patterns which are in :class:`ge_polyhedron` from those that are not.
+                Variables which are not in the patterns and has a positive number for any row in :class:`ge_polyhedron`
                 are considered non-neglectable.
 
             Examples
             --------
             Keep common pattern:
-            ge_polyhedron with two out of three patterns. Variables 1 and 2 are not differentiating the patterns
-            in ge_polyhedron from those that are not, and can therefore be neglected.
+            :class:`ge_polyhedron` with two out of three patterns. Variables 1 and 2 are not differentiating the patterns
+            in :class:`ge_polyhedron` from those that are not, and can therefore be neglected.
 
             >>> patterns = numpy.array([[1, 1, 0], [0, 1, 1], [1, 0, 1]])
             >>> ge_polyhedron(numpy.array([
@@ -740,7 +742,7 @@ class ge_polyhedron(variable_ndarray):
             integer_ndarray([1, 0, 0, 0, 0, 0])
 
         """
-        A, b = ge_polyhedron(self).to_linalg()
+        A = ge_polyhedron(self).A
         # Extend patterns to be of same shape as A
         _patterns = patterns.copy()
         _patterns = numpy.pad(_patterns, ((0,0), (0, A.shape[1] - _patterns.shape[1])), 'constant')
@@ -765,25 +767,25 @@ class ge_polyhedron(variable_ndarray):
             return (~(common_pattern_in_A | non_neglectable_columns)).astype(int)
         return ((_A[:, (patterns_not_in_A==0).all(axis=0) & (non_neglectable_columns==0)]).any(axis=1).all()) * (patterns_not_in_A!=0).any(axis=0).astype(int)
 
-    def neglect_columns(self: numpy.ndarray, columns_vector: numpy.ndarray) -> numpy.ndarray:
+    def neglect_columns(self, columns_vector: numpy.ndarray) -> "ge_polyhedron":
         """
-            Neglects columns in :math:`A` from a columns_vector. The entire column for col in columns_vector :math:`>0`
+            Neglects columns in :math:`A` from ``columns_vector``. The entire column for col in ``columns_vector`` :math:`>0`
             is set to :math:`0` and the support vector is updated.
 
             Parameters
             ----------
-                columns_vector : numpy.ndarray
-                    A 1-d ndarray of length equal to the number of columns of :math:`A`.
-                    Sets the entire column of :math:`A` to zero for corresponding entries of columns_vector which are :math:`>0`.
+                columns_vector : :class:`numpy.ndarray`
+                    A 1d ndarray of length equal to the number of columns of :math:`A`.
+                    Sets the entire column of :math:`A` to zero for corresponding entries of ``columns_vector`` which are :math:`>0`.
 
             Returns
             -------
-                out : ge_polyhedron
-                    ge_polyhedron with neglected columns set to zero and suupport vector updated accordingly.
+                out : :class:`ge_polyhedron`
+                    :class:`ge_polyhedron` with neglected columns set to zero and support vector updated accordingly.
 
             See also
             --------
-                neglectable_columns : Returns neglectable columns of given polyhedron `ge_polyhedron` based on given patterns.
+                :meth:`neglectable_columns` : Returns neglectable columns of given polyhedron :class:`ge_polyhedron` based on given patterns.
 
             Examples
             --------
@@ -800,7 +802,7 @@ class ge_polyhedron(variable_ndarray):
         _A[:, columns_vector>0] = 0
         return ge_polyhedron(numpy.append(_b.reshape(-1,1), _A, axis=1))
 
-    def separable(self: numpy.ndarray, points: numpy.ndarray) -> numpy.ndarray:
+    def separable(self, points: numpy.ndarray) -> numpy.ndarray:
 
         """
             Checks if points are separable by a hyperplane from the polyhedron.
@@ -814,17 +816,17 @@ class ge_polyhedron(variable_ndarray):
 
             Parameters
             ----------
-                points : numpy.ndarray
+                points : :class:`numpy.ndarray`
                     Points to be evaluated if separable to polyhedron by a hyperplane.
 
             Returns
             -------
-                out : numpy.ndarray.
+                out : :class:`numpy.ndarray`
                     Boolean vector indicating T if separable to polyhedron by a hyperplane.
 
             See also
             --------
-                ineq_separates_points : Checks if a linear inequality of the polyhedron separates any point of given points.
+                :meth:`ineq_separates_points` : Checks if a linear inequality of the polyhedron separates any point of given points.
 
             Examples
             --------
@@ -849,12 +851,12 @@ class ge_polyhedron(variable_ndarray):
         elif points.ndim == 1:
             return ge_polyhedron.separable(self, numpy.array([points]))[0]
 
-    def ineq_separate_points(self: numpy.ndarray, points: numpy.ndarray) -> numpy.ndarray:
+    def ineq_separate_points(self, points: numpy.ndarray) -> "boolean_ndarray":
 
         """
-            Checks if a linear inequality in the polyhedron separates any point of given points.
+            Checks if a linear inequality of the polyhedron separates any point from the polyhedron.
 
-            One linear equalities separates the given points here::
+            One linear equalities separates one of the given points here::
 
 
                            -/ \\-
@@ -865,20 +867,20 @@ class ge_polyhedron(variable_ndarray):
 
             Parameters
             ----------
-                points : numpy.ndarray
+                points : :class:`numpy.ndarray`
 
             Returns
             -------
-                out : numpy.ndarray
-                    boolean vector indicating T if linear inequality enfolds all points
+                out : :class:`boolean_ndarray`
+                    boolean vector indicating if linear inequality enfolds all points
 
             See also
             --------
-                separable : Checks if points are inside the polyhedron.
+                :meth:`separable` : Checks if points are inside the polyhedron.
 
             Notes
             -----
-                This function is the inverse of ge_polyhedron.separable
+                This function is the inverse of :meth:`separable`
 
             Examples
             --------
@@ -887,9 +889,9 @@ class ge_polyhedron(variable_ndarray):
             ...     [ 0, 1, 0],
             ...     [ 0, 1,-1],
             ...     [-1,-1, 1]])).ineq_separate_points(points)
-            array([False, False,  True])
+            boolean_ndarray([0, 0, 1])
 
-            Points in 3-d
+            Points in 3d
 
             >>> points = numpy.array([
             ...     [[1, 1, 1],
@@ -900,36 +902,36 @@ class ge_polyhedron(variable_ndarray):
             ...     [ 0, 1, 0,-1],
             ...     [ 0, 1,-1, 0],
             ...     [-1,-1, 1,-1]])).ineq_separate_points(points)
-            array([[False, False,  True],
-                   [False,  True, False]])
+            boolean_ndarray([[0, 0, 1],
+                             [0, 1, 0]])
 
         """
         if points.ndim > 2:
-            return numpy.array(
+            return boolean_ndarray(
                 list(
                     map(self.ineq_separate_points, points)
                 )
             )
         elif points.ndim == 2:
             A, b = self.to_linalg()
-            return numpy.array(
+            return boolean_ndarray(
                 (numpy.matmul(A, points.T) < b.reshape(-1,1)).any(axis=1)
             )
         elif points.ndim == 1:
             return ge_polyhedron.ineq_separate_points(numpy.array([points]), self)
     
-    def ineqs_satisfied(self: numpy.ndarray, points: numpy.ndarray) -> numpy.ndarray:
+    def ineqs_satisfied(self, points: numpy.ndarray) -> "boolean_ndarray":
         """
-            Checks if the linear inequalities in the polyhedron are satisfied given the points, i.e. :math:`A \\cdot p \\ge b`, given :math:`p` in points.
+            Checks if the linear inequalities in the polyhedron are satisfied given the points, i.e. :math:`Ap \\ge b`, given :math:`p` in points.
 
             Parameters
             ----------
-                points : numpy.ndarray
+                points : :class:`numpy.ndarray`
 
             Returns
             -------
-                out : numpy.ndarray
-                    boolean vector indicating T if linear inequality is satisfied given the point
+                out : :class:`boolean_ndarray`
+                    boolean vector indicating if the linear inequality is satisfied given all points
 
             Examples
             --------
@@ -940,7 +942,7 @@ class ge_polyhedron(variable_ndarray):
             ...     [-1,-1, 1]])).ineqs_satisfied(points)
             boolean_ndarray([1, 0])
 
-            Points in 3-d
+            Points in 3d
 
             >>> points = numpy.array([
             ...     [[1, 1, 1],
@@ -951,12 +953,12 @@ class ge_polyhedron(variable_ndarray):
             ...     [ 0, 1, 0,-1],
             ...     [ 0, 1,-1, 0],
             ...     [-1,-1, 1,-1]])).ineqs_satisfied(points)
-            array([[1, 0],
-                   [0, 0]])
+            boolean_ndarray([[1, 0],
+                             [0, 0]])
 
         """
         if points.ndim > 2:
-            return numpy.array(
+            return boolean_ndarray(
                 list(
                     map(self.ineqs_satisfied, points)
                 )
@@ -966,32 +968,32 @@ class ge_polyhedron(variable_ndarray):
         elif points.ndim == 1:
             return ge_polyhedron.ineqs_satisfied(self, numpy.array([points]))[0]
 
-    def construct_boolean_ndarray(self: numpy.ndarray, variables: typing.List[str]) -> "boolean_ndarray":
+    def construct_boolean_ndarray(self, variables: typing.List[str]) -> "boolean_ndarray":
 
         """
-            Constructs a boolean ndarray sharing self.A's variables (i.e. without support vector).
+            Constructs a :class:`boolean_ndarray` sharing ``self.A``'s variables (i.e. without support vector).
 
             Parameters
             ----------
-            variables : list : str
+            variables : List[str]
 
             Returns
             -------
-                out : boolean_ndarray
+                out : :class:`boolean_ndarray`
         """
         return boolean_ndarray.construct(self.A, variables)
 
     
-    def column_bounds(self) -> numpy.ndarray:
+    def column_bounds(self) -> "integer_ndarray":
 
         """
             Returns the initial bounds for each variable.
 
             Returns
             -------
-                out : numpy.ndarray
+                out : :class:`numpy.ndarray`
         """
-        return numpy.array(
+        return integer_ndarray(
             list(
                 map(
                     maz.compose(
@@ -1009,6 +1011,10 @@ class ge_polyhedron(variable_ndarray):
         """
             The number of combinations for variables with non-zero coefficients row wise excluding its constraint.
 
+            Returns
+            -------
+                out : :class:`numpy.ndarray`
+
             Examples
             --------
                 >>> puan.ndarray.ge_polyhedron([[1,1,1,0,0],[1,1,0,0,0]]).n_row_combinations
@@ -1023,7 +1029,7 @@ class ge_polyhedron(variable_ndarray):
         bnds = self.column_bounds()
         return numpy.array(numpy.prod((self.A != 0)*(bnds[1]-bnds[0]+1) + (self.A == 0)*1, axis=1))
 
-    def tighten_column_bounds(self) -> numpy.ndarray:
+    def tighten_column_bounds(self) -> "integer_ndarray":
         
         """
             Returns maybe tighter column/variable bounds based on row constraints.
@@ -1036,24 +1042,24 @@ class ge_polyhedron(variable_ndarray):
             Examples
             --------
                 >>> ge_polyhedron([[0,-2,1,1,0],[1,1,0,0,0],[1,0,0,0,1],[-3,0,0,0,-1]]).tighten_column_bounds()
-                array([[1, 0, 0, 1],
-                       [1, 1, 1, 1]])
+                integer_ndarray([[1, 0, 0, 1],
+                                 [1, 1, 1, 1]])
 
                 >>> ge_polyhedron([[3,1,1,1,0]]).tighten_column_bounds()
-                array([[1, 1, 1, 0],
-                       [1, 1, 1, 1]])
+                integer_ndarray([[1, 1, 1, 0],
+                                 [1, 1, 1, 1]])
 
                 >>> ge_polyhedron([[0,-1,-1,0,0]]).tighten_column_bounds()
-                array([[0, 0, 0, 0],
-                       [0, 0, 1, 1]])
+                integer_ndarray([[0, 0, 0, 0],
+                                 [0, 0, 1, 1]])
 
                 >>> ge_polyhedron([[2,-1,-1,0]], variables=[puan.variable(0, dtype="int"), puan.variable("a", bounds=(-2,1)), puan.variable("b"), puan.variable("c")]).tighten_column_bounds()
-                array([[-2,  0,  0],
-                       [-2,  0,  1]])
+                integer_ndarray([[-2,  0,  0],
+                                 [-2,  0,  1]])
 
             Returns
             -------
-                out : numpy.array
+                out : :class:`integer_ndarray`
         """
         cm_bnds = self.column_bounds()
         min_value = puan.default_min_int
@@ -1076,36 +1082,36 @@ class ge_polyhedron(variable_ndarray):
 
         return cm_bnds
 
-    def row_bounds(self) -> numpy.ndarray:
+    def row_bounds(self) -> "integer_ndarray":
 
         """
-            Returns the row equation bounds, inclusive the bias.
-            For instance, x+y+z>=1 has bounds of (-1,2).
+            Returns the row equation bounds, including the bias.
+            For instance, :math:`x+y+z\\ge1` has bounds of (-1,2).
 
             Examples
             --------
             >>> ge_polyhedron(numpy.array([[-2, -3,  0,  0,  0]])).row_bounds()
-            array([[-1,  2]])
+            integer_ndarray([[-1,  2]])
 
             Returns
             -------
-                out : numpy.ndarray
+                out : :class:`integer_ndarray`
         """
         clm_bounds = self.column_bounds()
-        A_ = numpy.array([
+        A_ = integer_ndarray([
             clm_bounds[0]*self.A,
             clm_bounds[1]*self.A,
         ])
-        return numpy.array([
+        return integer_ndarray([
             A_.min(axis=0).sum(axis=1)-self.b, 
             A_.max(axis=0).sum(axis=1)-self.b
         ]).T
 
-    def row_distribution(self, row_index: int) -> numpy.ndarray:
+    def row_distribution(self, row_index: int) -> "integer_ndarray":
 
         """
             Returns a distribution of all combinations for each row and their values.
-            Data type is a 2D numpy array with two columns: 
+            Data type is a 2d numpy array with two columns: 
             Column index 0 is a range from lowest to highest value spot of row equation. 
             Column index 1 is a counter of how many combinations, generated from variable bounds, evaluated into that value spot.
 
@@ -1150,33 +1156,33 @@ class ge_polyhedron(variable_ndarray):
             Examples
             --------
                 >>> ge_polyhedron([[0,1,1,0],[0,2,2,0],[0,3,3,3]]).row_distribution(0)
-                array([[0, 1],
-                       [1, 2],
-                       [2, 1]])
+                integer_ndarray([[0, 1],
+                                 [1, 2],
+                                 [2, 1]])
 
                 >>> ge_polyhedron([[0,1,1,0],[0,2,2,0],[0,3,3,3]]).row_distribution(1)
-                array([[0, 1],
-                       [1, 0],
-                       [2, 2],
-                       [3, 0],
-                       [4, 1]])
+                integer_ndarray([[0, 1],
+                                 [1, 0],
+                                 [2, 2],
+                                 [3, 0],
+                                 [4, 1]])
 
                 >>> ge_polyhedron([[0,1,1,0],[0,2,2,0],[0,3,3,3]]).row_distribution(2)
-                array([[0, 1],
-                       [1, 0],
-                       [2, 0],
-                       [3, 3],
-                       [4, 0],
-                       [5, 0],
-                       [6, 3],
-                       [7, 0],
-                       [8, 0],
-                       [9, 1]])
+                integer_ndarray([[0, 1],
+                                 [1, 0],
+                                 [2, 0],
+                                 [3, 3],
+                                 [4, 0],
+                                 [5, 0],
+                                 [6, 3],
+                                 [7, 0],
+                                 [8, 0],
+                                 [9, 1]])
 
             See also
             --------
-                row_stretch      : Proportion of the number of value spots for each row equation.
-                row_stretch_int  : Row bounds range from one number to another.
+                :meth:`row_stretch`      : Proportion of the number of value spots for each row equation.
+                :meth:`row_stretch_int`  : Row bounds range from one number to another.
 
             Raises
             ------
@@ -1186,12 +1192,12 @@ class ge_polyhedron(variable_ndarray):
 
             Returns
             -------
-                out : numpy.ndarray
+                out : :class:`integer_ndarray`
         """
         if not (row_index >= 0 and row_index < self.shape[0]):
             raise Exception(f"row index {row_index} is out of bounds in polyhedron of shape {self.shape}")
 
-        variable_bounds_full = numpy.array(
+        variable_bounds_full = integer_ndarray(
             list(
                 map(
                     lambda x: list(range(x[0], x[1]+1)),
@@ -1224,9 +1230,9 @@ class ge_polyhedron(variable_ndarray):
             )
         )
 
-        return numpy.array([list(keys), list(values)]).T
+        return integer_ndarray([list(keys), list(values)]).T
 
-    def row_stretch(self) -> numpy.ndarray:
+    def row_stretch(self) -> "integer_ndarray":
 
         """
             This shows the proportion of the number of value spots for each
@@ -1237,8 +1243,8 @@ class ge_polyhedron(variable_ndarray):
 
             See also
             --------
-                row_distribution : Distribution of possible equation outcomes.
-                row_stretch_int  : Row bounds range from one number to another.
+                :meth:`row_distribution` : Distribution of possible equation outcomes.
+                :meth:`row_stretch_int`  : Row bounds range from one number to another.
 
             Examples
             --------
@@ -1247,7 +1253,7 @@ class ge_polyhedron(variable_ndarray):
 
             Returns
             -------
-                out : numpy.array
+                out : :class:`integer_ndarray`
         """
         cm_bnds = self.column_bounds()
         rw_bnds = self.row_bounds()
@@ -1258,8 +1264,8 @@ class ge_polyhedron(variable_ndarray):
         """
             Row bounds range from one number to another. They normally
             have at least one combination for each number in this range.
-            This function returns a number $\leq0$ for each row bound representing
-            its "stretch". If the number is $<0$, then there exists a gap in
+            This function returns a number :math:`\leq0` for each row bound representing
+            its "stretch". If the number is :math:`<0`, then there exists a gap in
             that row's bounds.
 
             As in example 2, there are no valid combinations summing up to the value spots 2 or 4. What this
@@ -1268,8 +1274,8 @@ class ge_polyhedron(variable_ndarray):
 
             See also
             --------
-                row_distribution : Distribution of possible equation outcomes.
-                row_stretch      : Proportion of the number of value spots for each row equation.
+                :meth:`row_distribution` : Distribution of possible equation outcomes.
+                :meth:`row_stretch`      : Proportion of the number of value spots for each row equation.
 
             Examples
             --------
@@ -1283,45 +1289,59 @@ class ge_polyhedron(variable_ndarray):
 
             Notes
             -----
-            This operation uses `row_distribution` which will generate all combinations from variable bounds and may require heavy computation. 
+            This operation uses :meth:`row_distribution` which will generate all combinations from variable bounds and may require heavy computation. 
             It is supposed to be used as an analysis tool. Use it with caution.
 
             Returns
             -------
-                out : int
+                out : ``int``
         """
         rng, n = self.row_distribution(row_index).T
         return int((n != 0).sum() - (rng[-1]-rng[0]) -1)
 
-
 class integer_ndarray(variable_ndarray):
     """
-        A numpy.ndarray sub class with only integers in it.
+        A :class:`numpy.ndarray` sub class with only integers in it.
 
         Attributes
         ----------
-        See numpy.array
+            See : :class:`numpy.ndarray`
 
         Methods
         -------
-        compress
-            Takes an integer ndarray and compresses it into a vector.
-        to_value_map
-            reduces the matrix into a value map.
+        ndint_compress
         from_list
-            Turns a list (or list of list) of strings into an integer vector. (static)
+        get_neighbourhood
+        ranking
+        reduce2d
     """
 
 
-    def reduce2d(self: numpy.ndarray, method: typing.Literal["first", "last"]="first", axis: int=0) -> numpy.ndarray:
+    def reduce2d(self, method: typing.Literal["first", "last"]="first", axis: int=0) -> numpy.ndarray:
         """
             Reduces integer ndarray to only keeping one value of the given axis (default is 0) according to the provided method.
+
+            Parameters
+            ----------
+            method : Literal["first", "last"]
+                Which value to keep. Default "first".
+            axis : ``int``
+                Default 0.
+
+            Examples
+            --------
+            >>> integer_ndarray([[1, 2, 3], [4, 5, 6]]).reduce2d()
+            integer_ndarray([[1, 2, 3],
+                             [0, 0, 0]])
+            >>> integer_ndarray([[1, 2, 3], [4, 5, 6]]).reduce2d(method="last", axis=1)
+            integer_ndarray([[0, 0, 3],
+                             [0, 0, 6]])
         """
         if not self.ndim == 2:
-            raise ValueError(f"ndarray must be 2-D, is {self.ndim}-D")
+            raise ValueError(f"ndarray must be 2d, is {self.ndim}d")
         self = numpy.swapaxes(self, 0, axis)
         col_idxs = numpy.arange(self.shape[1])
-        self_reduced = numpy.zeros(self.shape)
+        self_reduced = integer_ndarray(numpy.zeros(self.shape))
         if method == "first":
             row_idxs = (self != 0).argmax(axis=0).flatten()
             self_reduced[row_idxs, col_idxs] = 1
@@ -1334,9 +1354,22 @@ class integer_ndarray(variable_ndarray):
             raise ValueError(f"Method not recognized, must be either 'first' or 'last', is {method}.")
         return numpy.swapaxes(self_reduced, 0, axis)
 
-    def ranking(self: numpy.ndarray) -> numpy.ndarray:
+    def ranking(self) -> "integer_ndarray":
+        """
+            Ranks an :class:`integer_ndarray`.
+
+            Examples
+            --------
+            >>> integer_ndarray([[1, 0, 5], [2, 2, 6]]).ranking()
+            integer_ndarray([[1, 0, 2],
+                             [1, 1, 2]])
+            
+            Returns
+            -------
+                out : :class:`integer_ndarray`
+        """
         if self.ndim > 1:
-            return list(map(integer_ndarray.ranking, self))
+            return integer_ndarray(list(map(integer_ndarray.ranking, self)))
         elif self.ndim == 1:
             idx_sorted = numpy.argsort(self)
             self = self[idx_sorted]
@@ -1352,7 +1385,7 @@ class integer_ndarray(variable_ndarray):
         else:
             raise ValueError("Dimension out of bounds")
 
-    def ndint_compress(self: numpy.ndarray, method: typing.Literal["first", "last", "min", "max", "prio", "shadow"]="min", axis: int=None, dtype=numpy.int64) -> numpy.ndarray:
+    def ndint_compress(self, method: typing.Literal["first", "last", "min", "max", "prio", "shadow"]="min", axis: int=None, dtype=numpy.int64) -> "integer_ndarray":
 
         """
             Takes an integer ndarray and compresses it into a vector under different conditions given by `method`.
@@ -1372,8 +1405,8 @@ class integer_ndarray(variable_ndarray):
 
             Returns
             -------
-                out : numpy.ndarray
-                    If input integer ndarray is input array is M-D the returned array is (M-1)-D
+                out : :class:`numpy.ndarray`
+                    If input integer ndarray is input array is ``M-D`` the returned array is ``(M-1)-D``
 
             Examples
             --------
@@ -1566,10 +1599,10 @@ class integer_ndarray(variable_ndarray):
             print("Method not recognized")
             return
 
-    def get_neighbourhood(self: numpy.ndarray, method: typing.Literal["all", "addition", "subtraction"]="all", delta: typing.Union[int, numpy.ndarray]=1) -> "integer_ndarray":
+    def get_neighbourhood(self, method: typing.Literal["all", "addition", "subtraction"]="all", delta: typing.Union[int, numpy.ndarray]=1) -> "integer_ndarray":
         """
-            Computes all neighbourhoods to an integer ndarray. A neighbourhood to the integer ndarray :math:`x` is defined as the
-            integer ndarray :math:`y` which for one variable differs by *delta*, the values for the other variables are identical.
+            Computes all neighbourhoods to an :class:`integer_ndarray`. A neighbourhood to the :class:`integer_ndarray` :math:`x` is defined as the
+            :class:`integer_ndarray` :math:`y` which for one variable differs by *delta*, the values for the other variables are identical.
 
             Parameters
             ----------
@@ -1580,57 +1613,57 @@ class integer_ndarray(variable_ndarray):
                     - 'addition' computes all neighbourhoods with *delta* added
                     - 'subtraction' computes all neighbourhoods with *delta* subtracted
 
-                delta : int or numpy.ndarray, optional
+                delta : ``int`` or :class:`numpy.ndarray`, optional
                     The value added or subtracted for each variable to reach the neighbourhood, default is 1.
                     If delta is given as an array it is interpreted as different deltas for each variable.
 
             Returns
             -------
-                out : integer_ndarray
-                    If input dimension is M-D the returned integer ndarray is M+1-D
+                out : :class:`integer_ndarray`
+                    If input dimension is ``M-D`` the returned :class:`integer_ndarray` is ``M+1-D``
 
             Examples
             --------
                 >>> x = integer_ndarray([0,0,0])
                 >>> x.get_neighbourhood()
-                array([[ 1,  0,  0],
-                       [ 0,  1,  0],
-                       [ 0,  0,  1],
-                       [-1,  0,  0],
-                       [ 0, -1,  0],
-                       [ 0,  0, -1]])
+                integer_ndarray([[ 1,  0,  0],
+                                 [ 0,  1,  0],
+                                 [ 0,  0,  1],
+                                 [-1,  0,  0],
+                                 [ 0, -1,  0],
+                                 [ 0,  0, -1]])
 
                 >>> x = integer_ndarray([[0,0,0], [0,0,0]])
                 >>> x.get_neighbourhood()
-                array([[[ 1,  0,  0],
-                        [ 0,  1,  0],
-                        [ 0,  0,  1],
-                        [-1,  0,  0],
-                        [ 0, -1,  0],
-                        [ 0,  0, -1]],
+                integer_ndarray([[[ 1,  0,  0],
+                                  [ 0,  1,  0],
+                                  [ 0,  0,  1],
+                                  [-1,  0,  0],
+                                  [ 0, -1,  0],
+                                  [ 0,  0, -1]],
                 <BLANKLINE>
-                       [[ 1,  0,  0],
-                        [ 0,  1,  0],
-                        [ 0,  0,  1],
-                        [-1,  0,  0],
-                        [ 0, -1,  0],
-                        [ 0,  0, -1]]])
+                                 [[ 1,  0,  0],
+                                  [ 0,  1,  0],
+                                  [ 0,  0,  1],
+                                  [-1,  0,  0],
+                                  [ 0, -1,  0],
+                                  [ 0,  0, -1]]])
 
                 >>> x = integer_ndarray([0, 1, 2])
                 >>> x.get_neighbourhood(delta=3)
-                array([[ 3,  1,  2],
-                       [ 0,  4,  2],
-                       [ 0,  1,  5],
-                       [-3,  1,  2],
-                       [ 0, -2,  2],
-                       [ 0,  1, -1]])
+                integer_ndarray([[ 3,  1,  2],
+                                 [ 0,  4,  2],
+                                 [ 0,  1,  5],
+                                 [-3,  1,  2],
+                                 [ 0, -2,  2],
+                                 [ 0,  1, -1]])
                 >>> x.get_neighbourhood(delta=numpy.array([1, 2, 3]))
-                array([[ 1,  1,  2],
-                       [ 0,  3,  2],
-                       [ 0,  1,  5],
-                       [-1,  1,  2],
-                       [ 0, -1,  2],
-                       [ 0,  1, -1]])
+                integer_ndarray([[ 1,  1,  2],
+                                 [ 0,  3,  2],
+                                 [ 0,  1,  5],
+                                 [-1,  1,  2],
+                                 [ 0, -1,  2],
+                                 [ 0,  1, -1]])
 
                 >>> x = integer_ndarray([[0,0,0], [0,0,0]])
                 >>> x.get_neighbourhood(method="addition")
@@ -1662,55 +1695,22 @@ class integer_ndarray(variable_ndarray):
             dec_neighbourhood = numpy.tile(self, nvars).reshape(list(self.shape)+[nvars]) -  numpy.tile(delta * numpy.eye(nvars, dtype=numpy.int64), (list(self.shape)[:-1] + [1])).reshape(list(self.shape)+[nvars])
             if method == "subtraction":
                 return dec_neighbourhood
-        return numpy.concatenate((inc_neighbourhood, dec_neighbourhood), axis=self.ndim-1)
-
-
-    def to_value_map(self: numpy.ndarray, mapping: dict = {}) -> dict:
-
-        """
-            to_value_map reduces the matrix into a value map.
-
-            Parameters
-            ----------
-                mapping : dict
-                    An ordinary dict, mapping one value to another
-
-            Returns
-            -------
-                dictionary: value -> indices
-
-            Notes
-            -----
-                Since zeros are excluded in a value map, leading zero rows/columns will not be included.
-
-        """
-        return {
-            value: [
-                [
-                    mapping[j] if j in mapping and i > 0 and j > 0 else j
-                    for j in k
-                ]
-                for i, k in enumerate(numpy.argwhere(self == value).T.tolist())
-            ]
-            for value in set(self[self != 0])
-        }
+        return integer_ndarray(numpy.concatenate((inc_neighbourhood, dec_neighbourhood), axis=self.ndim-1))
 
     @staticmethod
-    def from_list(lst: list, context: typing.List[str]) -> "integer_ndarray":
+    def from_list(lst: typing.List[str], context: typing.List[str]) -> "integer_ndarray":
         """
             Turns a list (or list of list) of strings into an integer vector, where each value represents
             which order the string in lst was positioned.
 
             Parameters
             ----------
-            lst : list
-                List of strings
-            context : list
-                List of strings
+            lst     : List[str]
+            context : List[str]
 
             Returns
             -------
-                out : integer_ndarray
+                out : :class:`integer_ndarray`
 
             Examples
             --------
@@ -1736,16 +1736,17 @@ class integer_ndarray(variable_ndarray):
 
 class boolean_ndarray(variable_ndarray):
     """
-        A numpy.ndarray sub class with only booleans in it.
+        A :class:`numpy.ndarray` sub class with only booleans in it.
 
         Attributes
         ----------
-        See numpy.array
+            See : :class:`numpy.ndarray`
 
         Methods
         -------
         from_list
-            Turns a list of strings into a boolean (0/1) vector. (static)
+        to_list
+        get_neighbourhood
     """
 
     @staticmethod
@@ -1755,23 +1756,23 @@ class boolean_ndarray(variable_ndarray):
 
             Parameters
             ----------
-            lst : list
-                list of variables as strings
+            lst : List[str]
+                list of variables ids
 
-            context : list
-                list of context variables as strings
+            context : List[str]
+                list of context variables ids
 
             Returns
             -------
-                out : list
+                out : :class:`boolean_ndarray`
                     booleans with same dimension as **context**
 
             Examples
             --------
-                >>> variables = ["a","c","b"]
+                >>> variables = ["a","d","b"]
                 >>> context = ["a","b","c","d"]
                 >>> boolean_ndarray.from_list(variables, context)
-                boolean_ndarray([1, 1, 1, 0])
+                boolean_ndarray([1, 1, 0, 1])
 
         """
         if len(lst) == 0:
@@ -1795,7 +1796,7 @@ class boolean_ndarray(variable_ndarray):
 
             Returns
             -------
-                out : list : puan.variable
+                out : List[:class:`puan.variable`]
         """
 
         if self.ndim == 1:
@@ -1811,9 +1812,9 @@ class boolean_ndarray(variable_ndarray):
                 )
             )
 
-    def get_neighbourhood(self: numpy.ndarray, method: typing.Literal["on_off", "on", "off"]="on_off") -> "boolean_ndarray":
+    def get_neighbourhood(self, method: typing.Literal["on_off", "on", "off"]="on_off") -> "boolean_ndarray":
         """
-            Computes all neighbourhoods to a boolean ndarray. A neighbourhood to the boolean ndarray :math:`x` is defined as the
+            Computes all neighbourhoods to a :class:`boolean_ndarray`. A neighbourhood to the boolean ndarray :math:`x` is defined as the
             boolean ndarray :math:`y` which for one and only one variable in :math:`x` is the complement.
 
             Parameters
@@ -1827,8 +1828,8 @@ class boolean_ndarray(variable_ndarray):
 
             Returns
             -------
-                out : integer_ndarray
-                    If input dimension is M-D the returned integer ndarray is M+1-D
+                out : :class:`boolean_ndarray`
+                    If input dimension is ``M-D`` the returned integer ndarray is ``M+1-D``
 
             Examples
             --------
@@ -1869,16 +1870,23 @@ class boolean_ndarray(variable_ndarray):
             return
         return _res[~(_res==self).all(axis=self.ndim-1)]
 
-
 class InfeasibleError(Exception):
     """In context of solving on polyhedron and no feasible solution exists"""
     pass
 
 class ge_polyhedron_config(ge_polyhedron):
 
-    """A ``puan.ge_polyhedron`` sub class with specific configurator features."""
+    """
+        A :class:`ge_polyhedron` sub class with specific configurator features.
 
-    def __new__(cls, input_array, default_prio_vector: numpy.ndarray = None, variables: typing.List[puan.variable] = [], index: typing.List[typing.Union[int, puan.variable]] = [], dtype=numpy.int64):
+        Methods
+        -------
+        select : select items to prioritize and receives a solution for each in prios list.
+        to_b64 : packs data into a base64 string.
+        from_b64 : unpacks base64 string `base64_str` into some data.
+    """
+
+    def __new__(cls, input_array: numpy.ndarray, default_prio_vector: numpy.ndarray = None, variables: typing.List[puan.variable] = [], index: typing.List[typing.Union[int, puan.variable]] = [], dtype=numpy.int64):
         arr = super().__new__(cls, input_array, variables=variables, index=index, dtype=dtype)
         arr.default_prio_vector = default_prio_vector if default_prio_vector is not None else -numpy.ones((arr.A.shape[1]))
         return arr
@@ -1924,7 +1932,7 @@ class ge_polyhedron_config(ge_polyhedron):
     ) -> typing.List[typing.List[puan.SolutionVariable]]:
 
         """
-            Select items to prioritize and receives a solution for each in prio's list.
+            Select items to prioritize and receives a solution for each in prios list.
 
             Parameters
             ----------
@@ -1933,12 +1941,13 @@ class ge_polyhedron_config(ge_polyhedron):
 
                 solver: typing.Callable[[ge_polyhedron, typing.Dict[str, int]], typing.List[(np.ndarray, int, int)]] = None
                     If None is provided puan's own (beta) solver is used. If you want to provide another solver
-                    you have to send a function as solver parameter. That function has to take a `ge_polyhedron` and
-                    a 2D numpy array representing all objectives, as input. NOTE that the polyhedron DOES NOT provide constraints for variable
+                    you have to send a function as solver parameter. That function has to take a :class:`ge_polyhedron` and
+                    a 2d numpy array representing all objectives, as input. NOTE that the polyhedron DOES NOT provide constraints for variable
                     bounds. Variable bounds are found under each variable under `polyhedron.variables` and constraints for 
                     these has to manually be created and added to the polyhedron matrix. The function should return a list, one for each
                     objective, of tuples of (solution vector, objective value, status code). The solution vector is an integer ndarray vector
-                    of size equal to width of `polyhedron.A`. There are six different status codes from 1-6:
+                    of size equal to width of ``polyhedron.A``. There are six different status codes from 1-6:
+
                     - 1: solution is undefined
                     - 2: solution is feasible
                     - 3: solution is infeasible
@@ -1967,7 +1976,7 @@ class ge_polyhedron_config(ge_polyhedron):
 
             Returns
             -------
-                out : typing.List[typing.List[puan.SolutionVariable]]
+                out : List[List[:class:`SolutionVariable<puan.SolutionVariable>`]]
         """
         try:
             variables = self.A.variables
@@ -2061,7 +2070,7 @@ class ge_polyhedron_config(ge_polyhedron):
 
             Returns
             -------
-                out : str
+                out : ``str``
         """
         return base64.b64encode(
             gzip.compress(
@@ -2077,11 +2086,11 @@ class ge_polyhedron_config(ge_polyhedron):
     def from_b64(base64_str: str) -> "ge_polyhedron_config":
 
         """
-            Unpacks base64 string `base64_str` into some data.
+            Unpacks base64 string ``base64_str`` into some data.
 
             Parameters
             ----------
-                base64_str: str
+                base64_str: ``str``
 
             Raises
             ------
@@ -2090,7 +2099,7 @@ class ge_polyhedron_config(ge_polyhedron):
 
             Returns
             -------
-                out : dict
+                out : :class:`ge_polyhedron_config`
         """
         try:
             return ge_polyhedron_config(
@@ -2109,9 +2118,8 @@ class ge_polyhedron_config(ge_polyhedron):
 """
     Function binding to function variables
     that should directly be accessible through
-    puan.* on first level (e.g puan.to_linalg())
+    puan.ndarray.* on first level (e.g puan.ndarray.to_linalg())
 """
-to_value_map =                  ge_polyhedron.to_value_map
 to_linalg =                     ge_polyhedron.to_linalg
 reducable_columns_approx =      ge_polyhedron.reducable_columns_approx
 reduce_columns =                ge_polyhedron.reduce_columns

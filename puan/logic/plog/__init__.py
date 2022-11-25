@@ -22,29 +22,36 @@ class PropositionValidationError(str, enum.Enum):
     CIRCULAR_DEPENDENCIES = "CIRCULAR_DEPENDENCIES"
     AMBIVALENT_VARIABLE_DEFINITIONS = "AMBIVALENT_VARIABLE_DEFINITIONS"
 
+class Sign(enum.IntEnum):
+    """
+        Sign, either positive or negative
+    """
+    POSITIVE = 1
+    NEGATIVE = -1
 
 class AtLeast(puan.StatementInterface):
 
     """
-        ``AtLeast`` proposition is in its core a regular at least expression (e.g. :math:`x+y+z \ge 1`), but restricted
-        to having only +1 or -1 as variable coefficients. This is set by the `sign` property. An ``AtLeast`` proposition
+        :class:`AtLeast` proposition is in its core a regular at least expression (e.g. :math:`x+y+z \\ge 1`), but restricted
+        to having only +1 or -1 as variable coefficients. This is set by the ``sign`` parameter. An :class:`AtLeast` proposition
         is considered invalid if there are no sub propositions given.
 
         Notes
         -----
-            - `propositions` may take on any integer value given by their inner bounds, i.e. they are not restricted to boolean values.
-            - `propositions` list cannot be empty.
-            - `sign` parameter take only -1 or 1 as value.
-            - `variable` may be of type ``puan.variable``, ``str`` or ``None``. 
-                - If ``str``, a default ``puan.variable`` will be constructed with its id=variable.
-                - If ``None``, then an id will be generated based on its propositions, value and sign.
+            - ``propositions`` may take on any integer value given by their inner bounds, i.e. they are not restricted to boolean values.
+            - ``propositions`` list cannot be empty.
+            - ``sign`` parameter take only -1 or 1 as value.
+            - ``variable`` may be of type :class:`puan.variable`, ``str`` or ``None``.
+
+                - If ``str``, a default :class:`puan.variable` will be constructed with its id=variable.
+                - If ``None``, then an id will be generated based on its ``propositions``, ``value`` and ``sign``.
 
         Raises
         ------
             Exception
-                | If `sign` is not -1 or 1.
-                | If `propositions` is either empty or None.
-                | If variable bounds is not (0, 1).
+                | If ``sign`` is not -1 or 1.
+                | If ``propositions`` is either empty or None.
+                | If :class:`variable.bounds<puan.Bounds>` is not (0, 1).
 
         Examples
         --------
@@ -59,9 +66,34 @@ class AtLeast(puan.StatementInterface):
         At least eight of t. Notice the ``dtype`` on variable `t`
             >>> AtLeast(value=8, propositions=[puan.variable("t", dtype="int")], variable="A")
             A: +(t)>=8
+        
+        Methods
+        -------
+        atomic_propositions
+        bounds
+        compound_propositions
+        equation_bounds
+        errors
+        evaluate
+        evaluate_propositions
+        flatten
+        from_json
+        from_short
+        id
+        is_contradiction
+        is_tautologi
+        negate
+        solve
+        to_b64
+        to_ge_polyhedron
+        to_json
+        to_short
+        to_text
+        variables
+
     """
     
-    def __init__(self, value: int, propositions: typing.List[typing.Union[str, puan.variable]], variable: typing.Union[str, puan.variable] = None, sign: int = 1):
+    def __init__(self, value: int, propositions: typing.List[typing.Union[str, puan.variable]], variable: typing.Union[str, puan.variable] = None, sign: Sign = Sign.POSITIVE):
         self.generated_id = False
         self.value = value
         self.sign = sign
@@ -69,7 +101,7 @@ class AtLeast(puan.StatementInterface):
             raise Exception(f"`sign` of AtLeast proposition must be either -1 or 1, got: {sign}")
 
         if sign is None:
-            self.sign = 1 if value > 0 else -1
+            self.sign = Sign.POSITIVE if value > 0 else Sign.NEGATIVE
 
         propositions_list = list(propositions)
         if propositions is None or len(propositions_list) == 0:
@@ -123,7 +155,7 @@ class AtLeast(puan.StatementInterface):
     def __hash__(self):
         return hash(self.variable.id)
 
-    def _id_generator(propositions, value: int, sign: int, prefix: str = "VAR"):
+    def _id_generator(propositions, value: int, sign: int, prefix: str = "VAR") -> str:
         return prefix + hashlib.sha256(
             str(
                 "".join(
@@ -142,48 +174,82 @@ class AtLeast(puan.StatementInterface):
         ).hexdigest()
 
     @property
-    def id(self):
+    def id(self) -> str:
+        """
+            Id of this proposition.
+
+            Returns
+            -------
+                out : str
+        """
         return self.variable.id
 
     @property
-    def bounds(self):
+    def bounds(self) -> puan.Bounds:
+        """
+            Variable bounds of this proposition.
+
+            Returns
+            -------
+                out : :class:`puan.Bounds`
+        """
         return self.variable.bounds
 
     @property
-    def compound_propositions(self) -> iter:
+    def compound_propositions(self) -> typing.Iterable["AtLeast"]:
         """
-            All propositions of (inheriting) type ``AtLeast``.
+            All propositions of (inheriting) type :class:`AtLeast`.
 
             Examples
             --------
-                >>> proposition = AtLeast(value=1, propositions=["a", AtLeast(value=2, propositions=list("xy"), variable="B")], variable="A")
+                >>> proposition = AtLeast(value=1,
+                ...     propositions=["a", AtLeast(value=2, propositions=list("xy"), variable="B")],
+                ...     variable="A")
                 >>> list(proposition.compound_propositions)
                 [B: +(x,y)>=2]
+            
+            See also
+            --------
+                atomic_propositions
+            
+            Returns
+            -------
+                out : Iterable[:class:`AtLeast`]
         """
         return filter(lambda x: type(x) != puan.variable, self.propositions)
 
     @property
-    def atomic_propositions(self) -> iter:
+    def atomic_propositions(self) -> typing.Iterable[puan.variable]:
         """
-            All propositions of type ``puan.variable``.
+            All propositions of type :class:`puan.variable`.
 
             Examples
             --------
-                >>> proposition = AtLeast(value=1, propositions=["a", AtLeast(value=2, propositions=list("xy"), variable="B")], variable="A")
+                >>> proposition = AtLeast(value=1,
+                ...     propositions=["a", AtLeast(value=2, propositions=list("xy"), variable="B")],
+                ...     variable="A")
                 >>> list(proposition.atomic_propositions)
                 [variable(id='a', bounds=Bounds(lower=0, upper=1))]
+            
+            See also
+            --------
+                compound_propositions
+            
+            Returns
+            -------
+                out : Iterable[:class:`puan.variable`]
         """
         return filter(lambda x: type(x) == puan.variable, self.propositions)
 
     @property
-    def variables(self) -> list:
+    def variables(self) -> typing.List[puan.variable]:
 
         """
-            All (including in sub propositions) variables in this proposition.
+            All variables in this proposition (including sub propositions).
 
             Returns
             -------
-                out : typing.List[puan.variable]
+                out : List[:class:`puan.variable`]
         """
         return sorted(
             set(
@@ -196,7 +262,7 @@ class AtLeast(puan.StatementInterface):
             )
         )
 
-    def flatten(self) -> list:
+    def flatten(self) -> typing.List[typing.Union["AtLeast", puan.variable]]:
 
         """
             Returns all its propositions and their sub propositions as a unique list of propositions.
@@ -207,6 +273,10 @@ class AtLeast(puan.StatementInterface):
                 ... AtLeast(1, ["c", "d"], "C"), "e"], "A")
                 >>> proposition.flatten()
                 [A: +(B,C,e)>=1, B: +(a,b)>=1, C: +(c,d)>=1, variable(id='a', bounds=Bounds(lower=0, upper=1)), variable(id='b', bounds=Bounds(lower=0, upper=1)), variable(id='c', bounds=Bounds(lower=0, upper=1)), variable(id='d', bounds=Bounds(lower=0, upper=1)), variable(id='e', bounds=Bounds(lower=0, upper=1))]
+        
+            Returns
+            -------
+                out : List[Union[:class:`AtLeast`, :class:`puan.variable`]]
         """
 
         return sorted(
@@ -235,7 +305,7 @@ class AtLeast(puan.StatementInterface):
 
             Returns
             ------- 
-                out : typing.List[typing.Tuple[puan.variable, typing.List[puan.variable]]]
+                out : List[Tuple[:class:`puan.variable`, List[:class:`puan.variable`]]]
         """
         return list(
             itertools.chain(
@@ -264,11 +334,10 @@ class AtLeast(puan.StatementInterface):
             )
         )
 
-
     def errors(self) -> typing.List[PropositionValidationError]:
 
         """
-            Checks this proposition and returns a list of PropositionValidationError's. 
+            Checks this proposition and returns a list of :class:`PropositionValidationError`'s. 
 
             Examples
             --------
@@ -281,9 +350,9 @@ class AtLeast(puan.StatementInterface):
                 >>> All(Any(*"ab", variable="A"), Any(puan.variable("A", (-10,10)))).errors()
                 [<PropositionValidationError.AMBIVALENT_VARIABLE_DEFINITIONS: 'AMBIVALENT_VARIABLE_DEFINITIONS'>]
 
-            Return
-            ------
-                out : typing.List[PropositionValidationError]
+            Returns
+            -------
+                out : List[:class:`PropositionValidationError`]
         """
         errors = []
         deps = self._dependencies()
@@ -310,16 +379,14 @@ class AtLeast(puan.StatementInterface):
 
         return list(set(errors))
 
-
-
-    def _to_pyrs_theory(self) -> (pst.TheoryPy, typing.Dict[str, tuple]):
+    def _to_pyrs_theory(self) -> typing.Tuple[pst.TheoryPy, typing.Dict[str, tuple]]:
 
         """
             Converts this plog model into a puan-rspy Theory.
 
             Returns
             -------
-                out : (pst.TheoryPy, typing.Dict[str, tuple])
+                out : Tuple[:class:`pst.TheoryPy`, Dict[``str``, ``tuple``])
         """
         flatten = self.flatten()
         flatten_dict = dict(zip(map(lambda x: x.id, flatten), flatten))
@@ -349,6 +416,7 @@ class AtLeast(puan.StatementInterface):
                                 )
                             ),
                             bias=-1*x.value,
+                            sign=pst.SignPy.Positive if x.sign == Sign.POSITIVE else pst.SignPy.Negative
                         ) if type(x) != puan.variable else None,
                     ),
                     flatten_dict.values()
@@ -356,22 +424,22 @@ class AtLeast(puan.StatementInterface):
             )
         ), variable_id_map
 
-    def to_polyhedron(self, active: bool = False, reduced: bool = False) -> pnd.ge_polyhedron:
+    def to_ge_polyhedron(self, active: bool = False, reduced: bool = False) -> pnd.ge_polyhedron:
 
         """
-            Converts into a polyhedron.
+            Converts into a :class:`ge_polyhedron<puan.ndarray.ge_polyhedron>`.
 
-            Properties
+            Parameters
             ----------
                 active : bool = False
                     If true, then the top node id will be assumed to be true.
 
-                reduced: : bool = False
+                reduced : bool = False
                     If true, then methods will be applied to the polyhedron in an attempt to reduce its size. 
 
             Returns
             -------
-                out : pnd.ge_polyhedron
+                out : :class:`puan.ndarray.ge_polyhedron`
         """
 
         flatten = self.flatten()
@@ -402,12 +470,13 @@ class AtLeast(puan.StatementInterface):
                                 )
                             ),
                             bias=-1*x.value,
+                            sign=pst.SignPy.Positive if x.sign == Sign.POSITIVE else pst.SignPy.Negative
                         ) if type(x) != puan.variable else None,
                     ),
                     flatten_dict.values()
                 )
             )
-        ).to_polyhedron(active, reduced)
+        ).to_ge_polyhedron(active, reduced)
 
         id_variable_map = dict(variable_id_map.values())
         polyedron_array = np.hstack(
@@ -447,7 +516,7 @@ class AtLeast(puan.StatementInterface):
 
             Returns
             -------
-                out : AtLeast
+                out : :class:`AtLeast`
         """
         negated = AtLeast(
             value=(self.value*-1)+1,
@@ -488,7 +557,7 @@ class AtLeast(puan.StatementInterface):
         return negated
 
     @property
-    def _equation_mm(self) -> tuple:
+    def _equation_mm(self) -> typing.Tuple[int, int]:
 
         """Max min value of equation exclusive bias"""
         can_min_val = sum(map(lambda x: min(x.bounds.as_tuple())*self.sign, self.propositions))
@@ -498,9 +567,9 @@ class AtLeast(puan.StatementInterface):
         return (min_val, max_val)
 
     @property
-    def equation_bounds(self) -> tuple:
+    def equation_bounds(self) -> typing.Tuple[int, int]:
         """
-            The range of values the left hand side of equations on the form :math:`ax + by + cz - value(bias) \ge 0` can take.
+            The range of values the left hand side of equations on the form :math:`ax + by + cz - value(bias) \\ge 0` can take.
 
             Examples
             --------
@@ -522,7 +591,7 @@ class AtLeast(puan.StatementInterface):
 
             Returns
             -------
-                out : tuple
+                out : Tuple[int, int]
         """
         mn, mx = self._equation_mm
         return (mn-self.value, mx-self.value)
@@ -605,14 +674,14 @@ class AtLeast(puan.StatementInterface):
     def evaluate(self, interpretation: typing.Dict[typing.Union[str, puan.variable], int]) -> bool:
 
         """
-            Evaluates interpretation on this model. It will evaluate sub propositions
+            Evaluates ``interpretation`` on this model. It will evaluate sub propositions
             bottoms-up and propagate results upwards. This means that even though 
-            intermediate variables are not set in interpretation, they receive a value
-            based on the evaluation of its propositions.
+            intermediate variables are not set in ``interpretation``, they receive a value
+            based on the evaluation of its ``propositions``.
 
             Parameters
             ----------
-                interpretation: typing.Dict[typing.Union[str, puan.variable], int]
+                interpretation : Dict[Union[str, :class:`puan.variable`], int]
                     the values of the variables in the model to evaluate it for
 
             Examples
@@ -634,27 +703,27 @@ class AtLeast(puan.StatementInterface):
             
             See also
             --------
-                evaluate_propositions      : Evaluates propositions on this model given a dict with variables and their values.
+                evaluate_propositions      : Evaluates propositions on this model given a ``dict`` with variables and their values.
             
             Returns
             -------
-                bool
+                out : bool
         """
 
         return self.evaluate_propositions(interpretation)[self.variable.id] > 0
 
     def evaluate_propositions(self, interpretation: typing.Dict[typing.Union[str, puan.variable], int]) -> typing.Dict[typing.Union[str, puan.variable], int]:
         """
-            Evaluates propositions on this model given a dict with variables and their values.
+            Evaluates propositions on this model given a ``dict`` with variables and their values.
 
             Parameters
             ----------
-                interpretation: typing.Dict[typing.Union[str, puan.variable]
+                interpretation : Dict[Union[str, :class:`puan.variable`], int]
                     the values of the variables in the model to evaluate it for
             
             Notes
             -----
-            Bounds and dtypes of puan.variables in the interpretation are neglected, those values are only considered for the variables of the model.
+            ``Bounds`` and ``dtypes`` of :class:`puan.variables<puan.variable>` in the interpretation are neglected, those values are only considered for the variables of the model.
 
             A variable which is not included in the initial dict is calculated from its sub propositions or
             defaulted to its lower bound (if variable doesn't have any subpropositions).
@@ -669,11 +738,11 @@ class AtLeast(puan.StatementInterface):
 
                 >>> AtLeast(propositions=[puan.variable("x", dtype="int")],
                 ... value=10).evaluate_propositions({"x": 9})
-                {'x': 9, 'VARa6aef82726db5033e4b25e6fec8b5770cf89fe44ff8336731eef2bfa9a8ab35f': 0}
+                {'x': 9, 'VAR30d4fb455c3588c3639096e581aa2db374e611b8a054332ccf8579d36b757a0a': 0}
 
                 >>> AtLeast(propositions=[puan.variable("x", dtype="int")],
                 ... value=10).evaluate_propositions({"x": 10})
-                {'x': 10, 'VARa6aef82726db5033e4b25e6fec8b5770cf89fe44ff8336731eef2bfa9a8ab35f': 1}
+                {'x': 10, 'VAR30d4fb455c3588c3639096e581aa2db374e611b8a054332ccf8579d36b757a0a': 1}
             
             See also
             --------
@@ -681,7 +750,7 @@ class AtLeast(puan.StatementInterface):
 
             Returns
             -------
-                out : typing.Dict[typing.Union[str, puan.variable], int]
+                out : Dict[Union[str, :class:`puan.variable`], int]
         """
         def _check_variable_in_bounds(id, val, bounds):
             if val not in range(bounds.lower, bounds.upper+1):
@@ -715,7 +784,7 @@ class AtLeast(puan.StatementInterface):
                 _check_variable_in_bounds(x, y, interpretation_map[x].bounds)
         return _evaluate_propositions(self, interpretation)
 
-    def to_short(self) -> tuple:
+    def to_short(self) -> typing.Tuple[str, int, typing.List[str], int, typing.List[int]]:
 
         """
             `short` is a tuple format with five element types:
@@ -723,16 +792,16 @@ class AtLeast(puan.StatementInterface):
 
             Notes
             -----
-                to_short does not include sub propositions if any
+                :meth:`to_short` does not include sub propositions if any
 
             Examples
             --------
                 >>> All("x","y","z",variable="A").to_short()
-                ('A', 1, ['x', 'y', 'z'], -3, [0, 1])
+                ('A', <Sign.POSITIVE: 1>, ['x', 'y', 'z'], -3, [0, 1])
 
             Returns
             -------
-                out : tuple
+                out : Tuple[str, int, List[str], int, List[int]]
         """
         return (self.id, self.sign, list(map(operator.attrgetter("id"), self.propositions)), -1*self.value, list(self.bounds.as_tuple()))
 
@@ -757,14 +826,14 @@ class AtLeast(puan.StatementInterface):
             )
         )
 
-    def to_json(self) -> dict:
+    def to_json(self) -> typing.Dict[str, typing.Any]:
 
         """
-            Returns proposition as a readable json.
+            Returns proposition as a readable JSON.
 
             Returns
             -------
-                out : dict
+                out : Dict[str, Any]
         """
         d = {
             'type': self.__class__.__name__,
@@ -805,20 +874,20 @@ class AtLeast(puan.StatementInterface):
         ).decode(str_decoding)
     
     @staticmethod
-    def from_json(data: dict, class_map: list) -> "AtLeast":
+    def from_json(data: typing.Dict[str, typing.Any], class_map: list) -> "AtLeast":
 
         """
-            Convert from json data to a proposition.
+            Convert from JSON data to a proposition.
 
-            Properties
+            Parameters
             ----------
                 class_map : list
                     A list of classes implementing the ``puan.StatementInterface`` protocol.
-                    They'll be mapped from `type` -attribute in the json data.
+                    They'll be mapped from `type` attribute in the json data.
 
             Notes
             -----
-            Propositions within data not having `type` -attribute will be considered a ``puan.variable``.
+            Propositions within data not having `type` attribute will be considered a :class:`puan.variable`.
 
             Examples
             --------
@@ -827,7 +896,7 @@ class AtLeast(puan.StatementInterface):
 
             Returns
             -------
-                out : AtLeast
+                out : :class:`AtLeast`
         """
         propositions = data.get('propositions', [])
         return AtLeast(
@@ -837,10 +906,10 @@ class AtLeast(puan.StatementInterface):
         )
 
     @staticmethod
-    def from_short(short: tuple) -> "AtLeast":
+    def from_short(short: typing.Tuple[str, Sign, typing.List[str], int, typing.List[int]]) -> "AtLeast":
 
         """
-            From short data format into an ``AtLeast`` proposition.
+            From short data format into an :class:`AtLeast` proposition.
             A short data format is a tuple of id, sign, variables, bias and bounds.
 
             Examples
@@ -858,7 +927,7 @@ class AtLeast(puan.StatementInterface):
 
             Returns
             -------
-                out : AtLeast
+                out : :class:`AtLeast`
         """
         try:
             _id, sign, props, bias, bounds = short
@@ -887,18 +956,18 @@ class AtLeast(puan.StatementInterface):
 
             Parameters
             ----------
-                objectives: typing.List[typing.Dict[typing.Union[str, puan.variable], int]]
-                    A list of objectives as dictionaries. Keys are either variable IDs as strings or a puan.variable.
+                objectives : List[Dict[Union[str, :class:`puan.variable`], int]]
+                    A list of objectives as dictionaries. Keys are either variable ids as strings or a :class:`puan.variable`.
                     Values are objective value for the key.
 
-                solver: typing.Callable[[pnd.ge_polyhedron, typing.Dict[str, int]], typing.List[(np.ndarray, int, int)]] = None
+                solver : Callable[[:class:`puan.ndarray.ge_polyhedron`, Dict[str, int]], List[(:class:`np.ndarray`, int, int)]] = None
                     If None is provided puan's own (beta) solver is used. If you want to provide another solver
-                    you have to send a function as solver parameter. That function has to take a `ge_polyhedron` and
-                    a 2D numpy array representing all objectives, as input. NOTE that the polyhedron DOES NOT provide constraints for variable
+                    you have to send a function as solver parameter. That function has to take a :class:`puan.ndarray.ge_polyhedron` and
+                    a 2d numpy array representing all objectives, as input. NOTE that the polyhedron DOES NOT provide constraints for variable
                     bounds. Variable bounds are found under each variable under `polyhedron.variables` and constraints for 
                     these has to manually be created and added to the polyhedron matrix. The function should return a list, one for each
                     objective, of tuples of (solution vector, objective value, status code). The solution vector is an integer ndarray vector
-                    of size equal to width of `polyhedron.A`. There are six different status codes from 1-6:
+                    of size equal to width of ``polyhedron.A``. There are six different status codes from 1-6:
                     
                     - 1: solution is undefined
                     - 2: solution is feasible
@@ -909,7 +978,7 @@ class AtLeast(puan.StatementInterface):
 
                     Checkout https://github.com/ourstudio-se/puan-solvers for quick how-to's for common solvers.
 
-                try_reduce_before: bool = False
+                try_reduce_before : bool = False
                     If true, then methods will be applied to try and reduce size of this model before
                     running solve function.
 
@@ -925,11 +994,11 @@ class AtLeast(puan.StatementInterface):
             Notes
             -----
                 Currently a beta solver is used, *DO NOT USE THIS IN PRODUCTION*.
-                If no solution could be found, None is returned.
+                If no solution could be found, ``None`` is returned.
 
             Returns
             -------
-                out : typing.List[typing.Optional[typing.List[puan.SolutionVariable]]]:
+                out : List[Optional[List[:class:`puan.SolutionVariable`]]]:
         """
 
         if solver is None:
@@ -972,7 +1041,7 @@ class AtLeast(puan.StatementInterface):
                 )
             )
         else:
-            polyhedron = self.to_polyhedron(
+            polyhedron = self.to_ge_polyhedron(
                 active=True, 
                 reduced=try_reduce_before,
             )
@@ -1007,16 +1076,15 @@ class AtLeast(puan.StatementInterface):
             )
 
 
-
 class AtMost(AtLeast):
 
     """
         ``AtMost`` proposition is an at least expression with negative coefficients and positive bias 
-        (e.g. `:math:-x-y-z+1 \ge 0`). Sub propositions may take on any value given by their equation bounds
+        (e.g. :math:`-x-y-z+1 \\ge 0`). Sub propositions may take on any value given by their equation bounds
 
         Notes
         -----
-            - Propositions may be of type ``str``, ``puan.variable`` or ``AtLeast`` (or other inheriting AtLeast) 
+            - Propositions may be of type ``str``, :class:`puan.variable` or :class:`AtLeast` (or other inheriting :class:`AtLeast`) 
             - Propositions list cannot be empty.
 
         Examples
@@ -1024,6 +1092,11 @@ class AtMost(AtLeast):
         Meaning at most one of x, y and z.
             >>> AtMost(1, list("xyz"), variable="A")
             A: -(x,y,z)>=-1
+        
+        Methods
+        -------
+        from_json
+        to_json
     """
     
     def __init__(self, value: int, propositions: typing.List[typing.Union[str, puan.variable]], variable: typing.Union[str, puan.variable] = None):
@@ -1032,11 +1105,11 @@ class AtMost(AtLeast):
     @staticmethod
     def from_json(data: dict, class_map) -> "AtMost":
         """
-            Convert from json data to a proposition.
+            Convert from JSON data to a proposition.
 
             Returns
             -------
-                out : AtMost
+                out : :class:`AtMost`
         """
         propositions = data.get('propositions', [])
         return AtMost(
@@ -1045,14 +1118,14 @@ class AtMost(AtLeast):
             variable=data.get('id', None)
         )
 
-    def to_json(self) -> dict:
+    def to_json(self) -> typing.Dict[str, typing.Any]:
 
         """
-            Returns proposition as a readable json.
+            Returns proposition as a readable JSON.
 
             Returns
             -------
-                out : dict
+                out : Dict[str, Any]
         """
         d = super().to_json()
         d['value'] = -1*self.value
@@ -1061,12 +1134,12 @@ class AtMost(AtLeast):
 class All(AtLeast):
 
     """
-        ``All`` proposition means that all of its propositions must be true, otherwise the proposition
+        :class:`All` proposition means that all of its propositions must be true, otherwise the proposition
         is false.
 
         Notes
         -----
-            - Propositions may be of type ``str``, ``puan.variable`` or ``AtLeast`` (or other inheriting AtLeast) 
+            - Propositions may be of type ``str``, :class:`puan.variable` or :class:`AtLeast` (or other inheriting :class:`AtLeast`) 
             - Propositions list cannot be empty.
 
         Examples
@@ -1074,19 +1147,25 @@ class All(AtLeast):
         Meaning at least one of x, y and z.
             >>> All(*"xyz", variable="A")
             A: +(x,y,z)>=3
+        
+        Methods
+        -------
+        from_json
+        from_list
+        to_json
     """
     
     def __init__(self, *propositions, variable: typing.Union[str, puan.variable] = None):
         super().__init__(value=len(set(propositions)), propositions=propositions, variable=variable)
 
     @staticmethod
-    def from_json(data: dict, class_map) -> "All":
+    def from_json(data: typing.Dict[str, typing.Any], class_map) -> "All":
         """
-            Convert from json data to a proposition.
+            Convert from JSON data to a proposition.
 
             Returns
             -------
-                out : All
+                out : :class:`All`
         """
         propositions = data.get('propositions', [])
         return All(
@@ -1113,14 +1192,14 @@ class All(AtLeast):
 
         return All(*propositions, variable=variable)
 
-    def to_json(self) -> dict:
+    def to_json(self) -> typing.Dict[str, typing.Any]:
 
         """
-            Returns proposition as a readable json.
+            Returns proposition as a readable JSON.
 
             Returns
             -------
-                out : dict
+                out : Dict[str, Any]
         """
         d = super().to_json()
         del d['value']
@@ -1135,32 +1214,38 @@ class All(AtLeast):
 class Any(AtLeast):
 
     """
-        ``Any`` proposition means that at least 1 of its propositions must be true, otherwise the proposition
+        :class:`Any` proposition means that at least one of its propositions must be true, otherwise the proposition
         is false.
 
         Notes
         -----
-            - Propositions may be of type ``str``, ``puan.variable`` or ``AtLeast`` (or other inheriting AtLeast) 
+            - Propositions may be of type ``str``, :class:`puan.variable` or :class:`AtLeast` (or other inheriting :class:`AtLeast`) 
             - Propositions list cannot be empty.
 
         Examples
         --------
         Meaning at least one of x, y and z.
-            >>> All(*"xyz", variable="A")
-            A: +(x,y,z)>=3
+            >>> Any(*"xyz", variable="A")
+            A: +(x,y,z)>=1
+        
+        Methods
+        -------
+        from_json
+        from_list
+        to_json
     """
 
     def __init__(self, *propositions, variable: typing.Union[str, puan.variable] = None):
         super().__init__(value=1, propositions=propositions, variable=variable)
 
     @staticmethod
-    def from_json(data: dict, class_map) -> "Any":
+    def from_json(data: typing.Dict[str, typing.Any], class_map) -> "Any":
         """
-            Convert from json data to a proposition.
+            Convert from JSON data to a proposition.
 
             Returns
             -------
-                out : Any
+                out : :class:`Any`
         """
         propositions = data.get('propositions', [])
         return Any(
@@ -1169,7 +1254,7 @@ class Any(AtLeast):
         )
 
     @staticmethod
-    def from_list(propositions: list, variable: typing.Union[str, puan.variable] = None) -> "Any":
+    def from_list(propositions: typing.List[typing.Union["AtLeast", puan.variable]], variable: typing.Union[str, puan.variable] = None) -> "Any":
 
         """
             Convert from list of propositions to an object of this proposition class.
@@ -1182,19 +1267,19 @@ class Any(AtLeast):
 
             Returns
             -------
-                out : Any
+                out : :class:`Any`
         """
 
         return Any(*propositions, variable=variable)
 
-    def to_json(self) -> dict:
+    def to_json(self) -> typing.Dict[str, typing.Any]:
 
         """
-            Returns proposition as a readable json.
+            Returns proposition as a readable JSON.
 
             Returns
             -------
-                out : dict
+                out : Dict[str, Any]
         """
         d = super().to_json()
         del d['value']
@@ -1209,12 +1294,12 @@ class Any(AtLeast):
 class Imply(Any):
 
     """
-        ``Imply`` proposition consists of two sub propositions: condition and consequence. An implication
+        :class:`Imply` proposition consists of two sub propositions: condition and consequence. An implication
         proposition says that if the condition is true then the consequence must be true. Otherwise the proposition is false.
 
         Notes
         -----
-            - Propositions may be of type ``str``, ``puan.variable`` or ``AtLeast`` (or other inheriting AtLeast) 
+            - Propositions may be of type ``str``, :class:`puan.variable` or :class:`AtLeast` (or other inheriting :class:`AtLeast`) 
             - Condition and consequence must be set.
 
         Examples
@@ -1222,6 +1307,12 @@ class Imply(Any):
         Meaning at least one of x, y and z.
             >>> Imply(condition=All(*"abc", variable="B"), consequence=Any(*"xyz", variable="C"), variable="A")
             A: +(B,C)>=1
+        
+        Methods
+        -------
+        from_cicJE
+        from_json
+        to_json
     """
 
     def __init__(self, condition, consequence, variable: typing.Union[str, puan.variable] = None):
@@ -1232,18 +1323,18 @@ class Imply(Any):
         super().__init__(self.condition, self.consequence, variable=variable)
 
     @staticmethod
-    def from_json(data: dict, class_map) -> "Imply":
+    def from_json(data: typing.Dict[str, typing.Any], class_map) -> "Imply":
         """
-            Convert from json data to a proposition.
+            Convert from JSON data to a proposition.
 
             Raises
             ------
                 Exception
-                    If no `consequence` key in `data`.
+                    If no ``consequence`` key in ``data``.
 
             Returns
             -------
-                out : Imply
+                out : :class:`Imply`
         """
         if not 'consequence' in data:
             raise Exception("type `Imply` must have a `consequence` proposition")
@@ -1257,14 +1348,14 @@ class Imply(Any):
         else:
             return from_json(data.get('consequence'), class_map)
 
-    def to_json(self) -> dict:
+    def to_json(self) -> typing.Dict[str, typing.Any]:
 
         """
-            Returns proposition as a readable json.
+            Returns proposition as a readable JSON.
 
             Returns
             -------
-                out : dict
+                out : Dict[str, Any]
         """
         d = {
             'type': self.__class__.__name__,
@@ -1276,14 +1367,14 @@ class Imply(Any):
         return d
 
     @staticmethod
-    def from_cicJE(data: dict, id_ident: str = "id") -> "Imply":
+    def from_cicJE(data: typing.Dict[str, typing.Any], id_ident: str = "id") -> "Imply":
 
         """
-            This function converts a cicJE into a Imply-data format.
+            This function converts a cicJE into an :class:`Imply`.
             
             Parameters
             ----------
-            data : dict
+            data : Dict[str, Any]
             id_ident : str = "id"
                 The id identifier inside a component
             
@@ -1312,11 +1403,11 @@ class Imply(Any):
                 ...         ]
                 ...     }
                 ... })
-                someId: +(VAR180540a846781f231b3c1fb0422d95e48e9b9379a5ec6890a0b9a32cb7f66b75,VARb6a05d7d91efc84e49117524cffa01cba8dcb1f14479be025342b909c9ab0cc2)>=1
-            
+                someId: +(VAR180540a846781f231b3c1fb0422d95e48e9b9379a5ec6890a0b9a32cb7f66b75,VAR783ed614fb92d837ddafb94ba082d6d38a803ed02a8854ddfb9432714b31785b)>=1
+
             Returns
             -------
-                out : Imply
+                out : :class:`Imply`
         """
         rule_type_map = {
             "REQUIRES_ALL": lambda x,id: All(*x,variable=id),
@@ -1354,12 +1445,18 @@ class Imply(Any):
 class Xor(All):
 
     """
-        ``Xor`` proposition is true when exactly one of its propositions is true, e.g. x+y+z = 1
+        :class:`Xor` proposition is true when exactly one of its propositions is true, e.g. :math:`x+y+z = 1`
 
         Notes
         -----
-            - Propositions may be of type str, puan.variable or AtLeast (or other inheriting AtLeast) 
+            - Propositions may be of type ``str``, :class:`puan.variable` or :class:`AtLeast` (or other inheriting :class:`AtLeast`) 
             - Propositions list cannot be empty.
+        
+        Methods
+        -------
+        from_json
+        from_list
+        to_json
     """
 
     def __init__(self, *propositions, variable: typing.Union[str, puan.variable] = None):
@@ -1372,11 +1469,11 @@ class Xor(All):
     @staticmethod
     def from_json(data: dict, class_map) -> "Xor":
         """
-            Convert from json data to a proposition.
+            Convert from JSON data to a proposition.
 
             Returns
             -------
-                out : Xor
+                out : :class:`Xor`
         """
         propositions = data.get('propositions', [])
         return Xor(
@@ -1385,7 +1482,7 @@ class Xor(All):
         )
 
     @staticmethod
-    def from_list(propositions: list, variable: typing.Union[str, puan.variable] = None) -> "Xor":
+    def from_list(propositions: typing.List[typing.Union["AtLeast", puan.variable]], variable: typing.Union[str, puan.variable] = None) -> "Xor":
 
         """
             Convert from list of propositions to an object of this proposition class.
@@ -1398,19 +1495,19 @@ class Xor(All):
 
             Returns
             -------
-                out : Xor
+                out : :class:`Xor`
         """
 
         return Xor(*propositions, variable=variable)
 
-    def to_json(self) -> dict:
+    def to_json(self) -> typing.Dict[str, typing.Any]:
 
         """
-            Returns proposition as a readable json.
+            Returns proposition as a readable JSON.
 
             Returns
             -------
-                out : dict
+                out : Dict[str, Any]
         """
         d = {
             'type': self.__class__.__name__,
@@ -1432,25 +1529,29 @@ class Not():
 
         Notes
         -----
-            - Proposition may be of type ``str``, ``puan.variable`` or ``AtLeast`` (or other inheriting AtLeast) 
+            - Proposition may be of type ``str``, :class:`puan.variable` or :class:`AtLeast` (or other inheriting :class:`AtLeast`)
+        
+        Methods
+        -------
+        from_json
     """
 
     def __new__(self, proposition):
         return (All(proposition) if type(proposition) in [str, puan.variable] else proposition).negate()
 
     @staticmethod
-    def from_json(data: dict, class_map) -> "AtLeast":
+    def from_json(data: typing.Dict[str, typing.Any], class_map) -> "AtLeast":
         """
-            Convert from json data to a proposition.
+            Convert from JSON data to a proposition.
 
             Raises
             ------
                 Exception
-                    If no `proposition` key in `data`.
+                    If no ``proposition`` key in ``data``.
 
             Returns
             -------
-                out : AtLeast
+                out : :class:`AtLeast`
         """
         if not 'proposition' in data:
             raise Exception("type `Not` expects field `proposition` to have a proposition set")
@@ -1462,11 +1563,17 @@ class Not():
 class XNor():
 
     """
-        ``XNor`` proposition is a negated ``Xor``. I.e. only "exactly one" -configurations will be false. 
+        :class:`XNor` proposition is a negated :class:`Xor`, i.e. "exactly one" configurations will be false or :math:`x+y+z\\neq1`. 
 
         Notes
         -----
-            - Proposition may be of type ``str``, ``puan.variable`` or ``AtLeast`` (or other inheriting AtLeast) 
+            - Proposition may be of type ``str``, :class:`puan.variable` or :class:`AtLeast` (or other inheriting :class:`AtLeast`) 
+        
+        Methods
+        -------
+        from_json
+        from_list
+        to_json
     """
 
     def __new__(self, *propositions, variable: typing.Union[puan.variable, str] = None):
@@ -1480,11 +1587,11 @@ class XNor():
     @staticmethod
     def from_json(data: dict, class_map) -> "XNor":
         """
-            Convert from json data to a proposition.
+            Convert from JSON data to a proposition.
 
             Returns
             -------
-                out : AtLeast
+                out : :class:`AtLeast`
         """
         propositions = data.get('propositions', [])
         return XNor(
@@ -1500,7 +1607,7 @@ class XNor():
 
             Notes
             -----    
-                XNor is not its own type but instead returns an AtLeast proposition which preserves the same logic.
+                :class:`XNor` is not its own type but instead returns an :class:`AtLeast` proposition which preserves the same logic.
 
             Examples
             --------
@@ -1510,19 +1617,19 @@ class XNor():
 
             Returns
             -------
-                out : AtLeast
+                out : :class:`AtLeast`
         """
 
         return XNor(*propositions, variable=variable)
 
-    def to_json(self) -> dict:
+    def to_json(self) -> typing.Dict[str, typing.Any]:
 
         """
-            Returns proposition as a readable json.
+            Returns proposition as a readable JSON.
 
             Returns
             -------
-                out : dict
+                out : Dict[str, Any]
         """
         d = {
             'type': self.__class__.__name__,
@@ -1580,7 +1687,7 @@ def from_b64(base64_str: str) -> typing.Any:
 
         Returns
         -------
-            out : dict
+            out : Any
     """
     try:
         return pickle.loads(

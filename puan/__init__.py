@@ -18,12 +18,12 @@ JSONEncoder.default = _default
 
 class StatementInterface:
 
-    def to_short(self) -> tuple:
+    def to_short(self) -> typing.Tuple[str, int, object, int, typing.Tuple[int, int]]:
         
         """Short statement has (id, sign, propositions, value, bounds)"""
         raise NotImplementedError()
 
-    def to_json(self) -> dict:
+    def to_json(self) -> typing.Dict[str, typing.Any]:
 
         """json representation of class"""
         raise NotImplementedError()
@@ -36,6 +36,13 @@ class StatementInterface:
 
 @dataclasses.dataclass
 class Bounds:
+    """
+        The :class:`Bounds` class defines lower and upper bounds of a :class:`variable`
+
+        Methods
+        -------
+        as_tuple
+    """
 
     lower: int = default_min_int
     upper: int = default_max_int
@@ -49,15 +56,31 @@ class Bounds:
     def __iter__(self):
         return iter([self.lower, self.upper])
 
-    def as_tuple(self) -> tuple:
+    def as_tuple(self) -> typing.Tuple[int, int]:
+        """
+            Bounds as tuple
+
+            Returns
+            -------
+                out : Tuple[int, int]
+        """
         return (self.lower, self.upper)
 
 @dataclasses.dataclass
 class variable(StatementInterface):
 
     """
-        The variable class is a central key in all Puan packages. It consists of an id, data type (dtype) and if it is virtual or not.
-        A virtual variable is a variable that has been created along some reduction and is not (necessary) interesting for the user.
+        The :class:`variable` class is a central key in all Puan packages. It consists of an id, :class:`Bounds` and data type (dtype).
+
+        Methods
+        -------
+        to_json
+        to_short
+        to_dict
+        support_vector_variable
+        from_strings
+        from_mixed
+        from_json
     """
 
     id: str
@@ -84,31 +107,36 @@ class variable(StatementInterface):
     def __eq__(self, other):
         return self.id == getattr(other, "id", other)
 
-    def to_json(self):
+    def to_json(self) -> typing.Dict[str, typing.Any]:
         d = dataclasses.asdict(self)
         if self.bounds.as_tuple() == (0,1):
             del d['bounds']
         return d
 
-    def to_short(self):
+    def to_short(self) -> typing.Tuple[str, int, typing.List, int, typing.Tuple[int, int]]:
         return (self.id, 1, [], 0, self.bounds.as_tuple())
 
     @staticmethod
-    def support_vector_variable():
+    def support_vector_variable() -> "variable":
         """
             Default support vector variable settings.
 
             Returns
             -------
-                out : variable
+                out : :class:`variable`
         """
         return variable(0, dtype="int")
 
     @staticmethod
-    def from_strings(*variables: typing.List[str], default_bounds: typing.Union[bool, int] = (0,1)) -> typing.List["variable"]:
+    def from_strings(*variables: typing.List[str], default_bounds: typing.Tuple[int, int] = (0,1)) -> typing.List["variable"]:
 
         """
-            Returns a list of puan.variable from a list of strings (id's)
+            Returns a list of :class:`variable` from a list of strings (ids)
+
+            Parameters
+            ----------
+                variables : A list of strings (ids)
+                default_bounds : Tuple of ints (lower bound, upper bound)
 
             Notes
             -----
@@ -124,20 +152,25 @@ class variable(StatementInterface):
 
             Returns
             -------
-                out : typing.List[variable]
+                out : List[:class:`variable`]
         """
 
         return sorted(map(lambda v: variable(v, default_bounds), variables))
 
     @staticmethod
-    def from_mixed(*variables: typing.List[typing.Union[str, int, tuple, list, "variable"]], default_bounds : tuple = (0,1)) -> typing.List["variable"]:
+    def from_mixed(*variables: typing.List[typing.Union[str, int, tuple, list, "variable"]], default_bounds : typing.Tuple[int, int] = (0,1)) -> typing.List["variable"]:
         
         """
-            Returns a list of puan.variable from a list of mixed data type.
+            Returns a list of :class:`variable` from a list of mixed data type.
+
+            Parameters
+            ----------
+                variables : A list of either str, int, tuple, list or :class:`variable`
+                default_bounds : Tuple of ints (lower bound, upper bound)
 
             Notes
             -----
-            - Every item in ``*variables`` that is not an instance of ``variable`` will be converted to a string and used as an id.
+            - Every item in ``*variables`` that is not an instance of :class:`variable` will be converted to a string and used as an id.
             - List of variables are returned sorted.
 
             Examples
@@ -150,7 +183,7 @@ class variable(StatementInterface):
 
             Returns
             -------
-                out : typing.List["variable"]
+                out : List[:class:`variable`]
         """
         return sorted(
             itertools.chain(
@@ -172,7 +205,10 @@ class variable(StatementInterface):
         )
 
     @staticmethod
-    def from_json(data: dict, class_map):
+    def from_json(data: typing.Dict[str, typing.Any], class_map) -> "variable":
+        """
+            Creates :class:`variable` from json format.
+        """
         bounds = data.get('bounds', {'lower': 0, 'upper': 1})
         return variable(
             id=data['id'],
@@ -181,7 +217,14 @@ class variable(StatementInterface):
 
 
 class SolutionVariable(variable):
+    """
+        The :class:`SolutionVariable` class is an extension to the :class:`variable` class where each variable can be assigned a value. 
 
+        Methods
+        -------
+        to_json
+        from_variable
+    """
     value: int = None
 
     def __init__(self, id: str, bounds: typing.Tuple[int, int] = None, dtype: str = None, value: int = None):
@@ -191,7 +234,7 @@ class SolutionVariable(variable):
     def __eq__(self, other):
         return self.id == other.id and self.value == other.value
 
-    def to_json(self):
+    def to_json(self) -> typing.Dict[str, typing.Any]:
         d = super().to_json()
         d['value'] = self.value
         return d

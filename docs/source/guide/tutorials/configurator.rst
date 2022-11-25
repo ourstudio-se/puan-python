@@ -53,7 +53,7 @@ Now we want to convert our logical model to a linear program in order to efficie
 .. code:: python
 
     # Convert wardrobe wizard model (logical system) to a polyhedron (linear program) which is used for calculations
-    ph = model.to_polyhedron(active=True)
+    ph = model.to_ge_polyhedron(active=True)
 
 The polyhedron defines the logical model as linear inequalities, such that :math:`A \cdot x \ge b`. For example the ``AtMost`` proposition for sweaters converts to :math:`- sweater\_green - sweater\_black \ge -1`
 
