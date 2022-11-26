@@ -1629,11 +1629,11 @@ def test_proposition_polyhedron_conversions():
         actual.A.dot(
             actual.A.construct(
                 *{
-                    "VAR0b6effa003e76fb0c48121f48d7b83b1d50f7e989e6bb5aacda2e9ea390ddf66": 1,
+                    "VAR078253de0198b4e2ba4ae54d2ff9cb511d3055064d6132049a29ff6a2dc55edd": 1,
                     "VAR1414b00e0f808cb060126f90cbe86e83c87b4b0cbe158d077fd2e23359faaa83": 1,
-                    "VAR17884981776c78b41dfa00d95d5f43f3ee9f242a47cd9a4f3c1e0b0215717c97": 1,
+                    "VAR468a4942c7f47232c142a5b40253be66fafbacee418fb325b299c3a3df1d4ff1": 1,
+                    "VAR4803c19cbb7f1c2fa552ef65967b971a3e798eaaed91fcb2726a7d27acd0d23a": 1,
                     "VAR852b391777566b6ff2eb7c8b25b110858a7ae5d141d486e409a5b6f3002074b4": 1,
-                    "VARb1d47eae1ac79f2576c042d53e8659cd9916a6d01802253d60a1d6ac4dee5842": 1,
                     "VARe256ab674250ba0eb7b0e0cac5b43febb338c87d6daa02c02c90c66aa38b86fa": 1,
                     "t-shirts": 1,
                     "sweaters": 1,
@@ -1702,11 +1702,21 @@ def test_propositions_evaluations(proposition, configuration):
     if not value_error_raised:
         assert evaluate_propositions_result == evaluate_result
 
-def test_puan_variable():
-    assert puan.variable("x", (1,5), "int").bounds.as_tuple() == (1, 5)
-    with pytest.raises(ValueError):
-        puan.variable("x", (1, 5), "bool")
-            
+@given(st.text(), st.integers(), st.integers(), st.sampled_from([puan.Dtype.BOOL, puan.Dtype.INT, "bool", "int", None]))
+def test_puan_variable(id, lower, upper, dtype):
+    
+    if lower <= upper:
+        # should raise error iff dtype == "bool" and bounds != (0,1)
+        if (dtype == "bool") and ((lower, upper) != (0,1)):
+            with pytest.raises(ValueError):
+                puan.variable(id, (lower, upper), dtype)
+        else:
+            puan.variable(id, (lower, upper), dtype)
+    else:
+        # should raise ValueError from Bounds
+        with pytest.raises(ValueError):
+            puan.variable(id, (lower, upper), dtype)
+
 # def test_assuming_integer_variables():
 
 #     """

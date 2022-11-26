@@ -29,18 +29,24 @@ class Sign(enum.IntEnum):
     POSITIVE = 1
     NEGATIVE = -1
 
-class AtLeast(puan.StatementInterface):
+class AtLeast(puan.Proposition):
 
     """
         :class:`AtLeast` proposition is in its core a regular at least expression (e.g. :math:`x+y+z \\ge 1`), but restricted
         to having only +1 or -1 as variable coefficients. This is set by the ``sign`` parameter. An :class:`AtLeast` proposition
         is considered invalid if there are no sub propositions given.
 
+        Parameters
+        ----------
+        value : integer value constraint constant - right hand side of the inequality
+        propositions : a list of :class:`puan.Proposition` instances or ``str``
+        variable : variable connected to this proposition
+        sign : marking wheather coefficients before each sub proposition are 1 (``Sign.POSITIVE``) or -1 (``Sign.NEGATIVE``).
+
         Notes
         -----
             - ``propositions`` may take on any integer value given by their inner bounds, i.e. they are not restricted to boolean values.
             - ``propositions`` list cannot be empty.
-            - ``sign`` parameter take only -1 or 1 as value.
             - ``variable`` may be of type :class:`puan.variable`, ``str`` or ``None``.
 
                 - If ``str``, a default :class:`puan.variable` will be constructed with its id=variable.
@@ -93,7 +99,7 @@ class AtLeast(puan.StatementInterface):
 
     """
     
-    def __init__(self, value: int, propositions: typing.List[typing.Union[str, puan.variable]], variable: typing.Union[str, puan.variable] = None, sign: Sign = Sign.POSITIVE):
+    def __init__(self, value: int, propositions: typing.List[typing.Union[str, puan.Proposition]], variable: typing.Union[str, puan.variable] = None, sign: Sign = Sign.POSITIVE):
         self.generated_id = False
         self.value = value
         self.sign = sign
@@ -196,7 +202,7 @@ class AtLeast(puan.StatementInterface):
         return self.variable.bounds
 
     @property
-    def compound_propositions(self) -> typing.Iterable["AtLeast"]:
+    def compound_propositions(self) -> typing.Iterable[puan.Proposition]:
         """
             All propositions of (inheriting) type :class:`AtLeast`.
 
@@ -214,7 +220,7 @@ class AtLeast(puan.StatementInterface):
             
             Returns
             -------
-                out : Iterable[:class:`AtLeast`]
+                out : Iterable[puan.Proposition]
         """
         return filter(lambda x: type(x) != puan.variable, self.propositions)
 
@@ -262,7 +268,7 @@ class AtLeast(puan.StatementInterface):
             )
         )
 
-    def flatten(self) -> typing.List[typing.Union["AtLeast", puan.variable]]:
+    def flatten(self) -> typing.List[puan.Proposition]:
 
         """
             Returns all its propositions and their sub propositions as a unique list of propositions.
@@ -276,7 +282,7 @@ class AtLeast(puan.StatementInterface):
         
             Returns
             -------
-                out : List[Union[:class:`AtLeast`, :class:`puan.variable`]]
+                out : List[puan.Proposition]
         """
 
         return sorted(
@@ -498,7 +504,7 @@ class AtLeast(puan.StatementInterface):
             ),
         )
 
-    def negate(self) -> "AtLeast":
+    def negate(self) -> puan.Proposition:
 
         """
             Negates proposition.
@@ -516,7 +522,7 @@ class AtLeast(puan.StatementInterface):
 
             Returns
             -------
-                out : :class:`AtLeast`
+                out : :class:`puan.Proposition`
         """
         negated = AtLeast(
             value=(self.value*-1)+1,
@@ -797,13 +803,13 @@ class AtLeast(puan.StatementInterface):
             Examples
             --------
                 >>> All("x","y","z",variable="A").to_short()
-                ('A', <Sign.POSITIVE: 1>, ['x', 'y', 'z'], -3, [0, 1])
+                ('A', 1, ['x', 'y', 'z'], -3, [0, 1])
 
             Returns
             -------
                 out : Tuple[str, int, List[str], int, List[int]]
         """
-        return (self.id, self.sign, list(map(operator.attrgetter("id"), self.propositions)), -1*self.value, list(self.bounds.as_tuple()))
+        return (self.id, int(self.sign), list(map(operator.attrgetter("id"), self.propositions)), -1*self.value, list(self.bounds.as_tuple()))
 
     def to_text(self) -> str:
 
@@ -824,12 +830,17 @@ class AtLeast(puan.StatementInterface):
                     set(self.flatten())
                 ),
             )
-        )
+        ).replace(" ", "")
 
     def to_json(self) -> typing.Dict[str, typing.Any]:
 
         """
             Returns proposition as a readable JSON.
+
+            Examples
+            --------
+                >>> All("x","y","z",variable="A").to_json()
+                {'type': 'All', 'propositions': [{'id': 'x'}, {'id': 'y'}, {'id': 'z'}], 'id': 'A'}
 
             Returns
             -------
@@ -882,7 +893,7 @@ class AtLeast(puan.StatementInterface):
             Parameters
             ----------
                 class_map : list
-                    A list of classes implementing the ``puan.StatementInterface`` protocol.
+                    A list of classes implementing the ``puan.Proposition`` protocol.
                     They'll be mapped from `type` attribute in the json data.
 
             Notes
@@ -1082,6 +1093,12 @@ class AtMost(AtLeast):
         ``AtMost`` proposition is an at least expression with negative coefficients and positive bias 
         (e.g. :math:`-x-y-z+1 \\ge 0`). Sub propositions may take on any value given by their equation bounds
 
+        Parameters
+        ----------
+        value : integer value constraint constant - right hand side of the inequality
+        propositions : a list of :class:`puan.Proposition` instances or ``str``
+        variable : variable connected to this proposition
+
         Notes
         -----
             - Propositions may be of type ``str``, :class:`puan.variable` or :class:`AtLeast` (or other inheriting :class:`AtLeast`) 
@@ -1100,7 +1117,7 @@ class AtMost(AtLeast):
     """
     
     def __init__(self, value: int, propositions: typing.List[typing.Union[str, puan.variable]], variable: typing.Union[str, puan.variable] = None):
-        super().__init__(value=-1*value, propositions=propositions, variable=variable, sign=-1)
+        super().__init__(value=-1*value, propositions=propositions, variable=variable, sign=Sign.NEGATIVE)
 
     @staticmethod
     def from_json(data: dict, class_map) -> "AtMost":
@@ -1136,6 +1153,11 @@ class All(AtLeast):
     """
         :class:`All` proposition means that all of its propositions must be true, otherwise the proposition
         is false.
+
+        Parameters
+        ----------
+        *propositions : an iterable of :class:`puan.Proposition` instances or ``str``
+        variable : variable connected to this proposition
 
         Notes
         -----
@@ -1217,6 +1239,11 @@ class Any(AtLeast):
         :class:`Any` proposition means that at least one of its propositions must be true, otherwise the proposition
         is false.
 
+        Parameters
+        ----------
+        *propositions : an iterable of :class:`puan.Proposition` instances or ``str``
+        variable : variable connected to this proposition
+
         Notes
         -----
             - Propositions may be of type ``str``, :class:`puan.variable` or :class:`AtLeast` (or other inheriting :class:`AtLeast`) 
@@ -1296,6 +1323,12 @@ class Imply(Any):
     """
         :class:`Imply` proposition consists of two sub propositions: condition and consequence. An implication
         proposition says that if the condition is true then the consequence must be true. Otherwise the proposition is false.
+
+        Parameters
+        ----------
+        condition : an instance of :class:`puan.Proposition` data type or ``str``
+        consequence : an instance of :class:`puan.Proposition` data type or ``str``
+        variable : variable connected to this proposition
 
         Notes
         -----
@@ -1447,6 +1480,11 @@ class Xor(All):
     """
         :class:`Xor` proposition is true when exactly one of its propositions is true, e.g. :math:`x+y+z = 1`
 
+        Parameters
+        ----------
+        *propositions : an iterable of :class:`puan.Proposition` instances or ``str``
+        variable : variable connected to this proposition
+
         Notes
         -----
             - Propositions may be of type ``str``, :class:`puan.variable` or :class:`AtLeast` (or other inheriting :class:`AtLeast`) 
@@ -1527,6 +1565,10 @@ class Not():
     """
         ``Not`` proposition negates the input proposition. 
 
+        Parameters
+        ----------
+        proposition : an instance of :class:`puan.Proposition` or ``str``
+
         Notes
         -----
             - Proposition may be of type ``str``, :class:`puan.variable` or :class:`AtLeast` (or other inheriting :class:`AtLeast`)
@@ -1564,6 +1606,11 @@ class XNor():
 
     """
         :class:`XNor` proposition is a negated :class:`Xor`, i.e. "exactly one" configurations will be false or :math:`x+y+z\\neq1`. 
+
+        Parameters
+        ----------
+        *propositions : an iterable of :class:`puan.Proposition` instances or ``str``
+        variable : variable connected to this proposition
 
         Notes
         -----

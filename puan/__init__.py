@@ -4,6 +4,7 @@ import typing
 import maz
 import itertools
 import dataclasses
+from enum import Enum
 from json import JSONEncoder
 
 default_min_int     : int        = numpy.iinfo(numpy.int16).min
@@ -16,7 +17,14 @@ def _default(self, obj):
 _default.default = JSONEncoder().default
 JSONEncoder.default = _default
 
-class StatementInterface:
+class Dtype(str, Enum):
+    """
+        An :class:`Enum` class to define data type of variable, boolean and integer.  
+    """
+    BOOL = "bool"
+    INT = "int"
+
+class Proposition:
 
     def to_short(self) -> typing.Tuple[str, int, object, int, typing.Tuple[int, int]]:
         
@@ -67,7 +75,7 @@ class Bounds:
         return (self.lower, self.upper)
 
 @dataclasses.dataclass
-class variable(StatementInterface):
+class variable(Proposition):
 
     """
         The :class:`variable` class is a central key in all Puan packages. It consists of an id, :class:`Bounds` and data type (dtype).
@@ -86,7 +94,7 @@ class variable(StatementInterface):
     id: str
     bounds: Bounds
 
-    def __init__(self, id: str, bounds: typing.Tuple[int, int] = None, dtype: str = None):
+    def __init__(self, id: str, bounds: typing.Tuple[int, int] = None, dtype: Dtype = None):
         self.id = id
         if dtype is not None:
             if bounds is not None:
@@ -108,18 +116,41 @@ class variable(StatementInterface):
         return self.id == getattr(other, "id", other)
 
     def to_json(self) -> typing.Dict[str, typing.Any]:
+
+        """
+            Converts into JSON data type.
+
+            Examples
+            --------
+                >>> variable(id="x", bounds=Bounds(lower=0, upper=10)).to_json()
+                {'id': 'x', 'bounds': {'lower': 0, 'upper': 10}}
+        """
+
         d = dataclasses.asdict(self)
         if self.bounds.as_tuple() == (0,1):
             del d['bounds']
         return d
 
     def to_short(self) -> typing.Tuple[str, int, typing.List, int, typing.Tuple[int, int]]:
+        """
+            Converts into `short` data type.
+
+            Examples
+            --------
+                >>> variable(id="x", bounds=Bounds(lower=0, upper=10)).to_short()
+                ('x', 1, [], 0, (0, 10))
+        """
         return (self.id, 1, [], 0, self.bounds.as_tuple())
 
     @staticmethod
     def support_vector_variable() -> "variable":
         """
             Default support vector variable settings.
+
+            Examples
+            --------
+                >>> variable.support_vector_variable()
+                variable(id=0, bounds=Bounds(lower=-32768, upper=32767))
 
             Returns
             -------
@@ -205,9 +236,22 @@ class variable(StatementInterface):
         )
 
     @staticmethod
-    def from_json(data: typing.Dict[str, typing.Any], class_map) -> "variable":
+    def from_json(data: typing.Dict[str, typing.Any], class_map: typing.List[typing.Type] = []) -> "variable":
         """
             Creates :class:`variable` from json format.
+
+            Notes
+            -----
+                Bounds are defaulted to :class:`Bounds(lower=0, upper=1)` if not provided.
+                ``class_map`` is ignored.
+
+            Examples
+            --------
+                >>> variable.from_json({'id': 'x'})
+                variable(id='x', bounds=Bounds(lower=0, upper=1))
+
+                >>> variable.from_json({'id': 'x', 'bounds': {'lower': -2, 'upper': 3}})
+                variable(id='x', bounds=Bounds(lower=-2, upper=3))
         """
         bounds = data.get('bounds', {'lower': 0, 'upper': 1})
         return variable(

@@ -16,13 +16,6 @@ from enum import IntEnum
 
 from collections import Counter
 
-class Selection(IntEnum):
-    """
-        An :class:`IntEnum` class to define variable selections, boolean och integer.  
-    """
-    BOOL = 0
-    INT = 1
-
 class variable_ndarray(numpy.ndarray):
     """
         A :class:`numpy.ndarray` sub class which ties variables to the indices of the :class:`numpy.ndarray`.
@@ -100,25 +93,29 @@ class variable_ndarray(numpy.ndarray):
             )
         )
 
-    def variable_indices(self, variable_type: Selection) -> numpy.ndarray:
+    def variable_indices(self, variable_dtype: puan.Dtype) -> numpy.ndarray:
 
         """
-            Variable indices of variable type 0 (``bool``) or 1 (``int``).
+            Variable indices of variable type :class:`puan.Dtype.BOOL` or :class:`puan.Dtype.INT`.
 
             Parameters
             ----------
-            variable_type : :class:`Selection`
-                Variable type where 0 gives ``bool`` and 1 gives ``int``. 
+            variable_dtype : :class:`puan.Dtype`
+                Variable type where "bool" gives :class:``puan.Dtype.BOOL`` and 1 gives :class:``puan.Dtype.INT``. 
+
+            Notes
+            -----
+                Variables of bounds other than (0,1) are considered of type :class:`puan.Dtype.INT`.
 
             Returns
             -------
                 out : :class:`numpy.ndarray`
         """
         
-        is_bool = 1*(variable_type==Selection.BOOL)
-        is_int = 1*(variable_type==Selection.INT)
+        is_bool = 1*(variable_dtype==puan.Dtype.BOOL)
+        is_int = 1*(variable_dtype==puan.Dtype.INT)
         if is_bool + is_int != 1:
-            raise ValueError("Unrecognized variable type, must be Selection got {}".format(variable_type))
+            raise ValueError("Unrecognized variable type, must be `puan.Dtype` got {}".format(variable_dtype))
         return numpy.array(
             sorted(
                 map(
@@ -135,7 +132,7 @@ class variable_ndarray(numpy.ndarray):
     def boolean_variable_indices(self) -> numpy.ndarray:
 
         """
-            Variable indices where variable dtype is ``bool``.
+            Variable indices where variable dtype is :class:`puan.Dtype.BOOL`.
 
             Returns
             -------
@@ -152,13 +149,13 @@ class variable_ndarray(numpy.ndarray):
                 array([2, 4])
         """
 
-        return self.variable_indices(0)
+        return self.variable_indices(puan.Dtype.BOOL)
 
     @property
     def integer_variable_indices(self) -> numpy.ndarray:
 
         """
-            Variable indices where variable dtype is ``int``.
+            Variable indices where variable dtype is :class:`puan.Dtype.INT`.
 
             Returns
             -------
@@ -175,7 +172,7 @@ class variable_ndarray(numpy.ndarray):
                 array([0, 1, 3])
         """
 
-        return self.variable_indices(1)
+        return self.variable_indices(puan.Dtype.INT)
 
     def construct(self, *variable_values: typing.List[typing.Tuple[str, int]], default_value: int = 0, dtype: typing.Type = numpy.int64) -> numpy.ndarray:
 
@@ -194,12 +191,12 @@ class variable_ndarray(numpy.ndarray):
             Examples
             --------
 
-            Constructing a new 1d variable ndarray shadow from this array and setting x = 5
+            Constructing a new 1d variable ndarray shadow from this array and setting ``x = 5``
                 >>> vnd = variable_ndarray([[1,2,3], [2,3,4]], [puan.variable("x"), puan.variable("y"), puan.variable("z")])
                 >>> vnd.construct(("x", 5))
                 array([5, 0, 0])
 
-            Constructing a new 2d variable ndarray shadow from this array and setting x0 = 5, y0 = 4 and y1 = 3
+            Constructing a new 2d variable ndarray shadow from this array and setting ``x0 = 5``, ``y0 = 4`` and ``y1 = 3``
                 >>> vnd = variable_ndarray([[1,2,3], [2,3,4]], [puan.variable("x"), puan.variable("y"), puan.variable("z")])
                 >>> vnd.construct([("x", 5), ("y", 4)], [("y", 3)])
                 array([[5, 4, 0],
@@ -1942,8 +1939,8 @@ class ge_polyhedron_config(ge_polyhedron):
                 solver: typing.Callable[[ge_polyhedron, typing.Dict[str, int]], typing.List[(np.ndarray, int, int)]] = None
                     If None is provided puan's own (beta) solver is used. If you want to provide another solver
                     you have to send a function as solver parameter. That function has to take a :class:`ge_polyhedron` and
-                    a 2d numpy array representing all objectives, as input. NOTE that the polyhedron DOES NOT provide constraints for variable
-                    bounds. Variable bounds are found under each variable under `polyhedron.variables` and constraints for 
+                    a 2d numpy array representing all objectives, as input. NOTE that the polyhedron **does not provide constraints for variable
+                    bounds**. Variable bounds are found under each variable under `polyhedron.variables` and constraints for 
                     these has to manually be created and added to the polyhedron matrix. The function should return a list, one for each
                     objective, of tuples of (solution vector, objective value, status code). The solution vector is an integer ndarray vector
                     of size equal to width of ``polyhedron.A``. There are six different status codes from 1-6:
@@ -2086,7 +2083,7 @@ class ge_polyhedron_config(ge_polyhedron):
     def from_b64(base64_str: str) -> "ge_polyhedron_config":
 
         """
-            Unpacks base64 string ``base64_str`` into some data.
+            Unpacks base64 string ``base64_str``.
 
             Parameters
             ----------

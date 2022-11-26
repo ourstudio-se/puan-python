@@ -20,6 +20,12 @@ class Any(pg.Any):
 
         and prio is set to :math:`c > A'`.
 
+        Parameters
+        ----------
+        *propositions : an iterable of :class:`puan.Proposition` instances or ``str``
+        default : marks which of all sub propositions are default 
+        variable : variable connected to this proposition
+
         Methods
         -------
         to_json
@@ -27,7 +33,7 @@ class Any(pg.Any):
         from_list
     """
 
-    def __init__(self, *propositions, default: typing.List[typing.Union[puan.variable, str]] = None, variable: typing.Union[puan.variable, str] = None):
+    def __init__(self, *propositions, default: typing.List[typing.Union[puan.Proposition, str]] = None, variable: typing.Union[puan.variable, str] = None):
         self.default = list(map(lambda x: puan.variable(x) if type(x) == str else x, default if default is not None else []))
         if len(self.default) > 0 and self.default is not None and len(propositions) > 1:
             _default = self.default[0].id
@@ -133,6 +139,12 @@ class Xor(pg.Xor):
             
         and prio is set to :math:`c > A'`.
 
+        Parameters
+        ----------
+        *propositions : an iterable of :class:`puan.Proposition` instances or ``str``
+        default : marks which of all sub propositions are default 
+        variable : variable connected to this proposition
+
         Methods
         -------
         to_json
@@ -140,7 +152,7 @@ class Xor(pg.Xor):
         from_list
     """
 
-    def __init__(self, *propositions, default: typing.List[typing.Union[str, puan.variable]] = None, variable: typing.Union[puan.variable, str] = None):
+    def __init__(self, *propositions, default: typing.List[typing.Union[str, puan.Proposition]] = None, variable: typing.Union[puan.variable, str] = None):
         super().__init__(*propositions, variable=variable)
         
         # From init, there should be exactly one Any constraint
@@ -201,6 +213,11 @@ class StingyConfigurator(pg.All):
         Whenever an AtLeast proposition proposes multiple solutions that equal least number
         of selections, then a default may be added to avoid ambivalence.
 
+        Parameters
+        ----------
+        *propositions : an iterable of :class:`puan.Proposition` instances or ``str``
+        id : id connected to this proposition
+
         Methods 
         -------
         ge_polyhedron
@@ -212,7 +229,7 @@ class StingyConfigurator(pg.All):
         to_json
     """
 
-    def __init__(self, *propositions: typing.List[typing.Union[pg.AtLeast, str]], id: str = None):
+    def __init__(self, *propositions: typing.List[typing.Union[puan.Proposition, str]], id: str = None):
         super().__init__(*propositions, variable=id)
 
     @property
