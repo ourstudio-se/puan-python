@@ -28,12 +28,12 @@ class Proposition:
 
     def to_short(self) -> typing.Tuple[str, int, object, int, typing.Tuple[int, int]]:
         
-        """Short statement has (id, sign, propositions, value, bounds)"""
+        """Short data type has (id, sign, propositions, value, bounds)"""
         raise NotImplementedError()
 
     def to_json(self) -> typing.Dict[str, typing.Any]:
 
-        """json representation of class"""
+        """JSON representation of class"""
         raise NotImplementedError()
 
     @staticmethod
@@ -201,7 +201,7 @@ class variable(Proposition):
 
             Notes
             -----
-            - Every item in ``*variables`` that is not an instance of :class:`variable` will be converted to a string and used as an id.
+            - Every item `x` in ``*variables`` that is **not** an instance of :class:`variable` will be converted to a :class:`variable` with id set to `x` and default bounds.
             - List of variables are returned sorted.
 
             Examples
