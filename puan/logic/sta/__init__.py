@@ -15,8 +15,8 @@ class application(dict):
 
         Methods
         -------
-        to_cicJEs
-            Converts an application and items to one or many configuration rules.
+        to_plog
+        to_all_proposition
     """
 
     @staticmethod
@@ -38,7 +38,7 @@ class application(dict):
 
             Returns
             -------
-                any
+                out : Any
         """
         keys = selector_string.split(".")
         if len(keys) == 0:
@@ -124,7 +124,6 @@ class application(dict):
             )
             for disjunction_selector in conjunction_selector.get("disjunctions", [])
         )
-
 
     @staticmethod
     def _extract_items_from(conjunction_selector: dict, items: typing.List[dict]) -> iter:
@@ -256,7 +255,6 @@ class application(dict):
                 )
             )
 
-
     def _replace_variables(self: dict, variable: dict, variable_sign: str = "$") -> "application":
 
         """
@@ -279,11 +277,11 @@ class application(dict):
     def to_plog(self: dict, from_items: typing.List[dict], id_key: str = "id", model_id: str = None) -> pg.AtLeast:
 
         """
-        Converts an application and items to plog.AtLeast logic system.
+        Converts an application and items to :class:`plog.AtLeast<puan.logic.plog.AtLeast>` logic system.
 
         Returns
         -------
-            out : puan.plog.AtLeast
+            out : :class:`plog.AtLeast<puan.logic.plog.AtLeast>`
 
         Examples
         --------
@@ -575,7 +573,7 @@ class application(dict):
             ...         }
             ...     }
             ... ])
-            VARea3404078e1fc1538b20464e99e81ff51bd0d7773686ffcb1cd7c6a560ba8ae4: +(VAR0aadd9ea54a7ca1f1e04b4cb522e761705c6fd9f105ec16658b8007c977d2470,VAR639a560d52db0adacb1ab70a97892ea14387ecea7c05383c15c778e6e00a7606,VARdc403dd989722bd60cbe3a3d22f7413577e85fa9a9276dd423c28bafab562e8a)>=3
+            VAR8e26169477494a3ca8d989338f0acdb095fc09638444ba1ff0120ff81d634d43: +(VAR63483345bc4c9299dfe6df08eed7f5222b89033066bd7f9b8ad5e3d0bcdeb598,VAR6b732b6474a6bf8bf6c5d3523a358c7f448398691c5183814e5fa2db1db76f19,VARd1badb69bdc7c6f74e507054886d577bfa887b2a5ede7881bef5328847b24bd6)>=3
     """
         n_ge_one = functools.partial(filter, maz.compose(maz.pospartial(operator.ge, [(1,1)]), len))
         return pg.All(
@@ -628,11 +626,11 @@ class application(dict):
     def to_all_proposition(applications: typing.List["application"], from_items: typing.List[dict], id_key: str = "id", id: str = None) -> pg.All:
 
         """
-            Compiles into a `pg.All` proposition from a list of applications and a list of items.
+            Compiles into a :class:`plog.All<puan.logic.plog.All>` proposition from a list of applications and a list of items.
 
             Returns
             -------
-                out : pg.All
+                out : :class:`plog.All<puan.logic.plog.All>`
         """
 
         return pg.All(

@@ -20,7 +20,7 @@ dependencies = [
     "more-itertools==8.12.0",
     "maz==0.0.1",
     "dictdiffer==0.9.0",
-    "puan-rspy==0.2.5",
+    "puan-rspy==0.2.7",
     "toposort==1.7"
 ]
 keywords = ["combinatorial optimization", "milp", "mllp", "ilp", "linear-programming", "optimization"]

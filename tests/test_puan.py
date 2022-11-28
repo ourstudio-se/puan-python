@@ -193,8 +193,8 @@ def test_model_properties_hypothesis(propositions):
     model.to_short()
     model.to_text()
     try:
-        model.to_polyhedron()
-        model.to_polyhedron(True)
+        model.to_ge_polyhedron()
+        model.to_ge_polyhedron(True)
     except Exception as e:
         if not "circular statement references" in e:
             raise Exception(e)
@@ -427,7 +427,7 @@ def test_rules2matrix_with_mixed_condition_rules():
         }
     ]
     model = pg.All(*map(pg.Imply.from_cicJE, rules), variable="A")
-    matrix = model.to_polyhedron(active=True)
+    matrix = model.to_ge_polyhedron(active=True)
 
     expected_feasible_configurations = matrix.A.construct(
         [("B",1),("D",1),("E",1),("F",1)],
@@ -898,10 +898,10 @@ def test_application_to_rules():
     )
     assert len(model.propositions) == 1
     first_prop = model.propositions[0]
-    assert first_prop.propositions[0].sign == 1
-    assert len(first_prop.propositions[0].propositions) == 3
-    assert first_prop.propositions[1].sign == -1
-    assert len(first_prop.propositions[1].propositions) == 6
+    assert first_prop.propositions[1].sign == 1
+    assert len(first_prop.propositions[1].propositions) == 3
+    assert first_prop.propositions[0].sign == -1
+    assert len(first_prop.propositions[0].propositions) == 6
 
 def test_application_to_rules_with_condition_relation():
     items = [
@@ -1345,23 +1345,6 @@ def test_neglect_columns():
                 ])
     assert numpy.array_equal(actual, expected)
 
-def test_configuration2value_map():
-    inputs = (
-        [
-            ('a', 'b', 'c'),
-            ('c', 'd', 'e'),
-        ],
-        ['a', 'b', 'c', 'd', 'e']
-    )
-    actual = puan.ndarray.boolean_ndarray.from_list(*inputs).to_value_map()
-    expected = {
-        1: [
-            [0, 0, 0, 1, 1, 1],
-            [0, 1, 2, 2, 3, 4]
-        ]
-    }
-    assert actual == expected
-
 
 def test_reducable_matrix_columns_should_keep_zero_columns():
 
@@ -1549,7 +1532,7 @@ def test_json_conversion():
 def test_xnor_proposition():
     
     actual_model = pg.XNor("x","y","z") # <- meaning none or at least 2
-    polyhedron = actual_model.to_polyhedron(True)
+    polyhedron = actual_model.to_ge_polyhedron(True)
     assert polyhedron.shape == (3,6)
     assert polyhedron[polyhedron.A.dot([1,0,1,1,1]) < polyhedron.b].size == 0 # <- AtLeast 2 -variable active (neg AtMost 1)
     assert polyhedron[polyhedron.A.dot([0,1,0,0,0]) < polyhedron.b].size == 0 # <- None -variable active (neg AtLeast 1)
@@ -1559,20 +1542,20 @@ def test_proposition_polyhedron_conversions():
     actual = pg.All(
         pg.Not("x"),
         variable="all_not"
-    ).to_polyhedron(True)
+    ).to_ge_polyhedron(True)
     assert not all(actual.A.dot(actual.A.construct(*{"x": 1}.items())) >= actual.b)
     assert all(actual.A.dot(actual.A.construct(*{"VARc96efc8ea4acc75f6dbddd0acac8f189b4c566f77b76b6299161a14e4eeb2caf": 1}.items())) >= actual.b)
 
     actual = pg.Not(
         pg.All("x","y","z", variable="all_xyz")
-    ).to_polyhedron(True)
+    ).to_ge_polyhedron(True)
     assert all(actual.A.dot(actual.A.construct(*{"x": 1}.items())) >= actual.b)
     assert all(actual.A.dot(actual.A.construct(*{"x": 1, "y": 1}.items())) >= actual.b)
     assert not all(actual.A.dot(actual.A.construct(*{"x": 1, "y": 1, "z": 1}.items())) >= actual.b)
 
     actual = pg.Not(
         pg.Any("x","y","z")
-    ).to_polyhedron(True)
+    ).to_ge_polyhedron(True)
     assert not all(actual.A.dot(actual.A.construct(*{"x": 1}.items())) >= actual.b)
     assert not all(actual.A.dot(actual.A.construct(*{"y": 1}.items())) >= actual.b)
     assert not all(actual.A.dot(actual.A.construct(*{"z": 1}.items())) >= actual.b)
@@ -1580,16 +1563,16 @@ def test_proposition_polyhedron_conversions():
     actual = pg.Imply(
         condition=pg.Not("x"),
         consequence=pg.All("a","b","c")
-    ).to_polyhedron(True)
+    ).to_ge_polyhedron(True)
     assert all(actual.A.dot(actual.A.construct(*{"VARfe372293ac6fc8767d248278e9ceacbb53aa57de8d3b30ef20813933935d1332": 1, "x": 1}.items())) >= actual.b)
-    assert all(actual.A.dot(actual.A.construct(*{"VARa786dc00ea76fe754d21e63ec49ef338cc4771c44ed9562a0fb0bd52d305ae1e": 1, "a": 1, "b": 1, "c": 1}.items())) >= actual.b)
+    assert all(actual.A.dot(actual.A.construct(*{"VARcb5c9cf4540a353612f65682e67cb8817ccdbe7d918f14101b0c41503358c207": 1, "a": 1, "b": 1, "c": 1}.items())) >= actual.b)
 
     actual = pg.Not(
         pg.Imply(
             condition=pg.All("x","y","z"), 
             consequence=pg.Any("a","b","c")
         ),
-    ).to_polyhedron(True)
+    ).to_ge_polyhedron(True)
     assert all(actual.A.dot(actual.A.construct(*{"VARb6a05d7d91efc84e49117524cffa01cba8dcb1f14479be025342b909c9ab0cc2": 1, "VARe3918cdbd4ac804be32d2b5a3f2890d6ae5f6d3fb9246b429be1bb973edd157a": 1, "x": 1, "y": 1, "z": 1}.items())) >= actual.b)
     assert not all(actual.A.dot(actual.A.construct(*{"VARb6a05d7d91efc84e49117524cffa01cba8dcb1f14479be025342b909c9ab0cc2": 1, "VARe3918cdbd4ac804be32d2b5a3f2890d6ae5f6d3fb9246b429be1bb973edd157a": 1, "x": 1, "y": 1, "z": 1, "a": 1}.items())) >= actual.b)
     assert not all(actual.A.dot(actual.A.construct(*{"VARb6a05d7d91efc84e49117524cffa01cba8dcb1f14479be025342b909c9ab0cc2": 1, "VARe3918cdbd4ac804be32d2b5a3f2890d6ae5f6d3fb9246b429be1bb973edd157a": 1, "x": 1, "y": 1, "z": 1, "b": 1}.items())) >= actual.b)
@@ -1598,7 +1581,7 @@ def test_proposition_polyhedron_conversions():
 
     actual = pg.Not(
         pg.AtLeast(propositions=["x","y","z"], value=2)
-    ).to_polyhedron(True)
+    ).to_ge_polyhedron(True)
     assert not all(actual.A.dot(actual.A.construct(*{"x": 1, "y": 1, "z": 1}.items())) >= actual.b)
     assert all(actual.A.dot(actual.A.construct(*{"x": 1}.items())) >= actual.b)
     assert all(actual.A.dot(actual.A.construct(*{"y": 1}.items())) >= actual.b)
@@ -1606,7 +1589,7 @@ def test_proposition_polyhedron_conversions():
 
     actual = pg.Not(
         pg.AtMost(propositions=["x","y","z"], value=2)
-    ).to_polyhedron(True)
+    ).to_ge_polyhedron(True)
     assert not all(actual.A.dot(actual.A.construct(*{"x": 1}.items())) >= actual.b)
     assert not all(actual.A.dot(actual.A.construct(*{"y": 1}.items())) >= actual.b)
     assert not all(actual.A.dot(actual.A.construct(*{"z": 1}.items())) >= actual.b)
@@ -1641,17 +1624,17 @@ def test_proposition_polyhedron_conversions():
             variable="shoes"
         ),
         id="outfit"
-    ).to_polyhedron(True)
+    ).to_ge_polyhedron(True)
     assert all(
         actual.A.dot(
             actual.A.construct(
                 *{
-                    "VAR0b6effa003e76fb0c48121f48d7b83b1d50f7e989e6bb5aacda2e9ea390ddf66": 1,
-                    "VAR17884981776c78b41dfa00d95d5f43f3ee9f242a47cd9a4f3c1e0b0215717c97": 1,
-                    "VARa0b72653f399fc9ab0397f821243190115995dbe0d142fe252a58715d792d264": 1,
-                    "VARa11150dc3b0e819c212cddba7436d42610eceb3b58814a4ef002d2b16189dfcf": 1,
-                    "VARb1d47eae1ac79f2576c042d53e8659cd9916a6d01802253d60a1d6ac4dee5842": 1,
-                    "VARce40c57d36c6a44fc01dc2fa041ad03ec2bd64ce8148627047937bab81a0aac5": 1,
+                    "VAR078253de0198b4e2ba4ae54d2ff9cb511d3055064d6132049a29ff6a2dc55edd": 1,
+                    "VAR1414b00e0f808cb060126f90cbe86e83c87b4b0cbe158d077fd2e23359faaa83": 1,
+                    "VAR468a4942c7f47232c142a5b40253be66fafbacee418fb325b299c3a3df1d4ff1": 1,
+                    "VAR4803c19cbb7f1c2fa552ef65967b971a3e798eaaed91fcb2726a7d27acd0d23a": 1,
+                    "VAR852b391777566b6ff2eb7c8b25b110858a7ae5d141d486e409a5b6f3002074b4": 1,
+                    "VARe256ab674250ba0eb7b0e0cac5b43febb338c87d6daa02c02c90c66aa38b86fa": 1,
                     "t-shirts": 1,
                     "sweaters": 1,
                     "jeans": 1,
@@ -1683,7 +1666,7 @@ def test_multiple_defaults():
     keys2.sort()
     int_ndarray1 = numpy.array(list(map(lambda x: full_config1[x], keys1)))
     int_ndarray2 = numpy.array(list(map(lambda x: full_config2[x], keys2)))
-    objective_function = puan.ndarray.ndint_compress(model.polyhedron.default_prio_vector, method="shadow")
+    objective_function = puan.ndarray.ndint_compress(model.ge_polyhedron.default_prio_vector, method="shadow")
     assert objective_function.dot(int_ndarray1) > objective_function.dot(int_ndarray2)
 
 def test_evaluate_propositions():
@@ -1692,7 +1675,7 @@ def test_evaluate_propositions():
         pg.All(*"xy", variable="A").evaluate_propositions({"x": 3})
     
     # Unsatisfiable model
-    assert pg.AtLeast(2, "x").evaluate_propositions({"x": 0}) == {'VAR13c463c68a23bc633637b613e63e0025e2d498cf52ef76877ae6ed3475f4aba6': 0, "x": 0}
+    assert pg.AtLeast(2, "x").evaluate_propositions({"x": 0}) == {'VAR9d59599264198c20cfb4a8b1a0802d5f8a59c41563eea15eb6c663c25826d535': 0, "x": 0}
 
     # Faulty configuration input
     with pytest.raises(ValueError):
@@ -1719,11 +1702,21 @@ def test_propositions_evaluations(proposition, configuration):
     if not value_error_raised:
         assert evaluate_propositions_result == evaluate_result
 
-def test_puan_variable():
-    assert puan.variable("x", (1,5), "int").bounds.as_tuple() == (1, 5)
-    with pytest.raises(ValueError):
-        puan.variable("x", (1, 5), "bool")
-            
+@given(st.text(), st.integers(), st.integers(), st.sampled_from([puan.Dtype.BOOL, puan.Dtype.INT, "bool", "int", None]))
+def test_puan_variable(id, lower, upper, dtype):
+    
+    if lower <= upper:
+        # should raise error iff dtype == "bool" and bounds != (0,1)
+        if (dtype == "bool") and ((lower, upper) != (0,1)):
+            with pytest.raises(ValueError):
+                puan.variable(id, (lower, upper), dtype)
+        else:
+            puan.variable(id, (lower, upper), dtype)
+    else:
+        # should raise ValueError from Bounds
+        with pytest.raises(ValueError):
+            puan.variable(id, (lower, upper), dtype)
+
 # def test_assuming_integer_variables():
 
 #     """
@@ -1746,7 +1739,7 @@ def test_puan_variable():
 #         ), 
 #     )
 
-#     assumed = model.assume({"x": 1, "y": 1, "z": 1})[0].to_polyhedron(True)
+#     assumed = model.assume({"x": 1, "y": 1, "z": 1})[0].to_ge_polyhedron(True)
 #     assert all(assumed.A.dot(assumed.A.construct(*{"at-least-10": 1, "at-most-20": 1, "t": 10}.items())) >= assumed.b)
 #     assert all(assumed.A.dot(assumed.A.construct(*{"at-least-10": 1, "at-most-20": 1, "t": 20}.items())) >= assumed.b)
 #     assert not all(assumed.A.dot(assumed.A.construct(*{"t": 1}.items())) >= assumed.b)
@@ -2190,7 +2183,7 @@ def test_dump_load_ge_polyhedron_config():
         return list(map(lambda x: (x, 0, 5), numpy.ones((y.shape[0], x.A.shape[1]))))
 
     expected = puan.ndarray.ge_polyhedron_config.from_b64(
-        model.polyhedron.to_b64()
+        model.ge_polyhedron.to_b64()
     ).select({"a": 1}, solver=dummy_solver)
     actual = model.select({"a": 1}, solver=dummy_solver)
 

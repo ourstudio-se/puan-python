@@ -374,7 +374,7 @@ Yet the model is independent on items, which makes it very convenient to update 
     conj_prop = sta.application.to_all_proposition(sta_rules, items)
 
     # Check if a particular combination is valid
-    polyhedron = conj_prop.to_polyhedron()
+    polyhedron = conj_prop.to_ge_polyhedron()
     assert polyhedron.ineqs_satisfied(
         polyhedron.construct_boolean_ndarray([
             "converse",

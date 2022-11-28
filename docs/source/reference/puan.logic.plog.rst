@@ -23,7 +23,7 @@ Data types
    
    :class:`puan.logic.plog.XNor` : ``XNor`` is a negated ``Xor``. In the special case of two propositions, this is equivalent to the biconditional logical connective (<->).
    
-   :class:`puan.logic.plog.Not` : ``Not`` is negating a proposition. For example, ``Not(All("x","y","z"))`` means that x, y or z can never be selected and is equivalent to ``AtMost(propositions=["x","y","z"], value=2)``.
+   :class:`puan.logic.plog.Not` : ``Not`` is negating a proposition. For example, ``Not(All("x","y","z"))`` means that x, y and z can never be selected all together and is equivalent to ``AtMost(propositions=["x","y","z"], value=2)``.
 
 
 .. currentmodule:: puan.logic.plog
@@ -84,3 +84,9 @@ Not
    :undoc-members:
    :show-inheritance:
 
+PropositionValidationError
+++++++++++++++++++++++++++
+.. autoclass:: PropositionValidationError
+   :members:
+   :undoc-members:
+   :show-inheritance:

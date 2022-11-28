@@ -12,16 +12,28 @@ import dataclasses
 class Any(pg.Any):
 
     """
-        Overriding ``plog.Any`` proposition with default -attribute indicating which solution
-        is default. If proposition is A: a+b+c >= 1 and default is "c", then new proposition is
+        Overriding :class:`plog.Any<puan.logic.plog.Any>` proposition with default attribute indicating which solution
+        is default. If proposition is :math:`A`: :math:`a+b+c \\ge 1` and default is :math:`c`, then new proposition is
 
-            | A  : A'+c >=1
-            | A' : a+b  >=1
+            | :math:`A`  : :math:`A'+c \\ge 1`
+            | :math:`A'` : :math:`a+b  \\ge 1`
 
-        and prio is set to c > A'.
+        and prio is set to :math:`c > A'`.
+
+        Parameters
+        ----------
+        *propositions : an iterable of :class:`puan.Proposition` instances or ``str``
+        default : marks which of all sub propositions are default 
+        variable : variable connected to this proposition
+
+        Methods
+        -------
+        to_json
+        from_json
+        from_list
     """
 
-    def __init__(self, *propositions, default: typing.List[typing.Union[puan.variable, str]] = None, variable: typing.Union[puan.variable, str] = None):
+    def __init__(self, *propositions, default: typing.List[typing.Union[puan.Proposition, str]] = None, variable: typing.Union[puan.variable, str] = None):
         self.default = list(map(lambda x: puan.variable(x) if type(x) == str else x, default if default is not None else []))
         if len(self.default) > 0 and self.default is not None and len(propositions) > 1:
             _default = self.default[0].id
@@ -39,10 +51,17 @@ class Any(pg.Any):
         else:
             super().__init__(*propositions, variable=variable)
 
-    def to_json(self) -> dict:
+    def to_json(self) -> typing.Dict[str, typing.Any]:
         # currently we only care about first element since no implementation
         # to handle list of defaults (like a prio list). But since future may include list of 
         # defaults, we keep interface as list
+        """
+            Converts :class:`Any` to JSON format.
+
+            Returns
+            -------
+                out : Dict[str, Any]
+        """
         if len(self.propositions) == 2 and any(map(lambda x: hasattr(x, 'prio'), self.propositions)):
             d = {
                 "id": self.id,
@@ -76,9 +95,22 @@ class Any(pg.Any):
         return d
 
     @staticmethod
-    def from_json(data: dict, class_map: list) -> "Any":
+    def from_json(data: typing.Dict[str, typing.Any], class_map: typing.List["Any"]) -> "Any":
         
-        """"""
+        """
+            Creates :class:`Any` from JSON format.
+
+            Parameters
+            ----------
+            data : Dict[str, Any]
+                JSON data
+            class_map : List[Any]
+                List of classes which maps to type
+
+            Returns
+            -------
+                out : :class:`Any`
+        """
         default = data.get("default", [])
         if default:
             default_item = None if len(default) == 0 else list(map(lambda x: puan.variable.from_json(x, [puan.variable]), default))
@@ -99,16 +131,28 @@ class Any(pg.Any):
 class Xor(pg.Xor):
 
     """
-        Overriding ``plog.Xor`` proposition with default -attribute indicating which solution
-        is default. If proposition is A: a+b+c >= 1 and default is "c", then new proposition is
+        Overriding :class:`plog.Xor<puan.logic.plog.Xor>` proposition with default attribute indicating which solution
+        is default. If proposition is :math:`A`: :math:`a+b+c \\ge 1` and default is :math:`c`, then new proposition is
         
-            | A  : A'+c >=1
-            | A' : a+b  >=1
+            | :math:`A`  : :math:`A'+c \\ge 1`
+            | :math:`A'` : :math:`a+b \\ge 1`
             
-        and prio is set to c > A'.
+        and prio is set to :math:`c > A'`.
+
+        Parameters
+        ----------
+        *propositions : an iterable of :class:`puan.Proposition` instances or ``str``
+        default : marks which of all sub propositions are default 
+        variable : variable connected to this proposition
+
+        Methods
+        -------
+        to_json
+        from_json
+        from_list
     """
 
-    def __init__(self, *propositions, default: typing.List[typing.Union[str, puan.variable]] = None, variable: typing.Union[puan.variable, str] = None):
+    def __init__(self, *propositions, default: typing.List[typing.Union[str, puan.Proposition]] = None, variable: typing.Union[puan.variable, str] = None):
         super().__init__(*propositions, variable=variable)
         
         # From init, there should be exactly one Any constraint
@@ -166,37 +210,56 @@ class StingyConfigurator(pg.All):
         A class for supporting a sequential configurator experience.
         The "stingy" configurator always tries to select the least possible number of selections in a solution, with
         respect to what's been prioritized.
-        Whenever a AtLeast -proposition proposes multiple solutions that equal least number
+        Whenever an AtLeast proposition proposes multiple solutions that equal least number
         of selections, then a default may be added to avoid ambivalence.
+
+        Parameters
+        ----------
+        *propositions : an iterable of :class:`puan.Proposition` instances or ``str``
+        id : id connected to this proposition
+
+        Methods 
+        -------
+        ge_polyhedron
+        default_prios
+        leafs
+        select 
+        add
+        from_json
+        to_json
     """
 
-    def __init__(self, *propositions: typing.List[typing.Union[pg.AtLeast, str]], id: str = None):
+    def __init__(self, *propositions: typing.List[typing.Union[puan.Proposition, str]], id: str = None):
         super().__init__(*propositions, variable=id)
 
     @property
     @functools.lru_cache
-    def polyhedron(self) -> pnd.ge_polyhedron_config:
+    def ge_polyhedron(self) -> pnd.ge_polyhedron_config:
 
         """
-            This configurator model's polyhedron (see logic.plog.AtLeast.to_polyhedron).
+            This configurator model's polyhedron (see :meth:`plog.AtLeast.to_ge_polyhedron<puan.logic.plog.AtLeast.to_ge_polyhedron>`).
+
+            Returns
+            -------
+                out : :class:`puan.ndarray.ge_polyhedron_config`
         """
-        polyhedron = self.to_polyhedron(True)
+        ge_polyhedron = self.to_ge_polyhedron(True)
         return pnd.ge_polyhedron_config(
-            polyhedron, 
-            default_prio_vector=polyhedron.A.construct(*self.default_prios.items()),
-            variables=polyhedron.variables, 
-            index=polyhedron.index, 
+            ge_polyhedron, 
+            default_prio_vector=ge_polyhedron.A.construct(*self.default_prios.items()),
+            variables=ge_polyhedron.variables, 
+            index=ge_polyhedron.index, 
         )
 
     @property
-    def default_prios(self) -> dict:
+    def default_prios(self) -> typing.Dict[str, int]:
 
         """
             Default prio dictionary, based on defaults in either Xor's or Any's.
 
             Returns
             -------
-                out : dict
+                out : Dict[str, int]
         """
         flat = self.flatten()
         return dict(
@@ -213,11 +276,11 @@ class StingyConfigurator(pg.All):
     def leafs(self) -> typing.List[puan.variable]:
 
         """
-            Return propositions that are of type puan.variable.
+            Return propositions that are of type :class:`variable<puan.variable>`.
 
             Returns
             -------
-                out : typing.List[puan.variable]
+                out : List[:class:`variable<puan.variable>`]
         """
         flatten = self.flatten()
         return sorted(
@@ -232,23 +295,26 @@ class StingyConfigurator(pg.All):
         )
     
 
-    def select(self, *prios: typing.List[typing.Dict[str, int]], solver, only_leafs: bool = False) -> typing.Iterable[typing.List[puan.variable]]:
+    def select(self, *prios: typing.List[typing.Dict[str, int]], solver: typing.Callable, only_leafs: bool = False) -> typing.Iterable[typing.List[puan.variable]]:
 
         """
             Select items to prioritize and receive a solution.
 
             Parameters
             ----------
-                *prios : typing.List[typing.Dict[str, int]]
+                *prios : List[Dict[str, int]]
                     a list of dicts where each entry's value is a prio
 
                 solver : a mixed integer linear programming solver
 
+                only_leafs : ``bool``
+                    Controls if only leafs should be returned in the output, see :meth:`leafs`. Default ``False``. 
+
             Returns
             -------
-                out : typing.List[typing.List[puan.variable]]
+                out : List[List[:class:`puan.variable`]]
         """
-        res = self.polyhedron.select(
+        res = self.ge_polyhedron.select(
             *prios, 
             solver=solver, 
         )
@@ -288,7 +354,7 @@ class StingyConfigurator(pg.All):
 
             Returns
             -------
-                out : StingyConfigurator
+                out : :class:`StingyConfigurator`
         """
         if proposition.id in map(operator.attrgetter("id"), self.propositions):
             raise Exception(f"proposition with id `{proposition.id}` already exist among this proposition's sub propositions")
@@ -300,7 +366,13 @@ class StingyConfigurator(pg.All):
 
     def from_json(data: dict) -> "StingyConfigurator":
 
-        """"""
+        """
+            Creates a :class:`StingyConfigurator` from the JSON format.
+
+            Returns
+            -------
+                out : :class:`StingyConfigurator`
+        """
         classes = [
             puan.variable,
             pg.AtLeast,
@@ -321,6 +393,9 @@ class StingyConfigurator(pg.All):
             id=data.get('id', None)
         )
 
-    def to_json(self) -> dict:
+    def to_json(self) -> typing.Dict[str, typing.Any]:
+        """
+            Converts a :class:`StingyConfigurator` to the JSON format
+        """
         d = super().to_json()
         return d

@@ -8,25 +8,26 @@ Summary
 Data types
 ----------
 
-:class:`puan.variable_ndarray`
-   A numpy.ndarray sub class which ties variables to the indices of the ndarray.
+.. currentmodule:: puan.ndarray
 
-:class:`puan.ge_polyhedron`
-   A numpy.ndarray sub class and a system of linear inequalities forming
+:class:`variable_ndarray`
+   A :class:`numpy.ndarray` sub class which ties variables to the indices of the :class:`numpy.ndarray`.
+
+:class:`ge_polyhedron`
+   A :class:`numpy.ndarray` sub class and a system of linear inequalities forming
    a polyhedron. The "ge" stands for "greater or equal" (:math:`\ge`)
    which represents the relation between :math:`A` and :math:`b` (as in :math:`Ax \ge b`), i.e.
    polyhedron :math:`P=\{x \in R^n \ |\  Ax \ge b\}`.
 
-:class:`puan.ge_polyhedron.config`
-   A puan.ge_polyhedron sub class with specific configurator features.
+:class:`ge_polyhedron_config`
+   A :class:`ge_polyhedron` sub class with configurator features.
 
-:class:`puan.integer_ndarray`
-   A numpy.ndarray sub class with only integers in it.
+:class:`integer_ndarray`
+   A :class:`numpy.ndarray` sub class with only integers.
 
-:class:`puan.boolean_ndarray`
-   A numpy.ndarray sub class with only booleans.
+:class:`boolean_ndarray`
+   A :class:`numpy.ndarray` sub class with only booleans.
 
-.. currentmodule:: puan.ndarray
 
 Variable ndarray
 ++++++++++++++++

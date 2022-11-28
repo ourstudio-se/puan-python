@@ -9,11 +9,14 @@ Here are data structures essential for Puan toolkit.
 Data types
 ----------
 
-:class:`puan.variable`
-   The ```variable``` class is a central key in all Puan packages. It consists of an id, data type (dtype) and if it is virtual or not.
-   A virtual variable is a variable that has been created along some reduction and is not (necessary) interesting for the user.
-
 .. currentmodule:: puan
+
+:class:`variable`
+   The :class:`variable` class is a central key in all Puan packages. It consists of an id, :class:`Bounds` and data type (dtype).
+
+:class:`SolutionVariable`
+   The :class:`SolutionVariable` class is an extension to the :class:`variable` class where each variable can be assigned a value. 
+
 
 variable
 ++++++++
@@ -22,3 +25,23 @@ variable
    :undoc-members:
    :show-inheritance:
 
+SolutionVariable
+++++++++++++++++
+.. autoclass:: SolutionVariable
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+Bounds
+++++++
+.. autoclass:: Bounds
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+Sign
+++++
+.. autoclass:: Sign
+   :members:
+   :undoc-members:
+   :show-inheritance:
