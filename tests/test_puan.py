@@ -2576,3 +2576,41 @@ def test_function_add_for_stingy_configurator():
     cc.StingyConfigurator(pg.All(*"efg", variable="A")).add(
         pg.All(*"ABC")
     )
+
+def test_constructing_proposition_model_with_variable_sub_classes():
+
+    class Fruit(puan.variable):
+        
+        def  __init__(self, size: str):
+            super().__init__(f"{self.__class__.__name__}-{size}")
+            self.size = size
+
+    class Apple(Fruit):
+        pass
+
+    class Pear(Fruit):
+        pass
+
+    class Orange(Fruit):
+        pass
+
+    # Test that it is possible to construct
+    model = pg.All(
+        pg.Imply(
+            Apple("big"),
+            pg.Any(
+                Orange("small"),
+                Orange("medium"),
+            )
+        ),
+        pg.Xor(Apple("small"), Apple("big")),
+        pg.Not(Pear("medium"))
+    )
+
+    # Test that we can evaluate on the items
+    assert not model.evaluate({"Apple-big": 1})
+    assert not model.evaluate({"Pear-medium": 1})
+    assert not model.evaluate({})
+    assert model.evaluate({"Apple-big": 1, "Orange-small": 1})
+    assert model.evaluate({"Apple-big": 1, "Orange-small": 1, "Orange-medium": 1})
+    assert model.evaluate({"Apple-small": 1})

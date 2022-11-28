@@ -129,12 +129,12 @@ class AtLeast(puan.Proposition):
             self.generated_id = True
         elif type(variable) == str:
             self.variable = puan.variable(id=variable, bounds=(0,1))
-        elif type(variable) == puan.variable:
+        elif issubclass(variable.__class__, puan.variable):
             if variable.bounds.as_tuple() != (0,1):
                 raise ValueError(f"variable of a compound proposition cannot have bounds other than (0, 1), got: {variable.bounds}")
             self.variable = variable
         else:
-            raise ValueError(f"`variable` must be of type `str` or `puan.variable`, got: {type(variable)}")
+            raise ValueError(f"`variable` must be of type `str` or an instance of `puan.variable`, got: {type(variable)}")
 
     def __repr__(self) -> str:
         atoms = sorted(
@@ -161,11 +161,11 @@ class AtLeast(puan.Proposition):
                     itertools.chain(
                         map(
                             operator.attrgetter("id"), 
-                            filter(lambda x: type(x) == puan.variable, propositions)
+                            filter(lambda x: issubclass(x.__class__, puan.variable), propositions)
                         ),
                         map(
                             operator.attrgetter("variable.id"), 
-                            filter(lambda x: type(x) != puan.variable, propositions)
+                            filter(lambda x: not issubclass(x.__class__, puan.variable), propositions)
                         )
                     )
                 ) + str(value) + str(sign)
@@ -215,7 +215,7 @@ class AtLeast(puan.Proposition):
             -------
                 out : Iterable[puan.Proposition]
         """
-        return filter(lambda x: type(x) != puan.variable, self.propositions)
+        return filter(lambda x: not issubclass(x.__class__, puan.variable), self.propositions)
 
     @property
     def atomic_propositions(self) -> typing.Iterable[puan.variable]:
@@ -238,7 +238,7 @@ class AtLeast(puan.Proposition):
             -------
                 out : Iterable[:class:`puan.variable`]
         """
-        return filter(lambda x: type(x) == puan.variable, self.propositions)
+        return filter(lambda x: issubclass(x.__class__, puan.variable), self.propositions)
 
     @property
     def variables(self) -> typing.List[puan.variable]:
@@ -1342,7 +1342,7 @@ class Imply(Any):
     """
 
     def __init__(self, condition, consequence, variable: typing.Union[str, puan.variable] = None):
-        if type(condition) in [str, puan.variable]:
+        if type(condition) == str or issubclass(condition.__class__, puan.variable):
             condition = All(condition)
         self.condition = condition.negate()
         self.consequence = consequence
@@ -1572,7 +1572,7 @@ class Not():
     """
 
     def __new__(self, proposition):
-        return (All(proposition) if type(proposition) in [str, puan.variable] else proposition).negate()
+        return (All(proposition) if type(proposition) == str or issubclass(proposition.__class__, puan.variable) else proposition).negate()
 
     @staticmethod
     def from_json(data: typing.Dict[str, typing.Any], class_map) -> "AtLeast":
