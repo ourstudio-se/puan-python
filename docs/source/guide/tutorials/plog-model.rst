@@ -116,12 +116,12 @@ We head to the store and check our model with the current shopping cart after we
 
 .. code:: python
 
-    cart = [
-        puan.SolutionVariable.from_variable(milk_home, 1),
-        puan.SolutionVariable.from_variable(milk_bought, 0),
-        puan.SolutionVariable.from_variable(tomatoes, 2+2),
-        puan.SolutionVariable.from_variable(cucumbers, 0),
-    ]
+    cart = {
+        milk_home.id: 1,
+        milk_bought.id: 0,
+        tomatoes.id: 2+2,
+        cucumbers.id: 0,
+    }
 
     # ... and evaluate if it satisfies the model
     print(fridge_model.evaluate(cart))
@@ -133,13 +133,13 @@ check again if we're ok
 .. code:: python
 
     # Construct a cart numpy array instance from variables ...
-    new_cart = [
-        puan.SolutionVariable.from_variable(chips, 1),
-        puan.SolutionVariable.from_variable(milk_home, 1),
-        puan.SolutionVariable.from_variable(milk_bought, 0),
-        puan.SolutionVariable.from_variable(tomatoes, 2+2),
-        puan.SolutionVariable.from_variable(cucumbers, 1),
-    ]
+    new_cart = {
+        chips.id: 1,
+        milk_home.id: 1,
+        milk_bought.id: 0,
+        tomatoes.id: 2+2,
+        cucumbers.id: 1,
+    }
 
     # ... and evaluate if it satisfies the model
     print(fridge_model.evaluate(new_cart))
