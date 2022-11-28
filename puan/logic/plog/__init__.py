@@ -134,7 +134,7 @@ class AtLeast(puan.Proposition):
                 raise ValueError(f"variable of a compound proposition cannot have bounds other than (0, 1), got: {variable.bounds}")
             self.variable = variable
         else:
-            raise ValueError(f"`variable` must be of type `str` or `puan.variable`, got: {type(variable)}")
+            raise ValueError(f"`variable` must be of type `str` or an instance of `puan.variable`, got: {type(variable)}")
 
     def __repr__(self) -> str:
         atoms = sorted(
