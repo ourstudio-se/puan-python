@@ -65,6 +65,7 @@ def atleast_proposition_strategy():
         propositions=atoms_propositions_strategy(),
         variable=variable_boolean_proposition_strategy(), 
         value=st.integers(min_value=-5, max_value=5),
+        sign=st.sampled_from([puan.Sign.POSITIVE, puan.Sign.NEGATIVE])
     )
 
 def atmost_proposition_strategy():
@@ -175,6 +176,12 @@ def test_negated_propositions_are_unique(propositions):
 @given(propositions_strategy(), st.lists(st.integers(min_value=-3, max_value=3), min_size=99))
 @settings(deadline=None)
 def test_proposition_polyhedron_conversion(propositions, integers):
+
+    """
+        For each model that does not have any known errors we test that if a generated interpretation
+        satisfies the model, a corresponding vector interpretation also satisfies the model's polyhedron.
+    """
+
     model = pg.All(*propositions)
     if len(model.errors()) == 0:
         polyhedron = model.to_ge_polyhedron(True)

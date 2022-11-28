@@ -262,9 +262,6 @@ class variable(Proposition):
             bounds=(bounds['lower'], bounds['upper'])
         )
 
-    def rebuilt(self) -> str:
-        return f"puan.variable('{self.id}', ({self.bounds.lower},{self.bounds.upper}))"
-
 
 class SolutionVariable(variable):
     """
