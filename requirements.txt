@@ -1,6 +1,3 @@
-# Doc requirements
--r docs/requirements.txt
-
 hypothesis==6.50.1
 numpy>=1.22.3
 maz==0.0.1

@@ -16,6 +16,7 @@ import dictdiffer
 import more_itertools
 import toposort
 from dataclasses import dataclass
+from collections import Counter
 
 class PropositionValidationError(str, enum.Enum):
 
@@ -107,18 +108,16 @@ class AtLeast(puan.Proposition):
             raise Exception("Sub propositions cannot be `None`")
 
         self.propositions = sorted(
-            set(
-                itertools.chain(
+            itertools.chain(
+                filter(
+                    lambda x: type(x) != str, 
+                    propositions_list
+                ),
+                map(
+                    puan.variable,
                     filter(
-                        lambda x: type(x) != str, 
+                        lambda x: type(x) == str,
                         propositions_list
-                    ),
-                    map(
-                        puan.variable,
-                        filter(
-                            lambda x: type(x) == str,
-                            propositions_list
-                        )
                     )
                 )
             ),
@@ -152,7 +151,7 @@ class AtLeast(puan.Proposition):
         return (self.id == other.id) & (self.equation_bounds == other.equation_bounds) & (self.value == other.value)
 
     def __hash__(self):
-        return hash(self.variable.id)
+        return hash((self.variable, self.sign, self.value, tuple(self.propositions)))
 
     def _id_generator(propositions, value: int, sign: int, prefix: str = "VAR") -> str:
         return prefix + hashlib.sha256(
@@ -300,7 +299,7 @@ class AtLeast(puan.Proposition):
             Examples
             --------
                 >>> All(*"abc", variable="A")._dependencies()
-                [(variable(id='A', bounds=Bounds(lower=0, upper=1)), [variable(id='a', bounds=Bounds(lower=0, upper=1)), variable(id='b', bounds=Bounds(lower=0, upper=1)), variable(id='c', bounds=Bounds(lower=0, upper=1))])]
+                [('A', ['a', 'b', 'c'])]
 
             Returns
             ------- 
@@ -310,12 +309,15 @@ class AtLeast(puan.Proposition):
             itertools.chain(
                 [
                     (
-                        self.variable,
+                        self.variable.id,
                         list(
                             itertools.chain(
-                                self.atomic_propositions,
                                 map(
-                                    operator.attrgetter("variable"),
+                                    operator.attrgetter("id"),
+                                    self.atomic_propositions,
+                                ),
+                                map(
+                                    operator.attrgetter("id"),
                                     self.compound_propositions
                                 )
                             )   
@@ -371,9 +373,20 @@ class AtLeast(puan.Proposition):
         if any(itertools.starmap(lambda a,b: a in b, deps)):
             errors.append(PropositionValidationError.CIRCULAR_DEPENDENCIES)
 
+        flatten = self.flatten()
         # counts how many times anything has been defined
-        variables_flatten = list(itertools.chain(map(operator.itemgetter(0), deps), *map(operator.itemgetter(1), deps)))
-        if len(set(map(lambda x: x.id, variables_flatten))) != len(set(map(lambda x: (x.id, x.bounds.lower, x.bounds.upper), variables_flatten))):
+        flat_compound = list(filter(maz.compose(lambda x: x != puan.variable, type), flatten))
+        flat_atomic = list(filter(maz.compose(lambda x: x == puan.variable, type), flatten))
+        flat_variable = list(itertools.chain(flat_atomic, map(lambda x: x.variable, flat_compound)))
+
+        # check if any two variables share id but have different props
+        flat_variable_counter = Counter(dict(zip(map(hash, flat_variable), map(operator.attrgetter("id"), flat_variable))).values())
+        if any(map(lambda x: x > 1, flat_variable_counter.values())):
+            errors.append(PropositionValidationError.AMBIVALENT_VARIABLE_DEFINITIONS)
+        
+        # check if any two propositions share id but have different props
+        flat_compound_counter = Counter(dict(zip(map(hash, flat_compound), map(operator.attrgetter("id"), flat_compound))).values())
+        if any(map(lambda x: x > 1, flat_compound_counter.values())):
             errors.append(PropositionValidationError.AMBIVALENT_VARIABLE_DEFINITIONS)
 
         return list(set(errors))
@@ -688,16 +701,15 @@ class AtLeast(puan.Proposition):
                 >>> All(*"xy", variable="A").evaluate({"x": 1})
                 False
 
-                >>> All(*"xy", variable="A").evaluate(
-                ... {puan.variable("x"): 1, puan.variable("y"): 1})
+                >>> All(*"xy", variable="A").evaluate({"x": 1, "y": 1})
                 True
 
                 >>> AtLeast(propositions=[puan.variable("x", dtype="int")],
-                ... value=10).evaluate({puan.variable("x"): 9})
+                ... value=10).evaluate({"x": 9})
                 False
 
                 >>> AtLeast(propositions=[puan.variable("x", dtype="int")],
-                ... value=10).evaluate({puan.variable("x"): 10})
+                ... value=10).evaluate({"x": 10})
                 True
             
             See also
@@ -711,7 +723,7 @@ class AtLeast(puan.Proposition):
 
         return self.evaluate_propositions(interpretation)[self.variable.id] > 0
 
-    def evaluate_propositions(self, interpretation: typing.Dict[typing.Union[str, puan.variable], int]) -> typing.Dict[typing.Union[str, puan.variable], int]:
+    def evaluate_propositions(self, interpretation: typing.Dict[str, int]) -> typing.Dict[str, int]:
         """
             Evaluates propositions on this model given a ``dict`` with variables and their values.
 
@@ -751,37 +763,67 @@ class AtLeast(puan.Proposition):
             -------
                 out : Dict[Union[str, :class:`puan.variable`], int]
         """
-        def _check_variable_in_bounds(id, val, bounds):
-            if val not in range(bounds.lower, bounds.upper+1):
-                raise ValueError("Variable {} is out of bounds, value: {}, bounds: {}".format(id, val, bounds))
-        def _get_variable_val(variable, interpretation):
-            if not variable in interpretation.keys():
-                interpretation[variable.id] = variable.bounds.lower
-            return interpretation
-        def _evaluate_propositions(prop, interpretation):
-            if not prop.variable.id in interpretation.keys():
-                # Calculate variable value and add to dict
-                val = sum(
-                            itertools.chain(
-                                map(
-                                    lambda x: _evaluate_propositions(x, interpretation)[x.id]*prop.sign,
-                                    prop.compound_propositions
+        def _check_and_get_variable_in_bounds(_interpretation: dict, variable: puan.variable):
+            val = _interpretation.get(variable.id, variable.bounds.lower) # Default value is the lower bound
+            if val not in range(variable.bounds.lower, variable.bounds.upper+1):
+                raise ValueError("Variable {} is out of bounds, value: {}, bounds: {}".format(variable.id, val, variable.bounds))
+            return val
+
+        _interpretation = functools.reduce(
+            lambda a,b: dict(
+                itertools.chain(
+                    b.items(),
+                    a.items(),
+                )
+            ),
+            itertools.chain(
+                map(
+                    operator.methodcaller(
+                        "evaluate_propositions", 
+                        interpretation=interpretation,
+                    ),
+                    self.compound_propositions
+                ),
+                [
+                    dict(
+                        zip(
+                            map(
+                                operator.attrgetter("id"), 
+                                self.atomic_propositions
+                            ),
+                            map(
+                                functools.partial(
+                                    _check_and_get_variable_in_bounds,
+                                    interpretation,
                                 ),
-                                map(
-                                    lambda x: _get_variable_val(x, interpretation)[x.id]*prop.sign,
-                                    prop.atomic_propositions
-                                )
-                            )
-                        )
-                _check_variable_in_bounds(prop.variable.id, 1*(val-prop.value >= 0), prop.variable.bounds)
-                interpretation[prop.variable.id] = 1*(
-                        val-prop.value >= 0
+                                self.atomic_propositions
+                            ),
+                        ),
                     )
-            return interpretation
-        interpretation_map = dict(map(lambda x: (x.id, x), filter(lambda x: type(x) == puan.variable, self.flatten())))
-        for x, y in filter(lambda x: x[0] in interpretation_map, interpretation.items()):
-                _check_variable_in_bounds(x, y, interpretation_map[x].bounds)
-        return _evaluate_propositions(self, interpretation)
+                ]
+            ),
+            {},
+        )
+
+        _interpretation[self.id] = 1*(
+            (
+                sum(
+                    map(
+                        maz.compose(
+                            functools.partial(
+                                operator.mul,
+                                self.sign
+                            ),
+                            _interpretation.get, 
+                            operator.attrgetter("id")
+                        ), 
+                        self.propositions
+                    )
+                ) - self.value
+            ) >= 0
+        )
+
+        return _interpretation
 
     def to_short(self) -> typing.Tuple[str, int, typing.List[str], int, typing.List[int]]:
 
