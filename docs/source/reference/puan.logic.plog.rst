@@ -84,13 +84,6 @@ Not
    :undoc-members:
    :show-inheritance:
 
-Sign
-++++
-.. autoclass:: Sign
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
 PropositionValidationError
 ++++++++++++++++++++++++++
 .. autoclass:: PropositionValidationError

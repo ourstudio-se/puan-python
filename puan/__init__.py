@@ -4,7 +4,7 @@ import typing
 import maz
 import itertools
 import dataclasses
-from enum import Enum
+from enum import Enum, IntEnum
 from json import JSONEncoder
 
 default_min_int     : int        = numpy.iinfo(numpy.int16).min
@@ -286,3 +286,10 @@ class SolutionVariable(variable):
     @staticmethod
     def from_variable(variable: variable, value: int) -> "SolutionVariable":
         return SolutionVariable(variable.id, variable.bounds, value=value)
+
+class Sign(IntEnum):
+    """
+        Sign, either positive or negative
+    """
+    POSITIVE = 1
+    NEGATIVE = -1

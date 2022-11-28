@@ -22,13 +22,6 @@ class PropositionValidationError(str, enum.Enum):
     CIRCULAR_DEPENDENCIES = "CIRCULAR_DEPENDENCIES"
     AMBIVALENT_VARIABLE_DEFINITIONS = "AMBIVALENT_VARIABLE_DEFINITIONS"
 
-class Sign(enum.IntEnum):
-    """
-        Sign, either positive or negative
-    """
-    POSITIVE = 1
-    NEGATIVE = -1
-
 class AtLeast(puan.Proposition):
 
     """
@@ -99,7 +92,7 @@ class AtLeast(puan.Proposition):
 
     """
     
-    def __init__(self, value: int, propositions: typing.List[typing.Union[str, puan.Proposition]], variable: typing.Union[str, puan.variable] = None, sign: Sign = Sign.POSITIVE):
+    def __init__(self, value: int, propositions: typing.List[typing.Union[str, puan.Proposition]], variable: typing.Union[str, puan.variable] = None, sign: puan.Sign = puan.Sign.POSITIVE):
         self.generated_id = False
         self.value = value
         self.sign = sign
@@ -107,7 +100,7 @@ class AtLeast(puan.Proposition):
             raise Exception(f"`sign` of AtLeast proposition must be either -1 or 1, got: {sign}")
 
         if sign is None:
-            self.sign = Sign.POSITIVE if value > 0 else Sign.NEGATIVE
+            self.sign = puan.Sign.POSITIVE if value > 0 else puan.Sign.NEGATIVE
 
         propositions_list = list(propositions)
         if propositions is None or len(propositions_list) == 0:
@@ -422,7 +415,7 @@ class AtLeast(puan.Proposition):
                                 )
                             ),
                             bias=-1*x.value,
-                            sign=pst.SignPy.Positive if x.sign == Sign.POSITIVE else pst.SignPy.Negative
+                            sign=pst.SignPy.Positive if x.sign == puan.Sign.POSITIVE else pst.SignPy.Negative
                         ) if type(x) != puan.variable else None,
                     ),
                     flatten_dict.values()
@@ -476,7 +469,7 @@ class AtLeast(puan.Proposition):
                                 )
                             ),
                             bias=-1*x.value,
-                            sign=pst.SignPy.Positive if x.sign == Sign.POSITIVE else pst.SignPy.Negative
+                            sign=pst.SignPy.Positive if x.sign == puan.Sign.POSITIVE else pst.SignPy.Negative
                         ) if type(x) != puan.variable else None,
                     ),
                     flatten_dict.values()
@@ -517,7 +510,7 @@ class AtLeast(puan.Proposition):
                 >>> AtLeast(3, ["x","y","z"], variable="A").negate()
                 A: -(x,y,z)>=-2
 
-                >>> AtLeast(-1, ["x","y","z"], variable="A", sign=-1).negate()
+                >>> AtLeast(-1, ["x","y","z"], variable="A", sign=puan.Sign.NEGATIVE).negate()
                 A: +(x,y,z)>=2
 
             Returns
@@ -917,7 +910,7 @@ class AtLeast(puan.Proposition):
         )
 
     @staticmethod
-    def from_short(short: typing.Tuple[str, Sign, typing.List[str], int, typing.List[int]]) -> "AtLeast":
+    def from_short(short: typing.Tuple[str, puan.Sign, typing.List[str], int, typing.List[int]]) -> "AtLeast":
 
         """
             From short data format into an :class:`AtLeast` proposition.
@@ -1117,7 +1110,7 @@ class AtMost(AtLeast):
     """
     
     def __init__(self, value: int, propositions: typing.List[typing.Union[str, puan.variable]], variable: typing.Union[str, puan.variable] = None):
-        super().__init__(value=-1*value, propositions=propositions, variable=variable, sign=Sign.NEGATIVE)
+        super().__init__(value=-1*value, propositions=propositions, variable=variable, sign=puan.Sign.NEGATIVE)
 
     @staticmethod
     def from_json(data: dict, class_map) -> "AtMost":
