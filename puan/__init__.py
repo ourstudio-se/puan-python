@@ -153,7 +153,7 @@ class variable(Proposition):
             Examples
             --------
                 >>> variable.support_vector_variable()
-                variable(id=0, bounds=Bounds(lower=-32768, upper=32767))
+                variable(id=0, bounds=Bounds(lower=1, upper=1))
 
             Returns
             -------

@@ -177,7 +177,7 @@ def test_negated_propositions_are_unique(propositions):
 def test_proposition_polyhedron_conversion(propositions, integers):
     model = pg.All(*propositions)
     if len(model.errors()) == 0:
-        polyhedron = model.to_polyhedron(True)
+        polyhedron = model.to_ge_polyhedron(True)
         model_variables = sorted(set(map(operator.attrgetter("id"), model.flatten())).difference({model.id}))
         polyhedron_variables = sorted(set(map(operator.attrgetter("id"), polyhedron.A.variables)))
         if not model_variables == polyhedron_variables:
@@ -217,7 +217,7 @@ def test_proposition_polyhedron_conversion_specifics():
         )
     ]:
         if len(model.errors()) == 0:
-            polyhedron = model.to_polyhedron(True)
+            polyhedron = model.to_ge_polyhedron(True)
             model_variables = sorted(set(map(operator.attrgetter("id"), model.flatten())).difference({model.id}))
             polyhedron_variables = sorted(set(map(operator.attrgetter("id"), polyhedron.A.variables)))
             if not model_variables == polyhedron_variables:
@@ -250,8 +250,8 @@ def test_model_properties_hypothesis(propositions):
     model.to_short()
     model.to_text()
     if not model.errors():
-        model.to_polyhedron()
-        model.to_polyhedron(True)
+        model.to_ge_polyhedron()
+        model.to_ge_polyhedron(True)
     model.to_b64()
 
 @given(cc_propositions_strategy())

@@ -111,8 +111,6 @@ class AtLeast(puan.Proposition):
             itertools.chain(
                 filter(
                     lambda x: type(x) != str, 
-                        lambda x: type(x) != str, 
-                    lambda x: type(x) != str, 
                     propositions_list
                 ),
                 map(
