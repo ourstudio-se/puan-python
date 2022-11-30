@@ -1132,9 +1132,6 @@ class AtLeast(puan.Proposition):
 
             Examples
             --------
-                >>> All(*"ab").solve([{"a": 1, "b": 1}])
-                [({'a': 0, 'b': 1}, 1, 5)]
-                
                 >>> dummy_solver = lambda x,y: list(map(lambda v: (v, 0, 5), y))
                 >>> All(*"ab").solve([{"a": 1, "b": 1}], dummy_solver)
                 [({'a': 1, 'b': 1}, 0, 5)]
