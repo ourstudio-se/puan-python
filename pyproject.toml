@@ -28,7 +28,6 @@ keywords = ["combinatorial optimization", "milp", "mllp", "ilp", "linear-program
 packages = [
     'puan',
     'puan.logic',
-    'puan.logic.sta',
     'puan.logic.plog',
     'puan.misc',
     'puan.ndarray',

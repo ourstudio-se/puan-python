@@ -1,3 +1,5 @@
+.. _PLOG:
+
 Propositional Logic
 ===================
 

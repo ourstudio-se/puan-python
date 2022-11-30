@@ -5,7 +5,6 @@ Logic modelling
    :maxdepth: 1
 
    puan.logic.plog
-   puan.logic.sta
 
 Summary
 -------

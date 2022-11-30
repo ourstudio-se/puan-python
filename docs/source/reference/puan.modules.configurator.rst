@@ -1,3 +1,5 @@
+.. _CONF:
+
 Configurator module
 ===================
 

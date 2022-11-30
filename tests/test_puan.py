@@ -2664,7 +2664,7 @@ def test_plog_evaluate_method():
             pg.AtMost(propositions=[tomatoes], value=5, variable="tomatoes_le_five"),
             pg.AtMost(propositions=[cucumbers], value=5, variable="cucumbers_le_five"),
             pg.AtLeast(propositions=[cucumbers], value=1, variable="cucumbers_ge_one"),
-            variable="vegestables"
+            variable="vegetables"
         ),
         variable="fridge"
     )

@@ -12,7 +12,7 @@ import operator
 import numpy as np
 import puan
 import puan.ndarray as pnd
-import puan_rspy as pst
+import puan_rspy as pr
 import dictdiffer
 import more_itertools
 from dataclasses import dataclass
@@ -494,14 +494,14 @@ class AtLeast(puan.Proposition):
             )(self)
         )
 
-    def _to_pyrs_theory(self) -> typing.Tuple[pst.TheoryPy, typing.Dict[str, tuple]]:
+    def _to_pyrs_theory(self) -> typing.Tuple[pr.TheoryPy, typing.Dict[str, tuple]]:
 
         """
             Converts this plog model into a puan-rspy Theory.
 
             Returns
             -------
-                out : Tuple[:class:`pst.TheoryPy`, Dict[``str``, ``tuple``])
+                out : Tuple[:class:`pr.TheoryPy`, Dict[``str``, ``tuple``])
         """
         flatten = self.flatten()
         flatten_dict = dict(zip(map(lambda x: x.id, flatten), flatten))
@@ -517,13 +517,13 @@ class AtLeast(puan.Proposition):
                 )
             )
         )
-        return pst.TheoryPy(
+        return pr.TheoryPy(
             list(
                 map(
-                    lambda x: pst.StatementPy(
+                    lambda x: pr.StatementPy(
                         variable_id_map[x.id][0],
                         variable_id_map[x.id][1].bounds.as_tuple(),
-                        pst.AtLeastPy(
+                        pr.AtLeastPy(
                             list(
                                 map(
                                     lambda y: variable_id_map[y.id][0], 
@@ -531,7 +531,7 @@ class AtLeast(puan.Proposition):
                                 )
                             ),
                             bias=-1*x.value,
-                            sign=pst.SignPy.Positive if x.sign == puan.Sign.POSITIVE else pst.SignPy.Negative
+                            sign=pr.SignPy.Positive if x.sign == puan.Sign.POSITIVE else pr.SignPy.Negative
                         ) if not issubclass(x.__class__, puan.variable) else None,
                     ),
                     flatten_dict.values()
@@ -571,13 +571,13 @@ class AtLeast(puan.Proposition):
                 )
             )
         )
-        polyhedron_rs = pst.TheoryPy(
+        polyhedron_rs = pr.TheoryPy(
             list(
                 map(
-                    lambda x: pst.StatementPy(
+                    lambda x: pr.StatementPy(
                         variable_id_map[x.id][0],
                         variable_id_map[x.id][1].bounds.as_tuple(),
-                        pst.AtLeastPy(
+                        pr.AtLeastPy(
                             list(
                                 map(
                                     lambda y: variable_id_map[y.id][0], 
@@ -585,7 +585,7 @@ class AtLeast(puan.Proposition):
                                 )
                             ),
                             bias=-1*x.value,
-                            sign=pst.SignPy.Positive if x.sign == puan.Sign.POSITIVE else pst.SignPy.Negative
+                            sign=pr.SignPy.Positive if x.sign == puan.Sign.POSITIVE else pr.SignPy.Negative
                         ) if not issubclass(x.__class__, puan.variable) else None,
                     ),
                     flatten_dict.values()

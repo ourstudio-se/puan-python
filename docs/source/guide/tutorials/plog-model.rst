@@ -2,7 +2,7 @@
 
 Learn the PLog modelling system
 ===============================
-In this tutorial we're going to learn about the Propositional Logic (PLog for short) modelling system. 
+In this tutorial we're going to learn about the :ref:`Propositional Logic<PLOG>` (PLog for short) modelling system. 
 After this tutorial you will know how to create propositional logical expressions and how to apply different tools to them. We will briefly go through
 the fundamental classes and given some intuitive examples.
 
@@ -20,11 +20,11 @@ for what to buy in the grocery store given the containments of our fridge. Those
 
 To model this, we need first to recognize our variables and their type (boolean or integer).
 
-- **milk_half**     : boolean   - since saying if it is less than half full (in fridge) is a yes or no question
-- **milk_bought**   : boolean   - since saying if it is milk was bought is a yes or no question
-- **chips**         : boolean   - just says bag of chips, no quantity
-- **tomatoes**      : int       - they are restricted in a range between 4-5
-- **cucumbers**     : int       - they are restricted in a range between 1-5
+- **milk_half**     : bool   - since saying if it is less than half full (in fridge) is a yes or no question
+- **milk_bought**   : bool   - since saying if it is milk was bought is a yes or no question
+- **chips**         : bool   - just says bag of chips, no quantity
+- **tomatoes**      : int    - they are restricted in a range between 4-5
+- **cucumbers**     : int    - they are restricted in a range between 1-5
 
 Let's see what those definitions looks like in code
 
@@ -39,14 +39,14 @@ Let's see what those definitions looks like in code
     cucumbers   = puan.variable(id="cucumbers",  dtype="int")
 
 Now we need to define the logical relationships between the items. We start by taking a look at the **milk**. 
-We were waying that if the milk in the fridge is half full, i.e milk_home is True, then it is implied that also the milk is bought, i.e milk_bought is True. 
+We were waying that if the milk in the fridge is half full, i.e milk_home is False or not milk_home is True, then it is implied that also the milk is bought, i.e milk_bought is True. 
 This is called an implication:
 
 .. math::
 
-   \text{milk_done_right} = \text{milk_home} \rightarrow \text{milk_bought} 
+   \text{milk_done_right} = \text{not milk_home} \rightarrow \text{milk_bought} 
    
-There is a proposition class for this expression called :class:`puan.logic.plog.Imply` which models an implication. 
+There is a proposition class for this expression called :class:`Imply<puan.logic.plog.Imply>` which models an implication. 
 The implication-proposition has two properties; a condition and a consequence where imply is the relation between the condition and the consequence. 
 For instance, we can define *if milk is half* (condition), then buy more milk (consequence). 
 
@@ -62,25 +62,23 @@ Let's put it into code.
         variable="milk_done_right"
     )
 
-*Note that the `id` is optional and could be left empty.*
-
 The number of tomatoes and cucumbers must not be larger than 5 each, and the number of tomatoes should not be less than 2.
-We model this using the proposition classes :class:`puan.logic.plog.AtLeast` and :class:`puan.logic.plog.AtMost`.
-Those classes takes ``proposition`` as input together with a ``value`` defining the upper and lower bound of the propostion respectively.  
+We model this using the proposition classes :class:`AtLeast<puan.logic.plog.AtLeast>` and :class:`AtMost<puan.logic.plog.AtMost>`.
+Those classes takes :class:`proposition<puan.Proposition>` as input together with a ``value`` defining the upper and lower bound of the propostion respectively.  
 
 .. code:: python
 
-    # tomatoes more or equal to 4
+    # tomatoes greater or equal to 4
     tomatoes_ge_four = pg.AtLeast(propositions=[tomatoes], value=4, variable="tomatoes_ge_four")
 
     # tomatoes and cucumbers less or equal to 5
     tomatoes_le_five = pg.AtMost(propositions=[tomatoes], value=5, variable="tomatoes_le_five")
     cucumbers_le_five = pg.AtMost(propositions=[cucumbers], value=5, variable="cucumbers_le_five")
 
-    # cucumbers more or equal to 1 
+    # cucumbers greater or equal to 1 
     cucumbers_ge_one = pg.AtLeast(propositions=[cucumbers], value=1, variable="cucumbers_ge_one")
     
-Now if all of these variables are true, then it means that number of tomatoes is between 4-5 and number of cucumbers is between 1-5.
+Now, if all of these variables are true, then it means that number of tomatoes is between 4-5 and number of cucumbers is between 1-5.
 To tie these two expressions we need to plug them into a so called All-proposition.
 *Note that the All-proposition is a special case of the AtLeast-proposition*.
 

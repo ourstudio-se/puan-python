@@ -17,6 +17,14 @@ Data types
 :class:`SolutionVariable`
    The :class:`SolutionVariable` class is an extension to the :class:`variable` class where each variable can be assigned a value. 
 
+.. _Proposition:
+
+Proposition
++++++++++++
+.. autoclass:: Proposition
+   :members:
+   :undoc-members:
+   :show-inheritance:
 
 variable
 ++++++++

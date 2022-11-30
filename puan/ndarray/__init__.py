@@ -11,7 +11,7 @@ import math
 import puan
 import puan.npufunc as npufunc
 import sys
-import puan_rspy as prs
+import puan_rspy as pr
 from enum import IntEnum
 
 from collections import Counter
@@ -2063,15 +2063,15 @@ class ge_polyhedron_config(ge_polyhedron):
                             int_sol.z, 
                             int_sol.status_code,
                         ),
-                        prs.PolyhedronPy(
-                            prs.MatrixPy(
+                        pr.PolyhedronPy(
+                            pr.MatrixPy(
                                 self.A.flatten().tolist(),
                                 *self.A.shape
                             ),
                             self.b.tolist(),
                             list(
                                 map(
-                                    lambda variable: prs.VariableFloatPy(
+                                    lambda variable: pr.VariableFloatPy(
                                         id_map_rev[variable.id],
                                         (
                                             float(variable.bounds.lower),
