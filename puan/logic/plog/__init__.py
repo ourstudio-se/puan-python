@@ -3,6 +3,7 @@ import hashlib
 import maz
 import base64
 import gzip
+import graphlib
 import pickle
 import functools
 import itertools
@@ -14,7 +15,6 @@ import puan.ndarray as pnd
 import puan_rspy as pst
 import dictdiffer
 import more_itertools
-import toposort
 from dataclasses import dataclass
 from collections import Counter
 
@@ -22,6 +22,7 @@ class PropositionValidationError(str, enum.Enum):
 
     CIRCULAR_DEPENDENCIES = "CIRCULAR_DEPENDENCIES"
     AMBIVALENT_VARIABLE_DEFINITIONS = "AMBIVALENT_VARIABLE_DEFINITIONS"
+    NON_UNIQUE_SUB_PROPOSITION_SET = "NON_UNIQUE_SUB_PROPOSITION_SET" 
 
 class AtLeast(puan.Proposition):
 
@@ -339,6 +340,10 @@ class AtLeast(puan.Proposition):
 
         """
             Checks this proposition and returns a list of :class:`PropositionValidationError`'s. 
+            If there's at least one error in result, it is because one or more of following:
+                - It exist at least one circular variable dependency.
+                - A variable depends directly on at least two other variables with identical id's.
+                - There exists at least two variables sharing id but has different bounds.
 
             Examples
             --------
@@ -355,41 +360,138 @@ class AtLeast(puan.Proposition):
             -------
                 out : List[:class:`PropositionValidationError`]
         """
-        errors = []
-        deps = self._dependencies()
-        try:
-            list(
-                toposort.toposort(
-                    dict(deps),
+        return list(
+            maz.compose(
+                functools.partial(
+                    itertools.compress,
+                    [
+                        PropositionValidationError.CIRCULAR_DEPENDENCIES,
+                        PropositionValidationError.AMBIVALENT_VARIABLE_DEFINITIONS,
+                        PropositionValidationError.AMBIVALENT_VARIABLE_DEFINITIONS,
+                        PropositionValidationError.NON_UNIQUE_SUB_PROPOSITION_SET
+                    ],
+                ),
+                maz.fnmap(
+
+                    # Checks that if there exists any circlular
+                    # variable dependecy somewhere in the model
+                    maz.fnexcept(
+                        maz.compose(
+                            operator.not_,
+                            functools.partial(
+                                operator.eq,
+                                None,
+                            ),
+                            operator.methodcaller("prepare"),
+                            graphlib.TopologicalSorter,
+                            dict,
+                            operator.methodcaller("_dependencies")
+                        ),
+                        lambda _: True,
+                    ),
+
+                    # Checks that every node's variable with some id also has
+                    # the same bounds. Otherwise, there is an ambivalent variable definition.
+                    maz.compose(
+                        operator.not_,
+                        functools.partial(
+                            maz.invoke,
+                            operator.eq,   
+                        ),
+                        maz.fnmap(
+                            maz.compose(
+                                len,
+                                set,
+                                functools.partial(map, hash),
+                                itertools.chain.from_iterable,
+                                maz.fnmap(
+                                    functools.partial(
+                                        filter,
+                                        lambda x: issubclass(
+                                            x.__class__, 
+                                            puan.variable
+                                        ),
+                                    ),
+                                    maz.compose(
+                                        functools.partial(
+                                            map,
+                                            operator.attrgetter("variable"),
+                                        ),
+                                        functools.partial(
+                                            filter,
+                                            lambda x: not issubclass(
+                                                x.__class__, 
+                                                puan.variable
+                                            ),
+                                        )
+                                    )
+                                ),
+                                operator.methodcaller("flatten")
+                            ),
+                            maz.compose(
+                                len,
+                                set,
+                                functools.partial(
+                                    map, 
+                                    operator.attrgetter("id")
+                                ),
+                                operator.methodcaller("flatten")
+                            ),
+                        )
+                    ),
+
+                    # Checks only compound propositions if there exist
+                    # two or more that share id, bounds but not rest of
+                    # a compound proposition properties
+                    maz.compose(
+                        operator.not_,
+                        functools.partial(
+                            maz.invoke,
+                            operator.eq,   
+                        ),
+                        maz.fnmap(
+                            maz.compose(len, set, functools.partial(map, hash)),
+                            maz.compose(len, set, functools.partial(map, operator.attrgetter("id")))
+                        ),
+                        list,
+                        functools.partial(
+                            filter,
+                            lambda x: not issubclass(x.__class__, puan.variable),
+                        ),
+                        operator.methodcaller("flatten")
+                    ),
+
+
+                    # Checks if any edge exists more than once
+                    # E.g. A has two edges to x, meaning two x's are siblings
+                    # which don't make any sense
+                    maz.compose(
+                        any,
+                        functools.partial(
+                            map,
+                            lambda i: i >= 2,
+                        ),
+                        dict.values,
+                        Counter,
+                        itertools.chain.from_iterable,
+                        functools.partial(
+                            map, 
+                            lambda x: list(
+                                map(
+                                    lambda y: f"{x.id}-{y.id}",
+                                    x.propositions
+                                )
+                            )
+                        ),
+                        functools.partial(
+                            filter,
+                            lambda x: not issubclass(x.__class__, puan.variable)
+                        ),
+                        operator.methodcaller("flatten")
+                    )
                 )
-            )
-        except toposort.CircularDependencyError:
-            errors.append(PropositionValidationError.CIRCULAR_DEPENDENCIES)
-        except Exception as e:
-            raise Exception(f"got unhandled error: {e}")
-
-        # covers (a -> a) case, when there's a direct circular dependency.
-        # this is not covered by `toposort` lib
-        if any(itertools.starmap(lambda a,b: a in b, deps)):
-            errors.append(PropositionValidationError.CIRCULAR_DEPENDENCIES)
-
-        flatten = self.flatten()
-        # counts how many times anything has been defined
-        flat_compound = list(filter(maz.compose(lambda x: x != puan.variable, type), flatten))
-        flat_atomic = list(filter(maz.compose(lambda x: x == puan.variable, type), flatten))
-        flat_variable = list(itertools.chain(flat_atomic, map(lambda x: x.variable, flat_compound)))
-
-        # check if any two variables share id but have different props
-        flat_variable_counter = Counter(dict(zip(map(hash, flat_variable), map(operator.attrgetter("id"), flat_variable))).values())
-        if any(map(lambda x: x > 1, flat_variable_counter.values())):
-            errors.append(PropositionValidationError.AMBIVALENT_VARIABLE_DEFINITIONS)
-        
-        # check if any two propositions share id but have different props
-        flat_compound_counter = Counter(dict(zip(map(hash, flat_compound), map(operator.attrgetter("id"), flat_compound))).values())
-        if any(map(lambda x: x > 1, flat_compound_counter.values())):
-            errors.append(PropositionValidationError.AMBIVALENT_VARIABLE_DEFINITIONS)
-
-        return list(set(errors))
+            )(self)
+        )
 
     def _to_pyrs_theory(self) -> typing.Tuple[pst.TheoryPy, typing.Dict[str, tuple]]:
 
@@ -429,7 +531,7 @@ class AtLeast(puan.Proposition):
                             ),
                             bias=-1*x.value,
                             sign=pst.SignPy.Positive if x.sign == puan.Sign.POSITIVE else pst.SignPy.Negative
-                        ) if type(x) != puan.variable else None,
+                        ) if not issubclass(x.__class__, puan.variable) else None,
                     ),
                     flatten_dict.values()
                 )
@@ -483,7 +585,7 @@ class AtLeast(puan.Proposition):
                             ),
                             bias=-1*x.value,
                             sign=pst.SignPy.Positive if x.sign == puan.Sign.POSITIVE else pst.SignPy.Negative
-                        ) if type(x) != puan.variable else None,
+                        ) if not issubclass(x.__class__, puan.variable) else None,
                     ),
                     flatten_dict.values()
                 )
@@ -995,7 +1097,7 @@ class AtLeast(puan.Proposition):
         objectives: typing.List[typing.Dict[typing.Union[str, puan.variable], int]], 
         solver: typing.Callable[[pnd.ge_polyhedron, typing.Dict[str, int]], typing.Iterable[typing.Tuple[np.ndarray, int, int]]] = None,
         try_reduce_before: bool = False,
-    ) -> typing.List[typing.Optional[typing.List[puan.SolutionVariable]]]:
+    ) -> typing.List[typing.Tuple[typing.Dict[str, int], int, int]]:
 
         """
             Maximises objective in objectives such that this model's constraints are fulfilled and returns a solution for each objective.
@@ -1031,11 +1133,11 @@ class AtLeast(puan.Proposition):
             Examples
             --------
                 >>> All(*"ab").solve([{"a": 1, "b": 1}])
-                [[SolutionVariable(id='a', bounds=Bounds(lower=0, upper=1))]]
+                [({'a': 0, 'b': 1}, 1, 5)]
                 
                 >>> dummy_solver = lambda x,y: list(map(lambda v: (v, 0, 5), y))
                 >>> All(*"ab").solve([{"a": 1, "b": 1}], dummy_solver)
-                [[SolutionVariable(id='a', bounds=Bounds(lower=0, upper=1)), SolutionVariable(id='b', bounds=Bounds(lower=0, upper=1))]]
+                [({'a': 1, 'b': 1}, 0, 5)]
 
             Notes
             -----
@@ -1047,26 +1149,24 @@ class AtLeast(puan.Proposition):
                 out : List[Optional[List[:class:`puan.SolutionVariable`]]]:
         """
 
+        ph = self.to_ge_polyhedron(
+            active=True, 
+            reduced=try_reduce_before,
+        )
         if solver is None:
             pyrs_theory, variable_id_map = self._to_pyrs_theory()
             id_map = dict(variable_id_map.values())
             return list(
-                map(
-                    lambda x: list(
-                        itertools.starmap(
-                            lambda i,v: puan.SolutionVariable.from_variable(
-                                id_map[i],
-                                v
-                            ), 
-                            filter(
-                                lambda y: y[1] != 0,
-                                zip(
-                                    id_map.keys(),
-                                    x.x,
-                                )
+                itertools.starmap(
+                    lambda solution, objective_value, status_code: (
+                        dict(
+                            itertools.starmap(
+                                lambda k,v: (id_map[k].id, v), 
+                                solution.items()
                             )
-                        )
-                    ) if x.status_code in [5,6] else None,
+                        ),
+                        objective_value, status_code
+                    ),
                     pyrs_theory.solve(
                         list(
                             map(
@@ -1099,21 +1199,18 @@ class AtLeast(puan.Proposition):
             )
             return list(
                 itertools.starmap(
-                    lambda x, _, status_code: list(
-                        itertools.starmap(
-                            lambda i,v: puan.SolutionVariable.from_variable(
-                                id_map[i],
-                                v
-                            ), 
-                            filter(
-                                lambda y: y[1] != 0,
-                                zip(
-                                    id_map.keys(),
-                                    x,
-                                )
+                    lambda solution, objective_value, status_code: (
+                        dict(
+                            zip(
+                                map(
+                                    operator.attrgetter("id"),
+                                    polyhedron.A.variables
+                                ),
+                                solution
                             )
-                        )
-                    ) if status_code == 5 else None,
+                        ) if solution is not None else {},
+                        objective_value, status_code
+                    ),
                     solver(
                         polyhedron, 
                         polyhedron.A.construct(*map(lambda x: x.items(), objectives)),

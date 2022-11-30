@@ -1924,7 +1924,7 @@ class ge_polyhedron_config(ge_polyhedron):
         self, 
         *prios: typing.List[typing.Dict[str, int]], 
         solver: typing.Callable[[ge_polyhedron, typing.Dict[str, int]], typing.Iterable[typing.Tuple[typing.List[int], int, int]]] = None,
-    ) -> typing.List[typing.List[puan.SolutionVariable]]:
+    ) -> typing.List[typing.Tuple[typing.Dict[str, int], int, int]]:
 
         """
             Select items to prioritize and receives a solution for each in prios list.
@@ -1956,12 +1956,12 @@ class ge_polyhedron_config(ge_polyhedron):
             --------
                 >>> ph = ge_polyhedron_config([[1,1,1,1,0],[-1,-1,-1,-1,0]])
                 >>> ph.select({"1": 1})[0]
-                [SolutionVariable(id=1, bounds=Bounds(lower=0, upper=1))]
+                ({1: 1, 2: 0, 3: 0, 4: 0}, -1, 5)
 
                 >>> ph = ge_polyhedron_config([[1,1,1,1,0],[-1,-1,-1,-1,0]])
                 >>> dummy_solver = lambda x, y: list(map(lambda v: (v, 0, 5), y))
                 >>> ph.select({"1": 1}, solver=dummy_solver)[0]
-                [SolutionVariable(id=1, bounds=Bounds(lower=0, upper=1)), SolutionVariable(id=2, bounds=Bounds(lower=0, upper=1)), SolutionVariable(id=3, bounds=Bounds(lower=0, upper=1)), SolutionVariable(id=4, bounds=Bounds(lower=0, upper=1))]
+                ({1: -1, 2: -1, 3: -1, 4: -1}, 0, 5)
 
             Raises
             ------
@@ -2033,21 +2033,18 @@ class ge_polyhedron_config(ge_polyhedron):
 
             return list(
                 itertools.starmap(
-                    lambda x, _, status_code: list(
-                        itertools.starmap(
-                            lambda i,v: puan.SolutionVariable.from_variable(
-                                id_map[i],
-                                v
-                            ), 
-                            filter(
-                                lambda y: y[1] != 0,
-                                zip(
-                                    id_map.keys(),
-                                    x,
-                                )
+                    lambda solution, objective_value, status_code: (
+                        dict(
+                            zip(
+                                map(
+                                    operator.attrgetter("id"),
+                                    variables
+                                ),
+                                solution
                             )
-                        )
-                    ) if status_code in [5,6] else None,
+                        ) if solution is not None else {},
+                        objective_value, status_code
+                    ),
                     solutions,
                 )
             )
