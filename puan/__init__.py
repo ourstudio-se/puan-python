@@ -261,34 +261,7 @@ class variable(Proposition):
             id=data['id'],
             bounds=(bounds['lower'], bounds['upper'])
         )
-
-
-class SolutionVariable(variable):
-    """
-        The :class:`SolutionVariable` class is an extension to the :class:`variable` class where each variable can be assigned a value. 
-
-        Methods
-        -------
-        to_json
-        from_variable
-    """
-    value: int = None
-
-    def __init__(self, id: str, bounds: typing.Tuple[int, int] = None, dtype: str = None, value: int = None):
-        super().__init__(id, bounds, dtype)
-        self.value = value
-
-    def __eq__(self, other):
-        return self.id == other.id and self.value == other.value
-
-    def to_json(self) -> typing.Dict[str, typing.Any]:
-        d = super().to_json()
-        d['value'] = self.value
-        return d
-
-    @staticmethod
-    def from_variable(variable: variable, value: int) -> "SolutionVariable":
-        return SolutionVariable(variable.id, variable.bounds, value=value)
+        
 
 class Sign(IntEnum):
     """

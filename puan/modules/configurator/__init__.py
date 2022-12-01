@@ -295,7 +295,7 @@ class StingyConfigurator(pg.All):
         )
     
 
-    def select(self, *prios: typing.List[typing.Dict[str, int]], solver: typing.Callable, only_leafs: bool = False) -> typing.Iterable[typing.List[puan.variable]]:
+    def select(self, *prios: typing.List[typing.Dict[str, int]], solver: typing.Callable = None, only_leafs: bool = False) -> typing.Iterable[typing.List[puan.variable]]:
 
         """
             Select items to prioritize and receive a solution.
@@ -305,7 +305,8 @@ class StingyConfigurator(pg.All):
                 *prios : List[Dict[str, int]]
                     a list of dicts where each entry's value is a prio
 
-                solver : a mixed integer linear programming solver
+                solver : Callable[[:class:`puan.ndarray.ge_polyhedron`, Dict[str, int]], List[(:class:`np.ndarray`, int, int)]] = None
+                    A mixed integer linear programming solver function. Check :meth:`plog.AtLeast.solve <puan.logic.plog.AtLeast.solve>` function for more information on the solver interface.
 
                 only_leafs : ``bool``
                     Controls if only leafs should be returned in the output, see :meth:`leafs`. Default ``False``. 
@@ -325,11 +326,11 @@ class StingyConfigurator(pg.All):
                     self.leafs()
                 )
             )
-            res = map(
-                lambda config: list(
+            res = itertools.starmap(
+                lambda config,ov,sc: dict(
                     filter(
-                        lambda x: x.id in leafs,
-                        config
+                        lambda x: x[0] in leafs,
+                        config.items()
                     )
                 ),
                 res

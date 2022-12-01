@@ -18,10 +18,9 @@ classifiers = [
 dependencies = [
     "numpy==1.22.3",
     "more-itertools==8.12.0",
-    "maz==0.0.1",
+    "maz==0.0.3",
     "dictdiffer==0.9.0",
-    "puan-rspy==0.2.7",
-    "toposort==1.7"
+    "puan-rspy==0.2.8"
 ]
 keywords = ["combinatorial optimization", "milp", "mllp", "ilp", "linear-programming", "optimization"]
 
