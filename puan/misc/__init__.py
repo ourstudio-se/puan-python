@@ -7,8 +7,12 @@ def or_get(d: dict, keys: list, default_value = None) -> typing.Any:
         :code:`or_get` is useful when you are not sure exactly
         how the keys looks like. You pass a list
         of candidate keys. The first that matches
-        will be returned. If no match, then a
-        KeyError exception is raised.
+        will be returned.
+
+        Raises
+        ------
+            KeyError
+                If any key in ``keys`` is not in ``d`` and no ``default_value`` is given
 
         Parameters
         ----------
@@ -57,8 +61,12 @@ def or_get(d: dict, keys: list, default_value = None) -> typing.Any:
 def or_replace(d: dict, keys: list, value: typing.Any):
     """
         :code:`or_replace` will replace the first key value in keys
-        that exists, with :code:`value`. If no keys exists,
-        KeyError is raised.
+        that exists, with :code:`value`.
+
+        Raises
+        ------
+            KeyError
+                If no ``keys`` are given
 
         Parameters
         ----------

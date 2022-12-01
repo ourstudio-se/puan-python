@@ -94,15 +94,16 @@ class AtLeast(puan.Proposition):
 
     """
     
-    def __init__(self, value: int, propositions: typing.List[typing.Union[str, puan.Proposition]], variable: typing.Union[str, puan.variable] = None, sign: puan.Sign = puan.Sign.POSITIVE):
+    def __init__(self, value: int, propositions: typing.List[typing.Union[str, puan.Proposition]], variable: typing.Union[str, puan.variable] = None, sign: puan.Sign = None):
         self.generated_id = False
         self.value = value
         self.sign = sign
-        if not sign in [-1,1]:
-            raise Exception(f"`sign` of AtLeast proposition must be either -1 or 1, got: {sign}")
-
         if sign is None:
             self.sign = puan.Sign.POSITIVE if value > 0 else puan.Sign.NEGATIVE
+
+        if not self.sign in [-1,1]:
+            raise Exception(f"`sign` of AtLeast proposition must be either -1 or 1, got: {sign}")
+
 
         propositions_list = list(propositions)
         if propositions is None or len(propositions_list) == 0:
@@ -734,7 +735,7 @@ class AtLeast(puan.Proposition):
                 >>> model.is_tautologi
                 True
 
-                >>> model = AtLeast(0,["x"])
+                >>> model = AtLeast(0, ["x"], sign=1)
                 >>> model.is_tautologi
                 True
 
@@ -851,11 +852,11 @@ class AtLeast(puan.Proposition):
 
                 >>> AtLeast(propositions=[puan.variable("x", dtype="int")],
                 ... value=10).evaluate_propositions({"x": 9})
-                {'x': 9, 'VAR30d4fb455c3588c3639096e581aa2db374e611b8a054332ccf8579d36b757a0a': 0}
+                {'x': 9, 'VAR2fa10da7075e3abf61065cb37ecd6bb658b38c9fdd0a1b1a69e34d541d32bd2d': 0}
 
                 >>> AtLeast(propositions=[puan.variable("x", dtype="int")],
                 ... value=10).evaluate_propositions({"x": 10})
-                {'x': 10, 'VAR30d4fb455c3588c3639096e581aa2db374e611b8a054332ccf8579d36b757a0a': 1}
+                {'x': 10, 'VAR2fa10da7075e3abf61065cb37ecd6bb658b38c9fdd0a1b1a69e34d541d32bd2d': 1}
             
             See also
             --------
@@ -864,6 +865,11 @@ class AtLeast(puan.Proposition):
             Returns
             -------
                 out : Dict[Union[str, :class:`puan.variable`], int]
+            
+            Raises
+            ------
+                ValueError
+                    If variable is out of bounds
         """
         def _check_and_get_variable_in_bounds(_interpretation: dict, variable: puan.variable):
             val = _interpretation.get(variable.id, variable.bounds.lower) # Default value is the lower bound
@@ -1565,7 +1571,7 @@ class Imply(Any):
                 ...         ]
                 ...     }
                 ... })
-                someId: +(VAR180540a846781f231b3c1fb0422d95e48e9b9379a5ec6890a0b9a32cb7f66b75,VAR783ed614fb92d837ddafb94ba082d6d38a803ed02a8854ddfb9432714b31785b)>=1
+                someId: +(VAR180540a846781f231b3c1fb0422d95e48e9b9379a5ec6890a0b9a32cb7f66b75,VAR9b4a27f7babf7022c3cadd7e00de9f6da1747f82c5c95960f76138599c35b52c)>=1
 
             Returns
             -------
@@ -1731,7 +1737,7 @@ class Not():
             from_json(data['proposition'], class_map=class_map),
         )
 
-class XNor():
+class XNor(Any):
 
     """
         :class:`XNor` proposition is a negated :class:`Xor`, i.e. "exactly one" configurations will be false or :math:`x+y+z\\neq1`. 
@@ -1752,12 +1758,11 @@ class XNor():
         to_json
     """
 
-    def __new__(self, *propositions, variable: typing.Union[puan.variable, str] = None):
-        return Not(
-            Xor(
-                *propositions,
-                variable=variable
-            )
+    def __init__(self, *propositions, variable: typing.Union[puan.variable, str] = None):
+        super().__init__(
+            AtLeast(value=1, propositions=propositions).negate(), 
+            AtMost(value=1, propositions=propositions).negate(), 
+            variable=variable,
         )
 
     @staticmethod
@@ -1788,7 +1793,7 @@ class XNor():
             Examples
             --------
                 >>> model = XNor.from_list([puan.variable("x"), puan.variable("y")], variable="a")
-                >>> type(model) == AtLeast
+                >>> type(model) == XNor
                 True
 
             Returns
@@ -1811,8 +1816,8 @@ class XNor():
             'type': self.__class__.__name__,
             'propositions': list(
                 map(
-                    operator.methodcaller("to_json"),
-                    self.propositions[0].propositions
+                    maz.compose(operator.methodcaller("to_json")),
+                    self.propositions[0].negate().propositions
                 )
             ) if len(self.propositions) > 0 else [],
         }

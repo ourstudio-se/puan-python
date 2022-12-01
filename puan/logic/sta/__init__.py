@@ -573,8 +573,8 @@ class application(dict):
             ...         }
             ...     }
             ... ])
-            VAR8e26169477494a3ca8d989338f0acdb095fc09638444ba1ff0120ff81d634d43: +(VAR63483345bc4c9299dfe6df08eed7f5222b89033066bd7f9b8ad5e3d0bcdeb598,VAR6b732b6474a6bf8bf6c5d3523a358c7f448398691c5183814e5fa2db1db76f19,VARd1badb69bdc7c6f74e507054886d577bfa887b2a5ede7881bef5328847b24bd6)>=3
-    """
+            VAR25d5a959f93286e0af50fbf0151d1cb0cf18e727623717c545027bfc085a928b: +(VAR20fd9c4f06661043ea2c4aa12cccf37ee5da844994687d724dc0a5338a1c23ed,VAR8c4fc560b55d2fafbac48f9e74201348d030b72836b7d6b51f54c40c25c4fa82,VARd2ca9a12b7f5ee77867a47541884a469dcb34568999a7b7fd3817d9b740a6f2a)>=3
+        """
         n_ge_one = functools.partial(filter, maz.compose(maz.pospartial(operator.ge, [(1,1)]), len))
         return pg.All(
             *itertools.chain(
