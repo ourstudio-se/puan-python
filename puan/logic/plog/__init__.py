@@ -340,7 +340,7 @@ class AtLeast(puan.Proposition):
 
         """
             Checks this proposition and returns a list of :class:`PropositionValidationError`'s. 
-            If there's at least one error in result, it is because one or more of following:
+           An error in the result is due to one or more of the following: 
                 - It exist at least one circular variable dependency.
                 - A variable depends directly on at least two other variables with identical id's.
                 - There exists two or more variables with identical ids but with different bounds.
