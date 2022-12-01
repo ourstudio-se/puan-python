@@ -37,15 +37,20 @@ class Proposition:
         raise NotImplementedError()
 
     @staticmethod
-    def from_json(self, class_map) -> typing.Any:
+    def from_json(data, class_map) -> typing.Any:
 
-        """Convert from json into class object. Class map is a list of other classes maybe related to this class"""
+        """Convert from JSON into class object. Class map is a list of other classes maybe related to this class"""
         raise NotImplementedError()
 
 @dataclasses.dataclass
 class Bounds:
     """
         The :class:`Bounds` class defines lower and upper bounds of a :class:`variable`
+
+        Raises
+        ------
+            ValueError
+                If ``lower`` is greater than ``upper`` 
 
         Methods
         -------
@@ -82,6 +87,11 @@ class variable(Proposition):
 
     """
         The :class:`variable` class is a central key in all Puan packages. It consists of an id, :class:`Bounds` and data type (dtype).
+
+        Raises
+        ------
+            ValueError
+                If ``dtype`` is bool and bounds are not (0, 1)
 
         Methods
         -------
