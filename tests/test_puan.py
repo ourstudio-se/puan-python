@@ -2687,7 +2687,7 @@ def test_proposition_errors_function():
     assert actual[0] == pg.PropositionValidationError.NON_UNIQUE_SUB_PROPOSITION_SET
 
     # Should return error since we have two B's with different
-    # childs
+    # children
     actual = pg.All(
         pg.AtMost(0, [puan.variable('a')], variable='B'),
         pg.All(
