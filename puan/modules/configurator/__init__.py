@@ -198,7 +198,7 @@ class Xor(pg.Xor):
                 variable=data.get("id", None)
             )
         else:
-            return pg.Xor.from_json(data, class_map)
+            return Xor(*pg.Xor.from_json(data, class_map).propositions, variable=pg.Xor.from_json(data, class_map).variable)
 
     @staticmethod
     def from_list(propositions: list, variable: typing.Union[str, puan.variable] = None, default: typing.List[puan.variable] = []) -> "Xor":

@@ -331,68 +331,6 @@ def test_json_conversion_special_cases():
     _model = cc.StingyConfigurator.from_json(model.to_json())
     assert model == _model
 
-def test_application_to_rules():
-    items = [
-        {"id": 0, "type": "M"},
-        {"id": 1, "type": "M"},
-        {"id": 2, "type": "M"},
-        {"id": 3, "type": "M"},
-        {"id": 4, "type": "N"},
-        {"id": 5, "type": "N"},
-        {"id": 6, "type": "N"},
-        {"id": 7, "type": "O"},
-        {"id": 8, "type": "O"},
-    ]
-    rules_gen = puan.logic.sta.application.to_plog(
-        {
-            "source": {
-                "selector": {
-                    "active":True,
-                    "conjunctionSelector": {
-                        "disjunctions":[
-                            {
-                                "literals":[
-                                    {
-                                        "key":"id",
-                                        "operator":">",
-                                        "value":3,
-                                    }
-                                ],
-                            }
-                        ]
-                    }
-                }
-            },
-            "target": {
-                "selector": {
-                    "active":True,
-                    "conjunctionSelector": {
-                        "disjunctions":[
-                            {
-                                "literals":[
-                                    {
-                                        "key":"id",
-                                        "operator":"<=",
-                                        "value":3
-                                    }
-                                ]
-                            }
-                        ]
-                    }
-                }
-            },
-            "apply": {
-                "ruleType":"REQUIRES_ANY",
-                "conditionRelation": "ALL"
-            },
-        },
-        from_items=items,
-    )
-    rules_list = list(rules_gen)
-    assert len(rules_list) == 1
-    assert len(rules_list[0]["condition"]["subConditions"][0]["components"]) == 5
-    assert len(rules_list[0]["consequence"]["components"]) == 4
-
 def test_rules2variables():
 
     rules = [
@@ -903,71 +841,6 @@ def test_apply_collector():
     assert len(collection[1]) == 3
     assert len(collection[2]) == 2
 
-def test_application_to_rules():
-    items = [
-        {"id": "a", "type": 1},
-        {"id": "b", "type": 2},
-        {"id": "c", "type": 3},
-        {"id": "d", "type": 4},
-        {"id": "e", "type": 5},
-        {"id": "f", "type": 6},
-        {"id": "g", "type": 6},
-        {"id": "h", "type": 6},
-        {"id": "i", "type": 7},
-    ]
-    model = puan.logic.sta.application.to_plog(
-        {
-            "source": {
-                "selector": {
-                    "active":True,
-                    "conjunctionSelector": {
-                        "disjunctions":[
-                            {
-                                "literals":[
-                                    {
-                                        "key":"type",
-                                        "operator":">",
-                                        "value":3,
-                                    }
-                                ],
-                            }
-                        ]
-                    }
-                }
-            },
-            "target": {
-                "selector": {
-                    "active":True,
-                    "conjunctionSelector": {
-                        "disjunctions":[
-                            {
-                                "literals":[
-                                    {
-                                        "key":"type",
-                                        "operator":"<=",
-                                        "value":3
-                                    }
-                                ]
-                            }
-                        ]
-                    }
-                }
-            },
-            "apply": {
-                "ruleType":"REQUIRES_ANY",
-                "conditionRelation": "ALL"
-            },
-        },
-        from_items=items,
-        model_id="test"
-    )
-    assert len(model.propositions) == 1
-    first_prop = model.propositions[0]
-    assert first_prop.propositions[1].sign == 1
-    assert len(first_prop.propositions[1].propositions) == 3
-    assert first_prop.propositions[0].sign == -1
-    assert len(first_prop.propositions[0].propositions) == 6
-
 def test_application_to_rules_with_condition_relation():
     items = [
         {"id": 0, "type": "M"},
@@ -1431,6 +1304,11 @@ def test_reducable_matrix_columns_should_keep_zero_columns():
 def test_ndint_compress():
     test_cases = [
         (
+            puan.ndarray.integer_ndarray([1, 5, 30]),
+            puan.ndarray.integer_ndarray([1, 2, 4]),
+            0
+        ),
+        (
             puan.ndarray.integer_ndarray([
                 [
                     [-4, 1, 2,-4,-4,-4],
@@ -1515,6 +1393,194 @@ def test_ndint_compress():
         actual_output = inpt.ndint_compress(method="shadow", axis=axis)
         assert numpy.array_equal(actual_output, expected_output)
 
+    test_cases = [
+        (
+            puan.ndarray.integer_ndarray([1, 2, 3]),
+            puan.ndarray.integer_ndarray([1, 2, 3]),
+            0
+        ),
+        (
+            puan.ndarray.integer_ndarray([
+                [
+                    [-4, 1, 2,-4,-4,-4],
+                    [ 0, 0, 0, 1, 0, 0],
+                ],
+            ]),
+            puan.ndarray.integer_ndarray([
+                [-4, 1, 2, -4,-4,-4]
+            ]),
+            0
+        ),
+        (
+            puan.ndarray.integer_ndarray([
+                [
+                    [ 0, 0, 0, 0, 0, 0],
+                    [ 0, 0, 0, 0, 0, 0],
+                    [ 0, 0, 0, 0, 0, 0],
+                    [ 1, 2, 3, 4, 5, 6]
+                ],
+            ]),
+            puan.ndarray.integer_ndarray([
+                [ 1, 2, 3, 4, 5, 6],
+            ]),
+            0
+        ),
+        (
+            puan.ndarray.integer_ndarray([
+                [ 0, 0, 1, 0, 2, 3],
+                [-1,-1,-1,-1, 0, 0],
+                [ 0, 0, 1, 2, 0, 0],
+                [ 0, 0, 1, 0, 0, 0]
+            ]),
+            puan.ndarray.integer_ndarray([
+                -1, -1, 1, -1, 2, 3
+            ]),
+            0
+        ),
+        (
+            puan.ndarray.integer_ndarray([
+                [
+                    [ 0, 0, 1, 0, 2, 3],
+                    [-1,-1,-1,-1, 0, 0],
+                    [ 0, 0, 1, 2, 0, 0],
+                    [ 0, 0, 1, 0, 0, 0]
+                ],
+                [
+                    [ 0, 0, 0, 0, 0, 0],
+                    [ 0, 0, 0, 0, 0, 0],
+                    [ 0, 0, 0, 0, 0, 0],
+                    [ 0, 0, 0, 0, 0, 0],
+                ],
+                [
+                    [ 0, 0, 0, 0, 0, 0],
+                    [ 0, 0, 0, 0, 0, 0],
+                    [ 0, 0, 0, 0, 0, 0],
+                    [ 1, 2, 3, 4, 5, 6]
+                ],
+                [
+                    [-1,-1,-1,-1, 0, 0],
+                    [ 0, 0, 1, 0, 2, 3],
+                    [ 0, 0, 0, 2, 1, 0],
+                    [ 0, 0, 2, 1, 0, 0]
+                ],
+                [
+                    [ 0, 0, 0, 0, 0, 0],
+                    [ 1, 4, 7, 0, 0, 0],
+                    [ 6, 3,-1, 0, 0, 0],
+                    [-3, 0, 7, 0, 0, 0]
+                ]
+            ]),
+            puan.ndarray.integer_ndarray([
+                [-1,-1, 1,-1, 2, 3],
+                [ 0, 0, 0, 0, 0, 0],
+                [ 1, 2, 3, 4, 5, 6],
+                [-1,-1,-1,-1, 2, 3],
+                [ 1, 4, 7, 0, 0, 0]
+            ]),
+            0
+        ),
+    ]
+    for inpt, expected_output, axis in test_cases:
+        actual_output = inpt.ndint_compress(method="first", axis=axis)
+        assert numpy.array_equal(actual_output, expected_output)
+    
+    test_cases = [
+        (
+            puan.ndarray.integer_ndarray([1, 5, 30]),
+            puan.ndarray.integer_ndarray([1, 2, 3]),
+            0
+        ),
+        (
+            puan.ndarray.integer_ndarray([
+                [
+                    [-5, 1, 2,-4,-4,-4],
+                    [ 0, 0, 0, 1, 0, 0],
+                ],
+            ]),
+            puan.ndarray.integer_ndarray([
+                [0, 3, 4, 2, 1, 1]
+            ]),
+            0
+        ),
+        (
+            puan.ndarray.integer_ndarray([
+                [
+                    [ 0, 0, 0, 0, 0, 0],
+                    [ 0, 0, 0, 0, 0, 0],
+                    [ 0, 0, 0, 0, 0, 0],
+                    [ 1, 2, 3, 4, 5, 6]
+                ],
+            ]),
+            puan.ndarray.integer_ndarray([
+                [ 1, 2, 3, 4, 5, 6],
+            ]),
+            0
+        ),
+        (
+            puan.ndarray.integer_ndarray([
+                [ 0, 0, 1, 0, 2, 3],
+                [-1,-1,-1,-1, 0, 0],
+                [ 0, 0, 1, 2, 0, 0],
+                [ 0, 0, 1, 0, 0, 0]
+            ]),
+            puan.ndarray.integer_ndarray([
+                0, 0, 3, 3, 1, 2
+            ]),
+            0
+        ),
+        (
+            puan.ndarray.integer_ndarray([
+                [
+                    [ 0, 0, 1, 0, 2, 3],
+                    [-1,-1,-1,-1, 0, 0],
+                    [ 0, 0, 1, 2, 0, 0],
+                    [ 0, 0, 1, 0, 0, 0]
+                ],
+                [
+                    [ 0, 0, 0, 0, 0, 0],
+                    [ 0, 0, 0, 0, 0, 0],
+                    [ 0, 0, 0, 0, 0, 0],
+                    [ 0, 0, 0, 0, 0, 0],
+                ],
+                [
+                    [ 0, 0, 0, 0, 0, 0],
+                    [ 0, 0, 0, 0, 0, 0],
+                    [ 0, 0, 0, 0, 0, 0],
+                    [ 1, 2, 3, 4, 5, 6]
+                ],
+                [
+                    [-1,-1,-1,-1, 0, 0],
+                    [ 0, 0, 1, 0, 2, 3],
+                    [ 0, 0, 0, 2, 1, 0],
+                    [ 0, 0, 2, 1, 0, 0]
+                ],
+                [
+                    [ 0, 0, 0, 0, 0, 0],
+                    [ 1, 4, 7, 0, 0, 0],
+                    [ 6, 3,-1, 0, 0, 0],
+                    [-3, 0, 7, 0, 0, 0]
+                ]
+            ]),
+            puan.ndarray.integer_ndarray([
+                [ 0, 0, 3, 3, 1, 2],
+                [ 0, 0, 0, 0, 0, 0],
+                [ 1, 2, 3, 4, 5, 6],
+                [ 0, 0, 1, 1, 1, 1],
+                [ 0, 1, 3, 2, 2, 2]
+            ]),
+            0
+        ),
+    ]
+    for inpt, expected_output, axis in test_cases:
+        actual_output = inpt.ndint_compress(method="rank", axis=axis)
+        assert numpy.array_equal(actual_output, expected_output)
+    
+    with pytest.raises(ValueError):
+        puan.ndarray.integer_ndarray([1, 5, 30]).ndint_compress(method="Rank")
+    
+        
+    
+
 def test_bind_relations_to_compound_id():
 
     model = pg.All(
@@ -1594,6 +1660,28 @@ def test_json_conversion():
     json_model = {"type": "All", "propositions": [{"id": "x", "bounds": {"lower": -10, "upper": 10}}]}
     assert json_model == pg.from_json(json_model).to_json()
 
+    model = pg.All(
+        pg.XNor(pg.All("x", "y"), pg.Any("z", "u"), variable="A"),
+        pg.XNor("a", "b")
+    )
+    converted = pg.from_json(model.to_json())
+    assert model == converted
+
+    json_model = {"propositions": [{"id": "x", "bounds": {"lower": -10, "upper": 10}}]}
+    assert pg.from_json(json_model).to_json() == {"type": "AtLeast", "value": 1, "propositions": [{"id": "x", "bounds": {"lower": -10, "upper": 10}}]}
+
+    json_model = {"type": "Variable", "id": "x", "bounds": {"lower": -10, "upper": 10}}
+    assert pg.from_json(json_model).to_json() == {'bounds': {'lower': -10, 'upper': 10}, 'id': 'x'}
+
+    json_model = {"type": "NotAValidType", "id": "x", "bounds": {"lower": -10, "upper": 10}}
+    with pytest.raises(Exception):
+        pg.from_json(json_model).to_json()
+    
+    json_model = {"type": "AtMost", "value": 1, "propositions": [{"id": "x", "bounds": {"lower": -10, "upper": 10}}]}
+    assert json_model == pg.AtMost.from_json(json_model, [puan.variable]).to_json()
+    
+
+
 def test_xnor_proposition():
     
     actual_model = pg.XNor("x","y","z") # <- meaning none or at least 2
@@ -1630,7 +1718,7 @@ def test_proposition_polyhedron_conversions():
         consequence=pg.All("a","b","c")
     ).to_ge_polyhedron(True)
     assert all(actual.A.dot(actual.A.construct(*{"VARfe372293ac6fc8767d248278e9ceacbb53aa57de8d3b30ef20813933935d1332": 1, "x": 1}.items())) >= actual.b)
-    assert all(actual.A.dot(actual.A.construct(*{"VARcb5c9cf4540a353612f65682e67cb8817ccdbe7d918f14101b0c41503358c207": 1, "a": 1, "b": 1, "c": 1}.items())) >= actual.b)
+    assert all(actual.A.dot(actual.A.construct(*{"VARda5ba595af62c244d136aab35d6713d054f9167785da38460211eb9cb8d165f4": 1, "a": 1, "b": 1, "c": 1}.items())) >= actual.b)
 
     actual = pg.Not(
         pg.Imply(
@@ -1695,11 +1783,11 @@ def test_proposition_polyhedron_conversions():
             actual.A.construct(
                 *{
                     "VAR078253de0198b4e2ba4ae54d2ff9cb511d3055064d6132049a29ff6a2dc55edd": 1,
-                    "VAR1414b00e0f808cb060126f90cbe86e83c87b4b0cbe158d077fd2e23359faaa83": 1,
+                    "VAR0602949238c693ef0f13dd2a14c00cda10db750d10bea4f3c8f4519e279bc1cb": 1,
                     "VAR468a4942c7f47232c142a5b40253be66fafbacee418fb325b299c3a3df1d4ff1": 1,
                     "VAR4803c19cbb7f1c2fa552ef65967b971a3e798eaaed91fcb2726a7d27acd0d23a": 1,
-                    "VAR852b391777566b6ff2eb7c8b25b110858a7ae5d141d486e409a5b6f3002074b4": 1,
-                    "VARe256ab674250ba0eb7b0e0cac5b43febb338c87d6daa02c02c90c66aa38b86fa": 1,
+                    "VAR12523219673c8e113cf2afe800e4e67db7c61bbd0c5feed1179abd493badafbe": 1,
+                    "VAR6871c4a77e251fda952fc29a38babd55caa966a5d5a217cfa673d8dbe2181997": 1,
                     "t-shirts": 1,
                     "sweaters": 1,
                     "jeans": 1,
@@ -1725,12 +1813,8 @@ def test_multiple_defaults():
     config2 = {"a": 1, "p": 1}
     full_config1 = model.evaluate_propositions(config1)
     full_config2 = model.evaluate_propositions(config2)
-    keys1 = list(full_config1.keys())[:-1]
-    keys1.sort()
-    keys2 = list(full_config2.keys())[:-1]
-    keys2.sort()
-    int_ndarray1 = numpy.array(list(map(lambda x: full_config1[x], keys1)))
-    int_ndarray2 = numpy.array(list(map(lambda x: full_config2[x], keys2)))
+    int_ndarray1 = model.ge_polyhedron.A.construct(*full_config1.items())
+    int_ndarray2 = model.ge_polyhedron.A.construct(*full_config2.items())
     objective_function = puan.ndarray.ndint_compress(model.ge_polyhedron.default_prio_vector, method="shadow")
     assert objective_function.dot(int_ndarray1) > objective_function.dot(int_ndarray2)
 
@@ -1740,7 +1824,7 @@ def test_evaluate_propositions():
         pg.All(*"xy", variable="A").evaluate_propositions({"x": 3})
     
     # Unsatisfiable model
-    assert pg.AtLeast(2, "x").evaluate_propositions({"x": 0}) == {'VAR9d59599264198c20cfb4a8b1a0802d5f8a59c41563eea15eb6c663c25826d535': 0, "x": 0}
+    assert pg.AtLeast(2, "x").evaluate_propositions({"x": 0}) == {'VARa7c4c155fe9267e5308123f3d8b4e663ced757f934a47fc023c808b568ae51c4': 0, "x": 0}
 
     # Faulty configuration input
     with pytest.raises(ValueError):
@@ -2312,7 +2396,7 @@ def test_default_prio_vector_weights():
 def test_at_least_negate():
 
     var = ["x","y","z"]
-    actual = pg.AtLeast(0, var, variable="A").negate()
+    actual = pg.AtLeast(0, var, variable="A", sign=1).negate()
     expected = pg.AtLeast(1, var, variable="A", sign=-1)
     assert actual == expected
 
@@ -2341,7 +2425,7 @@ def test_at_least_negate():
     assert actual == expected
 
     var = [puan.variable("x",(0,2)), "y", "z"]
-    actual = pg.AtLeast(0, var, variable="A").negate()
+    actual = pg.AtLeast(0, var, variable="A", sign=1).negate()
     expected = pg.AtLeast(1, var, variable="A", sign=-1)
     assert actual == expected
 
@@ -2500,18 +2584,18 @@ def test_configurator_to_json():
             },
             {
                 "id": "C",
-                "type": "Xor",
-                "propositions": [
-                    {"id": "p"},
-                    {"id": "q"},
-                ],
-            },
-            {
-                "id": "D",
                 "type": "Any",
                 "propositions": [
                     {"id": "r"},
                     {"id": "s"},
+                ],
+            },
+            {
+                "id": "D",
+                "type": "Xor",
+                "propositions": [
+                    {"id": "p"},
+                    {"id": "q"},
                 ],
             }
         ]
@@ -2535,7 +2619,29 @@ def test_at_leasts():
 
     with pytest.raises(Exception):
         pg.AtLeast(propositions=[], value=1, variable="A")
+    
+    with pytest.raises(Exception):
+        pg.AtLeast(propositions=["a"], value=1, sign=-2)
+    
+    assert pg.AtLeast(propositions=["a"], value=1).sign == puan.Sign.POSITIVE
+    assert pg.AtLeast(propositions=["a"], value=0).sign == puan.Sign.NEGATIVE
+    assert pg.AtLeast(propositions=["a"], value=-1).sign == puan.Sign.NEGATIVE
 
+    with pytest.raises(ValueError):
+        pg.AtLeast(value=1, propositions=["a"], variable=1)
+    
+    with pytest.raises(Exception):
+        pg.AtLeast.from_short(("A"))
+
+def test_imply():
+    with pytest.raises(Exception):
+        pg.Imply.from_json({"type": "Imply", "propositions": [{"id": "x", "bounds": {"lower": -10, "upper": 10}}]}, [])
+    
+    assert pg.Imply.from_json({"type": "Imply", "consequence": {"id": "x", "bounds": {"lower": -10, "upper": 10}}}, [puan.variable]) == puan.variable(id='x', bounds=puan.Bounds(lower=-10, upper=10))
+
+def test_not():
+    with pytest.raises(Exception):
+        pg.Not.from_json({"type": "Not"}, [])
 def test_plog_evaluate_method():
 
     """From tutorial example"""
@@ -2788,3 +2894,52 @@ def test_solve_functions():
     ]:
         for sol_actual, sol_expected in zip(sol_iter_actual, [model_eval]):
             assert sol_actual[0] == sol_expected
+
+def test_proposition_interface():
+    class MyProposition(puan.Proposition):
+        def __init__(self) -> None:
+            pass
+    with pytest.raises(NotImplementedError):
+        MyProposition().to_short()
+    with pytest.raises(NotImplementedError):
+        MyProposition().to_json()
+    with pytest.raises(NotImplementedError):
+        MyProposition().from_json([],[])
+
+def test_misc():
+    with pytest.raises(KeyError):
+        puan.misc.or_get({}, "key")
+    with pytest.raises(KeyError):
+        puan.misc.or_replace({}, "key", 1)
+
+def test_ndarray():
+    with pytest.raises(ValueError):
+        puan.ndarray.variable_ndarray(numpy.array([1,2,3]), variables=[puan.variable("a")])
+    
+    with pytest.raises(ValueError):
+        puan.ndarray.variable_ndarray(numpy.array([1,2,3])).variable_indices(2)
+    
+    with pytest.raises(Exception):
+        puan.ndarray.ge_polyhedron([[1]]).A_max
+    
+    with pytest.raises(Exception):
+        puan.ndarray.ge_polyhedron([[1]]).A_min
+    
+    assert numpy.array_equal(puan.ndarray.ge_polyhedron([[2, 1, 1]]).reducable_rows_and_columns()[1], numpy.array([1,1]))
+    assert numpy.array_equal(puan.ndarray.ge_polyhedron([[0, 1, 1]]).reducable_rows_and_columns()[0], numpy.array([1]))
+
+    with pytest.raises(Exception):
+        puan.ndarray.ge_polyhedron([[1,1,1,1]]).row_distribution(-1)
+    with pytest.raises(Exception):
+        puan.ndarray.ge_polyhedron([[1,1,1,1]]).row_distribution(1)
+    with pytest.raises(ValueError):
+        puan.ndarray.integer_ndarray([1,1,1,1]).reduce2d()
+    with pytest.raises(ValueError):
+        puan.ndarray.integer_ndarray([[1,1,1,1]]).reduce2d(method=["Last"])
+    
+    assert numpy.array_equal(puan.ndarray.integer_ndarray.from_list([], ["a", "b", "c"]), [])
+    assert numpy.array_equal(puan.ndarray.boolean_ndarray.from_list([], ["a", "b", "c"]), [])
+
+    with pytest.raises(ValueError):
+        puan.ndarray.boolean_ndarray([1,1,1]).get_neighbourhood(method="ON")
+

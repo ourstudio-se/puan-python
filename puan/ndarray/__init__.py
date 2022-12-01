@@ -23,6 +23,11 @@ class variable_ndarray(numpy.ndarray):
         Attributes
         ----------
             See : :class:`numpy.ndarray`
+        
+        Raises
+        ------
+            ValueError
+                If shapes between ``input_array``, ``variables`` and ``index mismatch``
 
         Methods
         -------
@@ -101,7 +106,12 @@ class variable_ndarray(numpy.ndarray):
             Parameters
             ----------
             variable_dtype : :class:`puan.Dtype`
-                Variable type where "bool" gives :class:``puan.Dtype.BOOL`` and 1 gives :class:``puan.Dtype.INT``. 
+                Variable type where "bool" gives :class:``puan.Dtype.BOOL`` and 1 gives :class:``puan.Dtype.INT``.
+            
+            Raises
+            ------
+                ValueError
+                    If variable_dtype is not of type :class:`puan.Dtype`
 
             Notes
             -----
@@ -736,6 +746,16 @@ class ge_polyhedron(variable_ndarray):
             ...     [-1,-1, 0,-1, 0, 0, 1]])).neglectable_columns(patterns)
             integer_ndarray([1, 0, 0, 0, 0, 0])
 
+            All patterns are present and all those columns can therefore be neglected
+            >>> patterns = numpy.array([[1, 1, 0], [1, 0, 1], [1, 0, 0]])
+            >>> ge_polyhedron(numpy.array([
+            ...     [-1,-1,-1, 0, 0, 0, 1],
+            ...     [-1,-1, 0,-1, 0, 0, 1],
+            ...     [-1,-1, 0, 0, 0, 0, 1]])).neglectable_columns(patterns)
+            integer_ndarray([1, 1, 1, 0, 0, 0])
+
+            
+
         """
         A = ge_polyhedron(self).A
         # Extend patterns to be of same shape as A
@@ -753,7 +773,7 @@ class ge_polyhedron(variable_ndarray):
         patterns_not_in_A = _patterns[~(_patterns[:, None] == _A).all(-1).any(-1)]
         if patterns_not_in_A.shape[0]==0:
             # Possible to neglect everything except non neglectable columns
-            return (~non_neglectable_columns).astype(int)
+            return integer_ndarray(~non_neglectable_columns)
 
         # Find common pattern in A
         common_pattern_in_A = (_A == 1).all(axis=0)
@@ -825,12 +845,25 @@ class ge_polyhedron(variable_ndarray):
 
             Examples
             --------
-                >>> ge_polyhedron = ge_polyhedron([[0,-2, 1, 1]])
-                >>> ge_polyhedron.separable(numpy.array([
+                >>> polyhedron = ge_polyhedron([[1, 1, 1], [-1, -1, -1]])
+                >>> polyhedron.separable(numpy.array([0, 0]))
+                True
+
+                >>> polyhedron = ge_polyhedron([[0,-2, 1, 1]])
+                >>> polyhedron.separable(numpy.array([
                 ...     [1, 0, 1],
                 ...     [1, 1, 1],
                 ...     [0, 0, 0]]))
                 array([ True, False, False])
+
+                >>> polyhedron = ge_polyhedron([[-2,-1, -1, -1], [0, -1, 1, 0], [0, 0, -1, 1]])
+                >>> polyhedron.separable(numpy.array([[
+                ...     [1, 0, 1]],
+                ...     [[1, 1, 1]],
+                ...     [[0, 0, 0]]]))
+                array([[ True],
+                       [ True],
+                       [False]])
         """
         if points.ndim > 2:
             return numpy.array(
@@ -879,6 +912,17 @@ class ge_polyhedron(variable_ndarray):
 
             Examples
             --------
+            Points in 1d
+
+            >>> points = numpy.array([0, 1])
+            >>> ge_polyhedron(numpy.array([
+            ...     [-1,  0, -1],
+            ...     [ 2,  1,  1],
+            ...     [ 0, -1,  1]])).ineq_separate_points(points)
+            boolean_ndarray([0, 1, 0])
+
+            Points in 2d
+
             >>> points = numpy.array([[1, 1], [4, 2]])
             >>> ge_polyhedron(numpy.array([
             ...     [ 0, 1, 0],
@@ -913,7 +957,7 @@ class ge_polyhedron(variable_ndarray):
                 (numpy.matmul(A, points.T) < b.reshape(-1,1)).any(axis=1)
             )
         elif points.ndim == 1:
-            return ge_polyhedron.ineq_separate_points(numpy.array([points]), self)
+            return ge_polyhedron.ineq_separate_points(self, numpy.array([points]))
     
     def ineqs_satisfied(self, points: numpy.ndarray) -> "boolean_ndarray":
         """
@@ -930,6 +974,17 @@ class ge_polyhedron(variable_ndarray):
 
             Examples
             --------
+
+            Points in 1d
+
+            >>> points = numpy.array([1, 0, 3, 2])
+            >>> ge_polyhedron(numpy.array([
+            ...     [0, 1, 1, -1, 1],
+            ...     [5, 2, 1,  1, 0]])).ineqs_satisfied(points)
+            True
+
+            Points in 2d
+
             >>> points = numpy.array([[1, 1], [4, 2]])
             >>> ge_polyhedron(numpy.array([
             ...     [ 0, 1, 0],
@@ -961,22 +1016,7 @@ class ge_polyhedron(variable_ndarray):
         elif points.ndim == 2:
             return boolean_ndarray((numpy.dot(self.A, points.T) >= self.b[:,None]).all(axis=0))
         elif points.ndim == 1:
-            return ge_polyhedron.ineqs_satisfied(self, numpy.array([points]))[0]
-
-    def construct_boolean_ndarray(self, variables: typing.List[str]) -> "boolean_ndarray":
-
-        """
-            Constructs a :class:`boolean_ndarray` sharing ``self.A``'s variables (i.e. without support vector).
-
-            Parameters
-            ----------
-            variables : List[str]
-
-            Returns
-            -------
-                out : :class:`boolean_ndarray`
-        """
-        return boolean_ndarray.construct(self.A, variables)
+            return ge_polyhedron.ineqs_satisfied(self, numpy.array([points]))[0] == 1
 
     
     def column_bounds(self) -> "integer_ndarray":
@@ -1322,6 +1362,12 @@ class integer_ndarray(variable_ndarray):
                 Which value to keep. Default "first".
             axis : ``int``
                 Default 0.
+            
+            Raises
+            ------
+                ValueError
+                    | If dimension is not 2
+                    | If method is not 'first' or 'last'
 
             Examples
             --------
@@ -1365,7 +1411,8 @@ class integer_ndarray(variable_ndarray):
         """
         if self.ndim > 1:
             return integer_ndarray(list(map(integer_ndarray.ranking, self)))
-        elif self.ndim == 1:
+        else:
+            # self.ndim == 1
             idx_sorted = numpy.argsort(self)
             self = self[idx_sorted]
             current_ranking = 1 if (self[0] > 0) else 0
@@ -1377,23 +1424,21 @@ class integer_ndarray(variable_ndarray):
                 self[i] = current_ranking
             rev = numpy.argsort(idx_sorted)
             return self[rev]
-        else:
-            raise ValueError("Dimension out of bounds")
 
-    def ndint_compress(self, method: typing.Literal["first", "last", "min", "max", "prio", "shadow"]="min", axis: int=None, dtype=numpy.int64) -> "integer_ndarray":
+    def ndint_compress(self, method: typing.Literal["first", "last", "min", "max", "rank", "shadow"]="min", axis: int=None, dtype=numpy.int64) -> "integer_ndarray":
 
         """
             Takes an integer ndarray and compresses it into a vector under different conditions given by `method`.
 
             Parameters
             ----------
-                method : {'first', 'last', 'min', 'max', 'prio', 'shadow'}, optional
+                method : {'first', 'last', 'min', 'max', 'rank', 'shadow'}, optional
                     The method used to compress the `integer ndarray`. The following methods are available (default is 'min')
 
                     - 'min' Takes the minimum non-zero value
                     - 'max' Takes the maximum value
                     - 'last' Takes the last value
-                    - 'prio' Treats the values as prioritizations with prioritizations increasing along the axis.
+                    - 'rank' Gives the rank of the input.
                     - 'shadow' Treats the values as prioritizations as for 'prio' but the result value of a higher prioritization totally shadows lower priorities
                 axis : {None, int}, optional
                     Axis along which to perform the compressing. If None, the data array is first flattened.
@@ -1402,6 +1447,11 @@ class integer_ndarray(variable_ndarray):
             -------
                 out : :class:`numpy.ndarray`
                     If input integer ndarray is input array is ``M-D`` the returned array is ``(M-1)-D``
+            
+            Raises
+            ------
+                ValueError
+                    If method is not one of 'first', 'last', 'min', 'max', 'rank' or 'shadow'
 
             Examples
             --------
@@ -1458,20 +1508,20 @@ class integer_ndarray(variable_ndarray):
                 ...     [5, 0, 0, 6]]).ndint_compress(method='last', axis=1)
                 integer_ndarray([2, 4, 6])
 
-            Method 'prio'
-                >>> integer_ndarray([1, 2, 1, 0, 4, 4, 6]).ndint_compress(method='prio')
+            Method 'rank'
+                >>> integer_ndarray([1, 2, 1, 0, 4, 4, 6]).ndint_compress(method='rank')
                 integer_ndarray([1, 2, 1, 0, 3, 3, 4])
 
                 >>> integer_ndarray([
                 ...     [1, 2, 0, 0],
                 ...     [0, 3, 4, 0],
-                ...     [5, 0, 0, 6]]).ndint_compress(method='prio', axis=0)
+                ...     [5, 0, 0, 6]]).ndint_compress(method='rank', axis=0)
                 integer_ndarray([3, 1, 2, 4])
 
                 >>> integer_ndarray([
                 ...     [1, 2, 0, 0],
                 ...     [0, 3, 4, 0],
-                ...     [5, 0, 0, 6]]).ndint_compress(method='prio', axis=1)
+                ...     [5, 0, 0, 6]]).ndint_compress(method='rank', axis=1)
                 integer_ndarray([1, 2, 3])
 
             Method 'shadow'
@@ -1511,10 +1561,9 @@ class integer_ndarray(variable_ndarray):
             elif self.ndim == 2:
                 self = self[numpy.argmax(self!=0, axis=0),numpy.arange(self.shape[1])]
                 return numpy.swapaxes(self, 0, axis-1)
-            elif self.ndim == 1:
-                return numpy.swapaxes(self, 0, axis-1)
             else:
-                raise ValueError("Dimension out of bound")
+                # self.ndim == 1
+                return numpy.swapaxes(self, 0, axis-1)
         elif method == "min":
             tmp = self.copy()
             tmp[tmp==0] = sys.maxsize
@@ -1523,7 +1572,7 @@ class integer_ndarray(variable_ndarray):
             return tmp
         elif method == "max":
             return numpy.max(self, axis=axis)
-        elif method == "prio":
+        elif method == "rank":
             self = numpy.swapaxes(self, 0, axis)
             if self.ndim > 2:
                 return numpy.swapaxes(integer_ndarray(
@@ -1539,12 +1588,9 @@ class integer_ndarray(variable_ndarray):
                 self_reduced = integer_ndarray(self_reduced.ranking())
                 self_reduced = self_reduced + ((self_reduced.T>0) * numpy.concatenate(([0], (numpy.cumsum(self_reduced.max(axis=1)))))[:-1]).T
                 return self_reduced.ndint_compress(method="first", axis=0, dtype=dtype)
-            elif self.ndim == 1:
-                return self.ranking()
             else:
-                raise ValueError("Dimension out of bounds")
-
-
+                # self.ndim == 1:
+                return self.ranking()
         elif method == "shadow":
             self = numpy.swapaxes(self, 0, axis)
             if self.ndim > 2:
@@ -1586,13 +1632,11 @@ class integer_ndarray(variable_ndarray):
                 compressed_neg = self_reduced.min(axis=0)
                 compressed[compressed_neg < 0] = compressed[compressed_neg < 0] * -1
                 return numpy.swapaxes(compressed, 0, axis-1)
-            elif self.ndim == 1:
-                return integer_ndarray.ndint_compress(numpy.array([self], dtype=dtype), method=method, axis=0, dtype=dtype)
             else:
-                raise ValueError("Dimension out of bounds, is {self.ndim}")
+                # self.ndim == 1
+                return integer_ndarray.ndint_compress(numpy.array([self], dtype=dtype), method=method, axis=0, dtype=dtype)
         else:
-            print("Method not recognized")
-            return
+            raise(ValueError("Method not recoginized, must be one of 'first', 'last', 'min', 'max', 'rank', 'shadow', got: {}".format(method)))
 
     def get_neighbourhood(self, method: typing.Literal["all", "addition", "subtraction"]="all", delta: typing.Union[int, numpy.ndarray]=1) -> "integer_ndarray":
         """
@@ -1714,6 +1758,13 @@ class integer_ndarray(variable_ndarray):
                 >>> integer_ndarray.from_list(variables, context)
                 integer_ndarray([1, 3, 2, 0])
 
+                >>> variables  = [["a", "c"], ["c", "b"], ["a", "b", "d"]]
+                >>> context = ["a","b","c","d"]
+                >>> integer_ndarray.from_list(variables, context)
+                integer_ndarray([[1, 0, 2, 0],
+                                 [0, 2, 1, 0],
+                                 [1, 2, 0, 3]])
+
         """
         if len(lst) == 0:
             result = []
@@ -1769,6 +1820,13 @@ class boolean_ndarray(variable_ndarray):
                 >>> boolean_ndarray.from_list(variables, context)
                 boolean_ndarray([1, 1, 0, 1])
 
+                >>> variables  = [["a", "c"], ["c", "b"], ["a", "b", "d"]]
+                >>> context = ["a","b","c","d"]
+                >>> boolean_ndarray.from_list(variables, context)
+                boolean_ndarray([[1, 0, 1, 0],
+                                 [0, 1, 1, 0],
+                                 [1, 1, 0, 1]])
+
         """
         if len(lst) == 0:
             result = []
@@ -1792,6 +1850,16 @@ class boolean_ndarray(variable_ndarray):
             Returns
             -------
                 out : List[:class:`puan.variable`]
+            
+            Examples
+            --------
+                >>> boolean_ndarray([1, 1, 0, 1]).to_list()
+                [variable(id=0, bounds=Bounds(lower=1, upper=1)), variable(id=1, bounds=Bounds(lower=0, upper=1)), variable(id=3, bounds=Bounds(lower=0, upper=1))]
+
+                >>> boolean_ndarray([[1, 0, 1, 0],
+                ...                  [0, 1, 1, 0],
+                ...                  [1, 1, 0, 1]]).to_list()
+                [[variable(id=0, bounds=Bounds(lower=1, upper=1)), variable(id=2, bounds=Bounds(lower=0, upper=1))], [variable(id=1, bounds=Bounds(lower=0, upper=1)), variable(id=2, bounds=Bounds(lower=0, upper=1))], [variable(id=0, bounds=Bounds(lower=1, upper=1)), variable(id=1, bounds=Bounds(lower=0, upper=1)), variable(id=3, bounds=Bounds(lower=0, upper=1))]]
         """
 
         if self.ndim == 1:
@@ -1820,6 +1888,11 @@ class boolean_ndarray(variable_ndarray):
                     - 'on_off' the most natural way to define neighbourhoods, if a variable is True in the input it is False in its neighbourhood and vice versa.
                     - 'on' do not include neighbourhoods with 'off switches', i.e. if a variable is True there is no neighbourhood to this variable.
                     - 'off' do not include neighbourhoods with 'on switches', i.e. if a variable is False there is no neighbourhood to this variable.
+            
+            Raises
+            ------
+                ValueError
+                    If method is not one of 'on_off', 'on' or 'off' 
 
             Returns
             -------
@@ -1861,8 +1934,7 @@ class boolean_ndarray(variable_ndarray):
         elif method == "off":
             _res = numpy.logical_and(numpy.tile(self, nvars).reshape(list(self.shape)+[nvars]), numpy.tile(numpy.ones(nvars, dtype=numpy.int64) - numpy.eye(nvars, dtype=numpy.int64), (list(self.shape)[:-1] + [1])).reshape(list(self.shape)+[nvars]))
         else:
-            print("Method not recognized")
-            return
+            raise(ValueError("Method not recognized, must be one of 'on_off', 'on' or 'off' for {}".format(method)))
         return _res[~(_res==self).all(axis=self.ndim-1)]
 
 class InfeasibleError(Exception):
