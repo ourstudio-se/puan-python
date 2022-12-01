@@ -2861,40 +2861,6 @@ def test_constructing_proposition_model_with_variable_sub_classes():
     assert model.evaluate({"Apple-big": 1, "Orange-small": 1, "Orange-medium": 1})
     assert model.evaluate({"Apple-small": 1})
 
-def test_solve_functions():
-
-    class Fruit(puan.variable):
-        
-        def  __init__(self, size: str):
-            super().__init__(f"{self.__class__.__name__}-{size}")
-            self.size = size
-
-    class Apple(Fruit):
-        pass
-
-    class Orange(Fruit):
-        pass
-
-    sub_model = pg.Imply(
-        Apple("big"),
-        pg.Any(
-            Orange("small"),
-            Orange("medium"),
-        )
-    )
-
-    # Test that evaluate and solve returns same solution
-    # Test for both pg and cc model
-    objective_0 = {"Apple-big": 1, "Orange-small": 1}
-    model_eval = sub_model.evaluate_propositions(objective_0)
-
-    for sol_iter_actual in [
-        pg.All(sub_model).solve([objective_0]), 
-        cc.StingyConfigurator(sub_model).select(objective_0)
-    ]:
-        for sol_actual, sol_expected in zip(sol_iter_actual, [model_eval]):
-            assert sol_actual[0] == sol_expected
-
 def test_proposition_interface():
     class MyProposition(puan.Proposition):
         def __init__(self) -> None:
