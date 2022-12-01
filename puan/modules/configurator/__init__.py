@@ -189,16 +189,11 @@ class Xor(pg.Xor):
 
         """"""
         default = data.get("default", [])
-        if default:
-            default_item = None if len(default) == 0 else list(map(lambda x: puan.variable.from_json(x, [puan.variable]), default))
-            _class_map = dict(zip(map(lambda x: x.__name__, class_map), class_map))
-            return Xor(
-                *map(functools.partial(pg.from_json, class_map=class_map), data.get('propositions', [])),
-                default=default_item,
-                variable=data.get("id", None)
-            )
-        else:
-            return Xor(*pg.Xor.from_json(data, class_map).propositions, variable=pg.Xor.from_json(data, class_map).variable)
+        return Xor(
+            *map(functools.partial(pg.from_json, class_map=class_map), data.get('propositions', [])),
+            default= None if len(default) == 0 else list(map(lambda x: puan.variable.from_json(x, [puan.variable]), default)),
+            variable=data.get("id", None)
+        )
 
     @staticmethod
     def from_list(propositions: list, variable: typing.Union[str, puan.variable] = None, default: typing.List[puan.variable] = []) -> "Xor":
