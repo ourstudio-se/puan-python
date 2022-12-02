@@ -1425,20 +1425,21 @@ class integer_ndarray(variable_ndarray):
             rev = numpy.argsort(idx_sorted)
             return self[rev]
 
-    def ndint_compress(self, method: typing.Literal["first", "last", "min", "max", "rank", "shadow"]="min", axis: int=None, dtype=numpy.int64) -> "integer_ndarray":
+    def ndint_compress(self, method: typing.Literal["first", "last", "min", "max", "prio", "rank", "shadow"]="min", axis: int=None, dtype=numpy.int64) -> "integer_ndarray":
 
         """
             Takes an integer ndarray and compresses it into a vector under different conditions given by `method`.
 
             Parameters
             ----------
-                method : {'first', 'last', 'min', 'max', 'rank', 'shadow'}, optional
+                method : {'first', 'last', 'min', 'max', 'prio', 'rank', 'shadow'}, optional
                     The method used to compress the `integer ndarray`. The following methods are available (default is 'min')
 
                     - 'min' Takes the minimum non-zero value
                     - 'max' Takes the maximum value
                     - 'last' Takes the last value
-                    - 'rank' Gives the rank of the input.
+                    - 'prio' Gives the normalized prio of the input
+                    - 'rank' Gives the rank of the input
                     - 'shadow' Treats the values as prioritizations as for 'prio' but the result value of a higher prioritization totally shadows lower priorities
                 axis : {None, int}, optional
                     Axis along which to perform the compressing. If None, the data array is first flattened.
@@ -1451,7 +1452,7 @@ class integer_ndarray(variable_ndarray):
             Raises
             ------
                 ValueError
-                    If method is not one of 'first', 'last', 'min', 'max', 'rank' or 'shadow'
+                    If method is not one of 'first', 'last', 'min', 'max', 'prio', 'rank' or 'shadow'
 
             Examples
             --------
@@ -1507,22 +1508,36 @@ class integer_ndarray(variable_ndarray):
                 ...     [0, 3, 4, 0],
                 ...     [5, 0, 0, 6]]).ndint_compress(method='last', axis=1)
                 integer_ndarray([2, 4, 6])
+            
+            Method 'prio'
+
+                >>> integer_ndarray([
+                ...     [1, -2, 0, 0],
+                ...     [0,  3, 4, 0],
+                ...     [5,  0, 0, -6]]).ndint_compress(method='prio', axis=0)
+                integer_ndarray([ 3,  1,  2, -4])
+
+                >>> integer_ndarray([
+                ...     [1, -2, 0, 0],
+                ...     [0,  3, 4, 0],
+                ...     [5,  0, 0, -6]]).ndint_compress(method='prio', axis=1)
+                integer_ndarray([-1,  2, -3])
 
             Method 'rank'
                 >>> integer_ndarray([1, 2, 1, 0, 4, 4, 6]).ndint_compress(method='rank')
                 integer_ndarray([1, 2, 1, 0, 3, 3, 4])
 
                 >>> integer_ndarray([
-                ...     [1, 2, 0, 0],
-                ...     [0, 3, 4, 0],
-                ...     [5, 0, 0, 6]]).ndint_compress(method='rank', axis=0)
+                ...     [1, -2, 0, 0],
+                ...     [0,  3, 4, 0],
+                ...     [5,  0, 0, 6]]).ndint_compress(method='rank', axis=0)
                 integer_ndarray([3, 1, 2, 4])
 
                 >>> integer_ndarray([
-                ...     [1, 2, 0, 0],
-                ...     [0, 3, 4, 0],
-                ...     [5, 0, 0, 6]]).ndint_compress(method='rank', axis=1)
-                integer_ndarray([1, 2, 3])
+                ...     [1, -2, 0, 0],
+                ...     [0,  3, 4, 0],
+                ...     [5,  0, 0, 6]]).ndint_compress(method='rank', axis=1)
+                integer_ndarray([0, 1, 2])
 
             Method 'shadow'
                 >>> integer_ndarray([1, 2, 1, 0, 4, 4, 6]).ndint_compress(method='shadow')
@@ -1545,8 +1560,20 @@ class integer_ndarray(variable_ndarray):
             self = integer_ndarray([self.flatten()])
             axis=0
         if method == "last":
-            func = lambda x: x[numpy.max(numpy.argwhere(x!=0), axis=0)]
-            return numpy.add.reduce(numpy.apply_along_axis(func, axis=axis, arr=self), axis=axis)
+            self = numpy.swapaxes(self, 0, axis)
+            if self.ndim > 2:
+                return numpy.swapaxes(integer_ndarray(
+                            list(
+                                map(
+                                    lambda x: integer_ndarray.ndint_compress(x, method=method, axis=0, dtype=dtype),
+                                    self
+                                )
+                            )
+                        ), 0, axis)
+            elif self.ndim == 2:
+                return numpy.flipud(self).ndint_compress(method="first", axis=0, dtype=dtype)
+            else:
+                return numpy.swapaxes(self, 0, axis-1)
         elif method == "first":
             self = numpy.swapaxes(self, 0, axis)
             if self.ndim > 2:
@@ -1572,7 +1599,7 @@ class integer_ndarray(variable_ndarray):
             return tmp
         elif method == "max":
             return numpy.max(self, axis=axis)
-        elif method == "rank":
+        elif method == "prio":
             self = numpy.swapaxes(self, 0, axis)
             if self.ndim > 2:
                 return numpy.swapaxes(integer_ndarray(
@@ -1585,9 +1612,34 @@ class integer_ndarray(variable_ndarray):
                         ), 0, axis)
             elif self.ndim == 2:
                 self_reduced = integer_ndarray(self).reduce2d(method="last", axis=0)
-                self_reduced = integer_ndarray(self_reduced.ranking())
-                self_reduced = self_reduced + ((self_reduced.T>0) * numpy.concatenate(([0], (numpy.cumsum(self_reduced.max(axis=1)))))[:-1]).T
-                return self_reduced.ndint_compress(method="first", axis=0, dtype=dtype)
+                # Convert negatives to positives
+                self_reduced_abs = numpy.abs(self_reduced)
+                #Remove zero rows
+                self_reduced_abs = self_reduced_abs[~numpy.all(self_reduced_abs == 0, axis=1)]
+                if self_reduced_abs.shape[0] == 0:
+                    return integer_ndarray(numpy.zeros(self.shape[1], dtype=self.dtype))
+                self_reduced_abs = integer_ndarray(self_reduced_abs.ranking())
+                self_reduced_abs = self_reduced_abs + ((self_reduced_abs.T>0) * numpy.concatenate(([0], (numpy.cumsum(self_reduced_abs.max(axis=1)))))[:-1]).T
+                prio= self_reduced_abs.ndint_compress(method="first", axis=0, dtype=dtype)
+                prio[self.ndint_compress(method="last", axis=0, dtype=dtype) < 0] = prio[self.ndint_compress(method="last", axis=0, dtype=dtype) < 0] * -1
+                return prio
+
+            else:
+                # self.ndim == 1:
+                return self.ranking()
+        elif method == "rank":
+            self = numpy.swapaxes(self, 0, axis)
+            if self.ndim > 2:
+                return numpy.swapaxes(integer_ndarray(
+                            list(
+                                map(
+                                    lambda x: integer_ndarray.ndint_compress(x, method=method, axis=0, dtype=dtype),
+                                    self
+                                )
+                            )
+                        ), 0, axis)
+            elif self.ndim == 2:
+                return integer_ndarray(self.ndint_compress(method="prio", axis=0, dtype=dtype).ranking())
             else:
                 # self.ndim == 1:
                 return self.ranking()
