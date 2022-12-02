@@ -341,7 +341,8 @@ class AtLeast(puan.Proposition):
 
         """
             Checks this proposition and returns a list of :class:`PropositionValidationError`'s. 
-           An error in the result is due to one or more of the following: 
+            An error in the result is due to one or more of the following:
+            
                 - It exist at least one circular variable dependency.
                 - A variable depends directly on two or more variables with identical ids.
                 - There exists two or more variables with identical ids but with different bounds.
@@ -1149,7 +1150,7 @@ class AtLeast(puan.Proposition):
 
             Returns
             -------
-                out : List[Optional[List[:class:`puan.SolutionVariable`]]]:
+                out : List[Optional[Tuple[Dict[str, int], int, int]]]:
         """
 
         ph = self.to_ge_polyhedron(

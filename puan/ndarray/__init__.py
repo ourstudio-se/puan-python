@@ -2043,7 +2043,7 @@ class ge_polyhedron_config(ge_polyhedron):
 
             Returns
             -------
-                out : List[List[:class:`SolutionVariable<puan.SolutionVariable>`]]
+                out : List[Tuple[Dict[str, int], int, int]]
         """
         try:
             variables = self.A.variables

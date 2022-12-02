@@ -321,14 +321,16 @@ class StingyConfigurator(pg.All):
                     self.leafs()
                 )
             )
-            res = itertools.starmap(
-                lambda config,ov,sc: dict(
-                    filter(
-                        lambda x: x[0] in leafs,
-                        config.items()
-                    )
-                ),
-                res
+            res = list(
+                itertools.starmap(
+                    lambda config,ov,sc: dict(
+                        filter(
+                            lambda x: x[0] in leafs,
+                            config.items()
+                        )
+                    ),
+                    res
+                )
             )
         return res
 
