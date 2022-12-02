@@ -64,4 +64,5 @@ numpydoc_class_members_toctree = False
 autodoc_mock_imports = ["puan.npufunc", "numpy", "maz"]
 html_static_path=["_static"]
 html_css_files = ["puan.css"]
+autodoc_mock_imports = ["puan.npufunc", "numpy", "maz"]
 
