@@ -1708,7 +1708,7 @@ def test_reduce_columns_with_column_variables():
         ],
         puan.variable.from_strings(*"0abcd")
     )
-    ph_red = ph.reduce_columns(ph.A.construct(*{"a": 1}.items(), default_value=numpy.nan, dtype=float))
+    ph_red = ph.reduce_columns(ph.A.construct(*{"a": 1}.items(), dtype=float))
     assert not any((v.id == "a" for v in ph_red.index))
     assert ph_red.shape[0] == 3
     assert ph_red.shape[1] == 4
@@ -2410,7 +2410,7 @@ def test_plog_not_json_should_only_accept_single_proposition():
 def test_constructing_empty_array():
 
     polyhedron = puan.ndarray.ge_polyhedron([[0,-2,1,1,0]], puan.variable.from_strings(*"0abcd"))
-    arr = polyhedron.construct(*{}.items(), default_value=numpy.nan, dtype=float)
+    arr = polyhedron.construct(*{}.items(), dtype=float)
     assert numpy.isnan(arr).all()
 
 def test_configuring_using_ge_polyhedron_config():

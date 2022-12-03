@@ -184,7 +184,7 @@ class variable_ndarray(numpy.ndarray):
 
         return self.variable_indices(puan.Dtype.INT)
 
-    def construct(self, *variable_values: typing.List[typing.Tuple[str, int]], default_value: int = 0, dtype: typing.Type = numpy.int64) -> numpy.ndarray:
+    def construct(self, *variable_values: typing.List[typing.Tuple[str, int]], default_value: typing.Callable[["variable_ndarray"], numpy.ndarray] = None, dtype: typing.Type = numpy.int64) -> numpy.ndarray:
 
         """
             Constructs a :class:`variable_ndarray` from a list of tuples of variable ids and integers.
@@ -193,10 +193,11 @@ class variable_ndarray(numpy.ndarray):
             ----------
                 variable_values: List[Tuple[str, int]]
                     List of tuples with variable id and value
-                default_value : int
-                    Default value of variable if not in `variable_values`. Default is ``0``.
+                default_value : Callable
+                    function taking self and returning a :class:`numpy.ndarray` with default values with shape equal to the number of variables.
+                    Default is 0 when dtype is :class:`numpy.int64` and ``numpy.nan`` otherwise.
                 dtype : Type
-                    Type of resulting :class:`numpy.ndarray`. Default is ``numpy.int64``.
+                    Type of resulting :class:`numpy.ndarray`. Default is :class:`numpy.int64`.
 
             Examples
             --------
@@ -222,7 +223,13 @@ class variable_ndarray(numpy.ndarray):
         """
         variable_ids = list(map(lambda x: x.id, self.variables))
         if len(variable_values) == 0:
-            return numpy.ones((self.shape[1]), dtype=dtype)*default_value
+            if default_value:
+                return default_value(self)
+            else:
+                if dtype == numpy.int64:
+                    return numpy.array(list(map(lambda x: x.bounds.lower, self.variables)))
+                else:
+                    return numpy.ones(len(self.variables)) * numpy.nan
         elif isinstance(variable_values[0], tuple):
             filtered_variable_values = list(
                 filter(
@@ -239,7 +246,13 @@ class variable_ndarray(numpy.ndarray):
                     filtered_variable_values
                 )
             )
-            v = numpy.ones(len(self.variables), dtype=dtype) * default_value
+            if default_value:
+                v = default_value(self)
+            else:
+                if dtype == numpy.int64:
+                    v = numpy.array(list(map(lambda x: x.bounds.lower, self.variables)))
+                else:
+                    v = numpy.ones(len(self.variables)) * numpy.nan
             v[variable_indices] = list(map(operator.itemgetter(1), filtered_variable_values))
             return v
         else:
