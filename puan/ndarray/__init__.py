@@ -1425,7 +1425,7 @@ class integer_ndarray(variable_ndarray):
             rev = numpy.argsort(idx_sorted)
             return self[rev]
 
-    def ndint_compress(self, method: typing.Literal["first", "last", "min", "max", "prio", "rank", "shadow"]="min", axis: int=None, dtype=numpy.int64) -> "integer_ndarray":
+    def ndint_compress(self, method: typing.Literal["first", "last", "min", "max", "prio", "rank", "shadow"]="min", axis: int=None) -> "integer_ndarray":
 
         """
             Takes an integer ndarray and compresses it into a vector under different conditions given by `method`.
@@ -1565,13 +1565,13 @@ class integer_ndarray(variable_ndarray):
                 return numpy.swapaxes(integer_ndarray(
                             list(
                                 map(
-                                    lambda x: integer_ndarray.ndint_compress(x, method=method, axis=0, dtype=dtype),
+                                    lambda x: integer_ndarray.ndint_compress(x, method=method, axis=0),
                                     self
                                 )
                             )
                         ), 0, axis)
             elif self.ndim == 2:
-                return numpy.flipud(self).ndint_compress(method="first", axis=0, dtype=dtype)
+                return numpy.flipud(self).ndint_compress(method="first", axis=0)
             else:
                 return numpy.swapaxes(self, 0, axis-1)
         elif method == "first":
@@ -1580,7 +1580,7 @@ class integer_ndarray(variable_ndarray):
                 return numpy.swapaxes(integer_ndarray(
                             list(
                                 map(
-                                    lambda x: integer_ndarray.ndint_compress(x, method=method, axis=0, dtype=dtype),
+                                    lambda x: integer_ndarray.ndint_compress(x, method=method, axis=0),
                                     self
                                 )
                             )
@@ -1605,7 +1605,7 @@ class integer_ndarray(variable_ndarray):
                 return numpy.swapaxes(integer_ndarray(
                             list(
                                 map(
-                                    lambda x: integer_ndarray.ndint_compress(x, method=method, axis=0, dtype=dtype),
+                                    lambda x: integer_ndarray.ndint_compress(x, method=method, axis=0),
                                     self
                                 )
                             )
@@ -1614,14 +1614,14 @@ class integer_ndarray(variable_ndarray):
                 self_reduced = integer_ndarray(self).reduce2d(method="last", axis=0)
                 # Convert negatives to positives
                 self_reduced_abs = numpy.abs(self_reduced)
-                #Remove zero rows
+                # Remove zero rows
                 self_reduced_abs = self_reduced_abs[~numpy.all(self_reduced_abs == 0, axis=1)]
                 if self_reduced_abs.shape[0] == 0:
-                    return integer_ndarray(numpy.zeros(self.shape[1], dtype=self.dtype))
+                    return integer_ndarray(numpy.zeros(self.shape[1], dtype=numpy.int64))
                 self_reduced_abs = integer_ndarray(self_reduced_abs.ranking())
                 self_reduced_abs = self_reduced_abs + ((self_reduced_abs.T>0) * numpy.concatenate(([0], (numpy.cumsum(self_reduced_abs.max(axis=1)))))[:-1]).T
-                prio= self_reduced_abs.ndint_compress(method="first", axis=0, dtype=dtype)
-                prio[self.ndint_compress(method="last", axis=0, dtype=dtype) < 0] = prio[self.ndint_compress(method="last", axis=0, dtype=dtype) < 0] * -1
+                prio= self_reduced_abs.ndint_compress(method="first", axis=0)
+                prio[self.ndint_compress(method="last", axis=0) < 0] = prio[self.ndint_compress(method="last", axis=0) < 0] * -1
                 return prio
 
             else:
@@ -1633,13 +1633,13 @@ class integer_ndarray(variable_ndarray):
                 return numpy.swapaxes(integer_ndarray(
                             list(
                                 map(
-                                    lambda x: integer_ndarray.ndint_compress(x, method=method, axis=0, dtype=dtype),
+                                    lambda x: integer_ndarray.ndint_compress(x, method=method, axis=0),
                                     self
                                 )
                             )
                         ), 0, axis)
             elif self.ndim == 2:
-                return integer_ndarray(self.ndint_compress(method="prio", axis=0, dtype=dtype).ranking())
+                return integer_ndarray(self.ndint_compress(method="prio", axis=0).ranking())
             else:
                 # self.ndim == 1:
                 return self.ranking()
@@ -1649,7 +1649,7 @@ class integer_ndarray(variable_ndarray):
                 return numpy.swapaxes(integer_ndarray(
                             list(
                                 map(
-                                    lambda x: integer_ndarray.ndint_compress(x, method=method, axis=0, dtype=dtype),
+                                    lambda x: integer_ndarray.ndint_compress(x, method=method, axis=0),
                                     self
                                 )
                             )
@@ -1686,7 +1686,7 @@ class integer_ndarray(variable_ndarray):
                 return numpy.swapaxes(compressed, 0, axis-1)
             else:
                 # self.ndim == 1
-                return integer_ndarray.ndint_compress(numpy.array([self], dtype=dtype), method=method, axis=0, dtype=dtype)
+                return integer_ndarray.ndint_compress(numpy.array([self], dtype=numpy.int64), method=method, axis=0)
         else:
             raise(ValueError("Method not recoginized, must be one of 'first', 'last', 'min', 'max', 'rank', 'shadow', got: {}".format(method)))
 
