@@ -290,7 +290,7 @@ class StingyConfigurator(pg.All):
         )
     
 
-    def select(self, *prios: typing.List[typing.Dict[str, int]], solver: typing.Callable = None, only_leafs: bool = False) -> typing.Iterable[typing.List[puan.variable]]:
+    def select(self, *prios: typing.List[typing.Dict[str, int]], solver: typing.Callable = None, only_leafs: bool = False) -> itertools.starmap:
 
         """
             Select items to prioritize and receive a solution.
@@ -308,7 +308,7 @@ class StingyConfigurator(pg.All):
 
             Returns
             -------
-                out : List[List[:class:`puan.variable`]]
+                out : :class:`itertools.starmap`
         """
         res = self.ge_polyhedron.select(
             *prios, 
@@ -321,16 +321,14 @@ class StingyConfigurator(pg.All):
                     self.leafs()
                 )
             )
-            res = list(
-                itertools.starmap(
-                    lambda config,ov,sc: dict(
-                        filter(
-                            lambda x: x[0] in leafs,
-                            config.items()
-                        )
-                    ),
-                    res
-                )
+            res = itertools.starmap(
+                lambda config,ov,sc: dict(
+                    filter(
+                        lambda x: x[0] in leafs,
+                        config.items()
+                    )
+                ),
+                res
             )
         return res
 

@@ -2343,7 +2343,7 @@ def test_configuring_using_ge_polyhedron_config():
     def dummy_solver_none(x, y):
         return [(None, 0, 1)]
 
-    res = model.select({"a": 1}, solver=dummy_solver_none)
+    res = list(model.select({"a": 1}, solver=dummy_solver_none))
     assert res == [({}, 0, 1)]
 
     def dummy_solver_raises(x,y):

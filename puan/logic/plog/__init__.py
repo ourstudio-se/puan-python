@@ -1104,7 +1104,7 @@ class AtLeast(puan.Proposition):
         objectives: typing.List[typing.Dict[typing.Union[str, puan.variable], int]], 
         solver: typing.Callable[[pnd.ge_polyhedron, typing.Dict[str, int]], typing.Iterable[typing.Tuple[np.ndarray, int, int]]] = None,
         try_reduce_before: bool = False,
-    ) -> typing.List[typing.Tuple[typing.Dict[str, int], int, int]]:
+    ) -> itertools.starmap:
 
         """
             Maximises objective in objectives such that this model's constraints are fulfilled and returns a solution for each objective.
@@ -1140,7 +1140,7 @@ class AtLeast(puan.Proposition):
             Examples
             --------
                 >>> dummy_solver = lambda x,y: list(map(lambda v: (v, 0, 5), y))
-                >>> All(*"ab").solve([{"a": 1, "b": 1}], dummy_solver)
+                >>> list(All(*"ab").solve([{"a": 1, "b": 1}], dummy_solver))
                 [({'a': 1, 'b': 1}, 0, 5)]
 
             Notes
@@ -1150,7 +1150,7 @@ class AtLeast(puan.Proposition):
 
             Returns
             -------
-                out : List[Optional[Tuple[Dict[str, int], int, int]]]:
+                out : :class:`itertools.starmap`:
         """
 
         ph = self.to_ge_polyhedron(
@@ -1201,26 +1201,25 @@ class AtLeast(puan.Proposition):
                     polyhedron.A.variables
                 )
             )
-            return list(
-                itertools.starmap(
-                    lambda solution, objective_value, status_code: (
-                        dict(
-                            zip(
-                                map(
-                                    operator.attrgetter("id"),
-                                    polyhedron.A.variables
-                                ),
-                                solution
-                            )
-                        ) if solution is not None else {},
-                        objective_value, status_code
-                    ),
-                    solver(
-                        polyhedron, 
-                        polyhedron.A.construct(*map(lambda x: x.items(), objectives)),
-                    )
+            return itertools.starmap(
+                lambda solution, objective_value, status_code: (
+                    dict(
+                        zip(
+                            map(
+                                operator.attrgetter("id"),
+                                polyhedron.A.variables
+                            ),
+                            solution
+                        )
+                    ) if solution is not None else {},
+                    objective_value, status_code
+                ),
+                solver(
+                    polyhedron, 
+                    polyhedron.A.construct(*map(lambda x: x.items(), objectives)),
                 )
             )
+            
 
 
 class AtMost(AtLeast):

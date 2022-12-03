@@ -52,7 +52,7 @@ This is how you create a configurator
     #                          [ 0, -1,  1,  1]]))
 
     # Get a solution
-    solutions = configurator.select({})
+    solutions = list(configurator.select({}))
     solution_1 = solutions[0]
     solution_1_variable_values = solution_1[0]
     # Output
@@ -60,7 +60,7 @@ This is how you create a configurator
     # Each solution contains two more fields which we do not cover in this example
 
     # Add priority to y and get a new solution
-    solutions = configurator.select({"y": 1})
+    solutions = list(configurator.select({"y": 1}))
     solution_2_variable_values = solutions[0][0]
     # Output
     # solution_2_variable_values = {'A': 1, 'x': 0, 'y': 1}
@@ -81,7 +81,7 @@ This is how you create a configurator
     # which is due to a support variable handling the default
     #
     # Get a solution
-    solutions = configurator.select({})
+    solutions = list(configurator.select({}))
     solution_3_variable_values = solutions[0][0]
     # Output solution_3_variable_values =
     #    {'A': 1,
@@ -90,7 +90,7 @@ This is how you create a configurator
     #     'y': 1}
     # Here we see the support variable in the solution as well, id 'VARa94110...'
     # To omit support variables in the output, set only_leafs to true
-    solutions = configurator.select({}, only_leafs=True)
+    solutions = list(configurator.select({}, only_leafs=True))
     solution_4_variable_values = solutions[0][0]
     # Output: [{'x': 0, 'y': 1}]
     # This option also filters out variable A since it is dependent on x and y.
