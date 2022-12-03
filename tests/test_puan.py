@@ -13,85 +13,85 @@ import operator
 import maz
 import math
 
-from hypothesis import example, given, strategies as st, settings, assume
+from hypothesis import given, strategies, assume, settings
 
 def short_proposition_strategy():
     mn,mx = -99,99
-    return st.tuples(
-        st.text(), 
-        st.sampled_from([-1,1]), 
-        st.lists(
-            st.text(),
+    return strategies.tuples(
+        strategies.text(), 
+        strategies.sampled_from([-1,1]), 
+        strategies.lists(
+            strategies.text(),
         ), 
-        st.integers(mn,mx), 
-        st.tuples(
-            st.integers(mn,mx),
-            st.integers(mn,mx),
+        strategies.integers(mn,mx), 
+        strategies.tuples(
+            strategies.integers(mn,mx),
+            strategies.integers(mn,mx),
         )
     )
 
 def atom_proposition_strategy():
-    return st.builds(
+    return strategies.builds(
         puan.variable,
-        id=st.text(), 
-        bounds=st.tuples(
-            st.integers(min_value=-5, max_value=0),
-            st.integers(min_value=0, max_value=5),
+        id=strategies.text(), 
+        bounds=strategies.tuples(
+            strategies.integers(min_value=-5, max_value=0),
+            strategies.integers(min_value=0, max_value=5),
         ),
     )
 
 def atom_boolean_proposition_strategy():
-    return st.builds(
+    return strategies.builds(
         puan.variable,
-        id=st.text(),
+        id=strategies.text(),
     )
 
 def variable_proposition_strategy():
-    return st.one_of(atom_proposition_strategy(), st.none())
+    return strategies.one_of(atom_proposition_strategy(), strategies.none())
 
 def variable_boolean_proposition_strategy():
-    return st.one_of(atom_boolean_proposition_strategy(), st.none())
+    return strategies.one_of(atom_boolean_proposition_strategy(), strategies.none())
 
 def atoms_propositions_strategy(mn_size: int = 1, mx_size: int = 5):
-    return st.iterables(
+    return strategies.iterables(
         atom_proposition_strategy(),
         min_size=mn_size,
         max_size=mx_size,
     )
 
 def atleast_proposition_strategy():
-    return st.builds(
+    return strategies.builds(
         pg.AtLeast, 
         propositions=atoms_propositions_strategy(),
         variable=variable_boolean_proposition_strategy(), 
-        value=st.integers(min_value=-5, max_value=5),
-        sign=st.sampled_from([puan.Sign.POSITIVE, puan.Sign.NEGATIVE])
+        value=strategies.integers(min_value=-5, max_value=5),
+        sign=strategies.sampled_from([puan.Sign.POSITIVE, puan.Sign.NEGATIVE])
     )
 
 def atmost_proposition_strategy():
-    return st.builds(
+    return strategies.builds(
         pg.AtMost, 
         propositions=atoms_propositions_strategy(),
         variable=variable_boolean_proposition_strategy(), 
-        value=st.integers(min_value=-5, max_value=5),
+        value=strategies.integers(min_value=-5, max_value=5),
     )
 
 def all_proposition_strategy():
-    return st.builds(
+    return strategies.builds(
         pg.All.from_list,
         atoms_propositions_strategy(),
         variable=variable_boolean_proposition_strategy(),
     )
 
 def any_proposition_strategy():
-    return st.builds(
+    return strategies.builds(
         pg.Any.from_list,
         atoms_propositions_strategy(),
         variable=variable_boolean_proposition_strategy(),
     )
 
 def any_cc_proposition_strategy():
-    return st.builds(
+    return strategies.builds(
         cc.Any.from_list,
         atoms_propositions_strategy(),
         variable=variable_boolean_proposition_strategy(),
@@ -99,7 +99,7 @@ def any_cc_proposition_strategy():
     )
 
 def imply_proposition_strategy():
-    return st.builds(
+    return strategies.builds(
         pg.Imply,
         condition=atom_proposition_strategy(),
         consequence=atom_proposition_strategy(),
@@ -107,14 +107,14 @@ def imply_proposition_strategy():
     )
 
 def xor_proposition_strategy():
-    return st.builds(
+    return strategies.builds(
         pg.Xor.from_list,
         atoms_propositions_strategy(),
         variable=variable_boolean_proposition_strategy(),
     )
 
 def xor_cc_proposition_strategy():
-    return st.builds(
+    return strategies.builds(
         cc.Xor.from_list,
         atoms_propositions_strategy(),
         variable=variable_boolean_proposition_strategy(),
@@ -122,20 +122,20 @@ def xor_cc_proposition_strategy():
     )
 
 def xnor_proposition_strategy():
-    return st.builds(
+    return strategies.builds(
         pg.XNor.from_list,
         atoms_propositions_strategy(),
         variable=variable_boolean_proposition_strategy(),
     )
 
 def not_proposition_strategy():
-    return st.builds(
+    return strategies.builds(
         pg.Not,
         atom_proposition_strategy(),
     )
 
 def proposition_strategy():
-    return st.one_of(
+    return strategies.one_of(
         atleast_proposition_strategy(),
         atmost_proposition_strategy(),
         all_proposition_strategy(),
@@ -147,7 +147,7 @@ def proposition_strategy():
     )
 
 def cc_proposition_strategy():
-    return st.one_of(
+    return strategies.one_of(
         atleast_proposition_strategy(),
         atmost_proposition_strategy(),
         all_proposition_strategy(),
@@ -161,10 +161,10 @@ def cc_proposition_strategy():
     )
 
 def propositions_strategy():
-    return st.lists(proposition_strategy(), min_size=1)
+    return strategies.lists(proposition_strategy(), min_size=1)
 
 def cc_propositions_strategy():
-    return st.lists(cc_proposition_strategy(), min_size=1)
+    return strategies.lists(cc_proposition_strategy(), min_size=1)
 
 @given(cc_propositions_strategy())
 @settings(deadline=None)
@@ -173,7 +173,7 @@ def test_negated_propositions_are_unique(propositions):
     for prop1, prop2 in zip(propositions, map(operator.methodcaller("negate"), propositions)):
         assert not prop1.generated_id or prop1.id != prop2.id
 
-@given(propositions_strategy(), st.lists(st.integers(min_value=-3, max_value=3), min_size=99))
+@given(propositions_strategy(), strategies.lists(strategies.integers(min_value=-3, max_value=3), min_size=99))
 @settings(deadline=None)
 def test_proposition_polyhedron_conversion(propositions, integers):
 
@@ -201,7 +201,7 @@ def test_proposition_polyhedron_conversion(propositions, integers):
             # However, these cases are skipped
             pass
 
-@given(st.lists(st.text(), min_size=3, max_size=3))
+@given(strategies.lists(strategies.text(), min_size=3, max_size=3))
 @settings(deadline=None)
 def test_polyhedron_construct_function(vrs):
     arr = numpy.zeros((1, len(vrs)))
@@ -379,14 +379,65 @@ def test_from_short_wont_crash(short_proposition):
     # Should raise if has sub propositions and bounds are other than (0,1) 
     # OR if upper bound is strict lower than lower bound
     if (len(short_proposition[2]) > 0 and short_proposition[4] != (0,1)) or (short_proposition[4][1] < short_proposition[4][0]):
-        with pytest.raises(Exception):
-            pg.AtLeast.from_short(short_proposition)
+        with pytestrategies.raises(Exception):
+            pg.AtLeastrategies.from_short(short_proposition)
     else:
         if short_proposition[4][0] > short_proposition[4][1]:
-            with pytest.raises(Exception):
-                pg.AtLeast.from_short(short_proposition)
+            with pytestrategies.raises(Exception):
+                pg.AtLeastrategies.from_short(short_proposition)
         else:
-            pg.AtLeast.from_short(short_proposition)
+            pg.AtLeastrategies.from_short(short_proposition)
+
+@settings(deadline=None)
+@given(propositions_strategy(), strategies.data())
+def test_plog_assume_property_based(propositions, data):
+    model = pg.All(*propositions)
+    assume(not model.errors())
+    variables = model.flatten()
+    drawn_variables = data.draw(strategies.lists(strategies.sampled_from(variables), max_size=2))
+    fixed = dict(
+        zip(
+            map(
+                operator.attrgetter("id"),
+                drawn_variables
+            ),
+            map(
+                lambda variable: data.draw(
+                    strategies.sampled_from(
+                        variable.bounds.as_tuple()
+                    )
+                ), 
+                drawn_variables
+            )
+        )
+    )
+    assume(len(fixed) != 0)
+    assumed_model = model.assume(fixed)
+    assumed_model_ids = list(map(operator.attrgetter("id"), assumed_model.flatten()))
+    drawn_interpretation_variables = data.draw(strategies.lists(strategies.sampled_from(variables), max_size=2))
+    interpretation_assumed = dict(
+        zip(
+            map(
+                operator.attrgetter("id"),
+                drawn_interpretation_variables
+            ),
+            map(
+                lambda variable: data.draw(
+                    strategies.sampled_from(
+                        variable.bounds.as_tuple()
+                    )
+                ), 
+                drawn_interpretation_variables
+            )
+        )
+    )
+
+    # Finally test that they both have the same value on shared keys
+    model_evaluated = model.evaluate({**interpretation_assumed, **fixed})
+    assumed_evaluated = assumed_model.evaluate(interpretation_assumed)
+    if not model_evaluated == assumed_evaluated:
+        raise Exception("d")
+
 
 def test_json_conversion_special_cases():
 
@@ -1137,7 +1188,7 @@ def test_application_with_no_item_hits_should_yield_no_rules():
         {"category": {"id": "Y"}, "id": "a"},
         {"category": {"id": "Y"}, "id": "b"},
     ]
-    with pytest.raises(Exception):
+    with pytestrategies.raises(Exception):
         model = puan.logic.sta.application.to_plog(application, items)
 
 
@@ -1997,14 +2048,14 @@ def test_multiple_defaults():
 
 def test_evaluate_propositions():
     # Raises ValueError when configuration variable is out of bounds
-    with pytest.raises(ValueError):
+    with pytestrategies.raises(ValueError):
         pg.All(*"xy", variable="A").evaluate_propositions({"x": 3})
     
     # Unsatisfiable model
     assert pg.AtLeast(2, "x").evaluate_propositions({"x": 0}) == {'VARa7c4c155fe9267e5308123f3d8b4e663ced757f934a47fc023c808b568ae51c4': 0, "x": 0}
 
     # Faulty configuration input
-    with pytest.raises(ValueError):
+    with pytestrategies.raises(ValueError):
         pg.All(*"xy", variable="A").evaluate_propositions({"x": "str"})
 
     # Variable defaults to lower bounds when not given as configuration
@@ -2059,7 +2110,7 @@ def test_evaluate_propositions():
 
 
 def configuration_dict_strategy():
-    return st.dictionaries(st.text(), st.integers(-2,2))
+    return strategies.dictionaries(strategies.text(), strategies.integers(-2,2))
 
 @given(proposition_strategy(), configuration_dict_strategy())
 def test_propositions_evaluations(proposition, configuration):
@@ -2072,19 +2123,19 @@ def test_propositions_evaluations(proposition, configuration):
     if not value_error_raised:
         assert evaluate_propositions_result == evaluate_result
 
-@given(st.text(), st.integers(), st.integers(), st.sampled_from([puan.Dtype.BOOL, puan.Dtype.INT, "bool", "int", None]))
+@given(strategies.text(), strategies.integers(), strategies.integers(), strategies.sampled_from([puan.Dtype.BOOL, puan.Dtype.INT, "bool", "int", None]))
 def test_puan_variable(id, lower, upper, dtype):
     
     if lower <= upper:
         # should raise error iff dtype == "bool" and bounds != (0,1)
         if (dtype == "bool") and ((lower, upper) != (0,1)):
-            with pytest.raises(ValueError):
+            with pytestrategies.raises(ValueError):
                 puan.variable(id, (lower, upper), dtype)
         else:
             puan.variable(id, (lower, upper), dtype)
     else:
         # should raise ValueError from Bounds
-        with pytest.raises(ValueError):
+        with pytestrategies.raises(ValueError):
             puan.variable(id, (lower, upper), dtype)
 
 # def test_assuming_integer_variables():
@@ -2200,7 +2251,7 @@ def test_bound_approx():
     assert (actual == expected).all()
 
     # Currently fractions are not supported
-    with pytest.raises(Exception):
+    with pytestrategies.raises(Exception):
         # When coeffs are large and ub/lb will be a fraction
         actual = puan.ndarray.ge_polyhedron([
             [ 3, 2, 0, 0, 0], # a_lb =  3
@@ -2213,7 +2264,7 @@ def test_bound_approx():
         assert (actual == expected).all()
 
     # Currently fractions are not supported
-    with pytest.raises(Exception):
+    with pytestrategies.raises(Exception):
         # When one constraint is taighter than the others
         # 3 <= a gives taightes bounds on a
         actual = puan.ndarray.ge_polyhedron([
@@ -2526,7 +2577,7 @@ def test_configuring_using_ge_polyhedron_config():
     def dummy_solver_raises(x,y):
         raise Exception("error from solver")
 
-    with pytest.raises(puan.ndarray.InfeasibleError):
+    with pytestrategies.raises(puan.ndarray.InfeasibleError):
         list(model.select({"a": 1}, solver=dummy_solver_raises))
 
 
@@ -2788,13 +2839,13 @@ def test_configurator_to_json():
 
 def test_at_leasts():
 
-    with pytest.raises(Exception):
+    with pytestrategies.raises(Exception):
         pg.AtLeast(value=1, propositions=None)
 
-    with pytest.raises(Exception):
+    with pytestrategies.raises(Exception):
         pg.AtLeast(value=1, propositions=None, variable="A")
 
-    with pytest.raises(Exception):
+    with pytestrategies.raises(Exception):
         pg.AtLeast(propositions=[], value=1, variable="A")
     
     with pytest.raises(Exception):
@@ -2983,14 +3034,14 @@ def test_proposition_errors_function():
 
 def test_function_add_for_stingy_configurator():
 
-    with pytest.raises(Exception):
+    with pytestrategies.raises(Exception):
         cc.StingyConfigurator(
             pg.All(*"efg", variable="A")
         ).add(
             pg.All(*"abc", variable="A")
         )
 
-    with pytest.raises(Exception):
+    with pytestrategies.raises(Exception):
         cc.StingyConfigurator(*"efg").add(
             pg.All(*"abc", variable="e")
         )
@@ -3086,4 +3137,122 @@ def test_ndarray():
 
     with pytest.raises(ValueError):
         puan.ndarray.boolean_ndarray([1,1,1]).get_neighbourhood(method="ON")
+
+    for sol_iter_actual in [
+        pg.All(sub_model).solve([objective_0]), 
+        cc.StingyConfigurator(sub_model).select(objective_0)
+    ]:
+        for sol_actual, sol_expected in zip(sol_iter_actual, [model_eval]):
+            assert sol_actual[0] == sol_expected
+
+def test_plog_assume():
+
+    # Test that different interpretations results in same evaluation
+    # both before and after assumption has been made.
+    for model, inters, fixes in [
+        (
+            pg.All(
+                pg.Any(*"abc", variable="B"),
+                pg.Xor(*"xyz", variable="C"),
+                variable="A"
+            ),
+            [
+                {"x": 1},
+                {"a": 1, "x": 1},
+                {"x": 1},
+                {"a": 1, "y": 1},
+            ],
+            [
+                {"a": 1},
+                {"y": 1},
+                {"B": 1},
+                {"x": 1},
+            ]
+        ),
+        (
+            pg.All(
+                pg.AtMost(
+                    2, 
+                    [
+                        puan.variable("a", (-3,3)),
+                        puan.variable("b", (-2,2)),
+                        puan.variable("c", (-1,1)),
+                        puan.variable("d", (-1,1)),
+                    ]
+                ),
+                pg.Any(*"xyz")
+            ),
+            [
+                {"b": -2}
+            ],
+            [
+                {"a": -3}
+            ]
+        ),
+        (
+            pg.AtLeast(
+                1,
+                [
+                    pg.AtLeast(
+                        1,
+                        list("abc"),
+                        variable="B"
+                    ),
+                    pg.AtLeast(
+                        1,
+                        list("xyz"),
+                        variable="C"
+                    )
+                ],
+                variable="A"
+            ),
+            [
+                {"b": 1},
+            ],
+            [
+                {"a": 1},
+            ]
+        ),
+        (
+            pg.AtMost(
+                0,
+                list("abc"),
+                variable="A"
+            ),
+            [
+                {"b": 1},
+            ],
+            [
+                {"a": 1},
+            ]
+        ),
+        (
+            pg.AtMost(
+                0,
+                [
+                    pg.AtMost(
+                        1,
+                        list("abc"),
+                        variable="B"
+                    ),
+                    pg.AtLeast(
+                        1,
+                        list("xyz"),
+                        variable="C"
+                    )
+                ],
+                variable="A"
+            ),
+            [
+                {"b": 1},
+            ],
+            [
+                {"a": 1},
+            ]
+        ),
+    ]:
+        for i, (inter, fix) in enumerate(zip(inters, fixes)):
+            assumed_model = model.assume(fix)
+            result = model.evaluate_propositions({**inter, **fix}) == assumed_model.evaluate_propositions(inter)
+            assert result
 

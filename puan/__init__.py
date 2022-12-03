@@ -26,6 +26,41 @@ class Dtype(str, Enum):
 
 class Proposition:
 
+    # @property
+    # def id(self) -> str:
+    #     raise NotImplementedError()
+
+    # @property
+    # def bounds(self) -> typing.Tuple[int,int]:
+
+    #     """
+    #         Variable bounds of where this variable can obtain a value.
+    #         A tuple of two integers decides the bounds where the lower bound
+    #         is on index 0 and upper bound on index 1. Both lower and upper
+    #         bound are inclusive.
+
+    #         Returns
+    #         -------
+    #             out : Tuple[int, int]
+    #     """
+
+    #     raise NotImplementedError()
+
+    def assume(self, fixed: typing.Dict[str, int]) -> "Proposition":
+        
+        """
+            Fixes variables to a constant value and resolves consequences.
+
+            Parameters
+            ----------
+                fixed : typing.Dict[str, int]
+
+            Returns
+            -------
+                out : Proposition 
+        """
+        raise NotImplementedError()
+
     def to_short(self) -> typing.Tuple[str, int, object, int, typing.Tuple[int, int]]:
         
         """Short data type has (id, sign, propositions, value, bounds)"""
@@ -71,6 +106,29 @@ class Bounds:
 
     def __iter__(self):
         return iter([self.lower, self.upper])
+
+    @property
+    def constant(self) -> typing.Optional[int]:
+
+        """
+            If lower and upper bounds are the same, that value is returned.
+            Else None is returned.
+
+            Examples
+            --------
+                >>> Bounds(0, 1).constant
+
+
+                >>> Bounds(-2, -2).constant
+                -2
+
+            Returns
+            -------
+                out : Optional[int]
+        """
+        if self.lower == self.upper:
+            return self.lower
+        return None
 
     def as_tuple(self) -> typing.Tuple[int, int]:
         """
@@ -127,6 +185,19 @@ class variable(Proposition):
 
     def __eq__(self, other):
         return self.id == getattr(other, "id", other)
+
+    def assume(self, fixed: typing.Dict[str, int]) -> Proposition:
+        
+        if self.id in fixed:
+            return variable(
+                id=self.id,
+                bounds=Bounds(
+                    lower=fixed[self.id],
+                    upper=fixed[self.id],
+                )
+            )
+
+        return self
 
     def to_json(self) -> typing.Dict[str, typing.Any]:
 

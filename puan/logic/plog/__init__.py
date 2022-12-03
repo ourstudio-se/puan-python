@@ -131,7 +131,7 @@ class AtLeast(puan.Proposition):
         elif type(variable) == str:
             self.variable = puan.variable(id=variable, bounds=(0,1))
         elif issubclass(variable.__class__, puan.variable):
-            if variable.bounds.as_tuple() != (0,1):
+            if not variable.bounds.as_tuple() in [(0,0), (0,1), (1,1)]:
                 raise ValueError(f"variable of a compound proposition cannot have bounds other than (0, 1), got: {variable.bounds}")
             self.variable = variable
         else:
@@ -877,7 +877,7 @@ class AtLeast(puan.Proposition):
             if val not in range(variable.bounds.lower, variable.bounds.upper+1):
                 raise ValueError("Variable {} is out of bounds, value: {}, bounds: {}".format(variable.id, val, variable.bounds))
             return val
-
+    
         _interpretation = functools.reduce(
             lambda a,b: dict(
                 itertools.chain(
@@ -891,21 +891,36 @@ class AtLeast(puan.Proposition):
                         "evaluate_propositions", 
                         interpretation=interpretation,
                     ),
-                    self.compound_propositions
+                    filter(
+                        lambda x: not x.id in interpretation,
+                        self.compound_propositions
+                    )
                 ),
                 [
                     dict(
                         zip(
                             map(
                                 operator.attrgetter("id"), 
-                                self.atomic_propositions
+                                itertools.chain(
+                                    self.atomic_propositions,
+                                    filter(
+                                        lambda x: x.id in interpretation,
+                                        self.compound_propositions
+                                    )
+                                )
                             ),
                             map(
                                 functools.partial(
                                     _check_and_get_variable_in_bounds,
                                     interpretation,
                                 ),
-                                self.atomic_propositions
+                                itertools.chain(
+                                    self.atomic_propositions,
+                                    filter(
+                                        lambda x: x.id in interpretation,
+                                        self.compound_propositions
+                                    )
+                                )
                             ),
                         ),
                     )
@@ -913,8 +928,7 @@ class AtLeast(puan.Proposition):
             ),
             {},
         )
-
-        _interpretation[self.id] = 1*(
+        int_value = 1*(
             (
                 sum(
                     map(
@@ -931,6 +945,7 @@ class AtLeast(puan.Proposition):
                 ) - self.value
             ) >= 0
         )
+        _interpretation[self.id] = int_value*(int_value in range(self.variable.bounds.lower, self.variable.bounds.upper+1))
 
         return _interpretation
 
@@ -1220,6 +1235,76 @@ class AtLeast(puan.Proposition):
                 )
             )
             
+
+    def assume(self, fixed: typing.Dict[str, int]) -> "AtLeast":
+
+        """
+            Assumes something about variables value in this proposition and returns a new 
+            proposition without those variables along side with a list of all variables that
+            were set as a consequence.
+
+            Parameters
+            ----------
+                fixed : typing.Dict[str, int]
+
+            Examples
+            --------
+                >>> model = Imply("a", Xor(*"xyz"))
+                >>> assumed = model.assume({"a": 1})
+                >>> type(assumed) == Xor
+                True
+
+            Returns
+            -------
+                out : AtLeast
+        """
+        if self.id in fixed:
+            return puan.variable(
+                id=self.id,
+                bounds=(
+                    fixed[self.id],
+                    fixed[self.id],
+                )
+            )
+        
+        assumed_propositions = list(
+            map(
+                lambda prop: prop.assume(fixed),
+                self.propositions,
+            )
+        )
+
+        result = AtLeast(
+            value=self.value,
+            propositions=maz.filter_map_concat(
+                # If proposition has a constant bound after evaluating it
+                lambda prop: prop.id in fixed,
+                # If is a constant, just keep the variable from the proposition
+                # else, keep the proposition as is
+                lambda prop: prop if issubclass(prop.__class__, puan.variable) else prop.variable,
+            )(assumed_propositions),
+            variable=puan.variable(
+                self.id,
+                bounds=(
+                    np.array(
+                        list(
+                            map(
+                                # flip bounds and multiply by sign if sign is negative
+                                # eg. if bounds (0,1) then (-1,0)
+                                lambda x: x if self.sign > 0 else (x[1]*self.sign, x[0]*self.sign),
+                                map(
+                                    lambda prop: prop.bounds.as_tuple(),
+                                    assumed_propositions,
+                                )
+                            )
+                        )
+                    ).sum(axis=0) >= self.value
+                ) * 1,
+            ),
+            sign=self.sign,
+        )
+        result.__class__ = self.__class__
+        return result
 
 
 class AtMost(AtLeast):
@@ -1694,6 +1779,7 @@ class Xor(All):
         if not self.generated_id:
             d['id'] = self.id
         return d
+
 
 class Not():
 
