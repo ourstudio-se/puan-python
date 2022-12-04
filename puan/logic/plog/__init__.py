@@ -12,7 +12,7 @@ import operator
 import numpy as np
 import puan
 import puan.ndarray as pnd
-import puan_rspy as pst
+import puan_rspy as pr
 import dictdiffer
 import more_itertools
 from dataclasses import dataclass
@@ -341,7 +341,8 @@ class AtLeast(puan.Proposition):
 
         """
             Checks this proposition and returns a list of :class:`PropositionValidationError`'s. 
-           An error in the result is due to one or more of the following: 
+            An error in the result is due to one or more of the following:
+            
                 - It exist at least one circular variable dependency.
                 - A variable depends directly on two or more variables with identical ids.
                 - There exists two or more variables with identical ids but with different bounds.
@@ -494,14 +495,14 @@ class AtLeast(puan.Proposition):
             )(self)
         )
 
-    def _to_pyrs_theory(self) -> typing.Tuple[pst.TheoryPy, typing.Dict[str, tuple]]:
+    def _to_pyrs_theory(self) -> typing.Tuple[pr.TheoryPy, typing.Dict[str, tuple]]:
 
         """
             Converts this plog model into a puan-rspy Theory.
 
             Returns
             -------
-                out : Tuple[:class:`pst.TheoryPy`, Dict[``str``, ``tuple``])
+                out : Tuple[:class:`pr.TheoryPy`, Dict[``str``, ``tuple``])
         """
         flatten = self.flatten()
         flatten_dict = dict(zip(map(lambda x: x.id, flatten), flatten))
@@ -517,13 +518,13 @@ class AtLeast(puan.Proposition):
                 )
             )
         )
-        return pst.TheoryPy(
+        return pr.TheoryPy(
             list(
                 map(
-                    lambda x: pst.StatementPy(
+                    lambda x: pr.StatementPy(
                         variable_id_map[x.id][0],
                         variable_id_map[x.id][1].bounds.as_tuple(),
-                        pst.AtLeastPy(
+                        pr.AtLeastPy(
                             list(
                                 map(
                                     lambda y: variable_id_map[y.id][0], 
@@ -531,7 +532,7 @@ class AtLeast(puan.Proposition):
                                 )
                             ),
                             bias=-1*x.value,
-                            sign=pst.SignPy.Positive if x.sign == puan.Sign.POSITIVE else pst.SignPy.Negative
+                            sign=pr.SignPy.Positive if x.sign == puan.Sign.POSITIVE else pr.SignPy.Negative
                         ) if not issubclass(x.__class__, puan.variable) else None,
                     ),
                     flatten_dict.values()
@@ -571,13 +572,13 @@ class AtLeast(puan.Proposition):
                 )
             )
         )
-        polyhedron_rs = pst.TheoryPy(
+        polyhedron_rs = pr.TheoryPy(
             list(
                 map(
-                    lambda x: pst.StatementPy(
+                    lambda x: pr.StatementPy(
                         variable_id_map[x.id][0],
                         variable_id_map[x.id][1].bounds.as_tuple(),
-                        pst.AtLeastPy(
+                        pr.AtLeastPy(
                             list(
                                 map(
                                     lambda y: variable_id_map[y.id][0], 
@@ -585,7 +586,7 @@ class AtLeast(puan.Proposition):
                                 )
                             ),
                             bias=-1*x.value,
-                            sign=pst.SignPy.Positive if x.sign == puan.Sign.POSITIVE else pst.SignPy.Negative
+                            sign=pr.SignPy.Positive if x.sign == puan.Sign.POSITIVE else pr.SignPy.Negative
                         ) if not issubclass(x.__class__, puan.variable) else None,
                     ),
                     flatten_dict.values()
@@ -1103,7 +1104,7 @@ class AtLeast(puan.Proposition):
         objectives: typing.List[typing.Dict[typing.Union[str, puan.variable], int]], 
         solver: typing.Callable[[pnd.ge_polyhedron, typing.Dict[str, int]], typing.Iterable[typing.Tuple[np.ndarray, int, int]]] = None,
         try_reduce_before: bool = False,
-    ) -> typing.List[typing.Tuple[typing.Dict[str, int], int, int]]:
+    ) -> itertools.starmap:
 
         """
             Maximises objective in objectives such that this model's constraints are fulfilled and returns a solution for each objective.
@@ -1139,7 +1140,7 @@ class AtLeast(puan.Proposition):
             Examples
             --------
                 >>> dummy_solver = lambda x,y: list(map(lambda v: (v, 0, 5), y))
-                >>> All(*"ab").solve([{"a": 1, "b": 1}], dummy_solver)
+                >>> list(All(*"ab").solve([{"a": 1, "b": 1}], dummy_solver))
                 [({'a': 1, 'b': 1}, 0, 5)]
 
             Notes
@@ -1149,7 +1150,7 @@ class AtLeast(puan.Proposition):
 
             Returns
             -------
-                out : List[Optional[List[:class:`puan.SolutionVariable`]]]:
+                out : :class:`itertools.starmap`:
         """
 
         ph = self.to_ge_polyhedron(
@@ -1200,26 +1201,25 @@ class AtLeast(puan.Proposition):
                     polyhedron.A.variables
                 )
             )
-            return list(
-                itertools.starmap(
-                    lambda solution, objective_value, status_code: (
-                        dict(
-                            zip(
-                                map(
-                                    operator.attrgetter("id"),
-                                    polyhedron.A.variables
-                                ),
-                                solution
-                            )
-                        ) if solution is not None else {},
-                        objective_value, status_code
-                    ),
-                    solver(
-                        polyhedron, 
-                        polyhedron.A.construct(*map(lambda x: x.items(), objectives)),
-                    )
+            return itertools.starmap(
+                lambda solution, objective_value, status_code: (
+                    dict(
+                        zip(
+                            map(
+                                operator.attrgetter("id"),
+                                polyhedron.A.variables
+                            ),
+                            solution
+                        )
+                    ) if solution is not None else {},
+                    objective_value, status_code
+                ),
+                solver(
+                    polyhedron, 
+                    polyhedron.A.construct(*map(lambda x: x.items(), objectives)),
                 )
             )
+            
 
 
 class AtMost(AtLeast):

@@ -14,20 +14,18 @@ Data types
 :class:`variable`
    The :class:`variable` class is a central key in all Puan packages. It consists of an id, :class:`Bounds` and data type (dtype).
 
-:class:`SolutionVariable`
-   The :class:`SolutionVariable` class is an extension to the :class:`variable` class where each variable can be assigned a value. 
+.. _Proposition:
 
-
-variable
-++++++++
-.. autoclass:: variable
+Proposition
++++++++++++
+.. autoclass:: Proposition
    :members:
    :undoc-members:
    :show-inheritance:
 
-SolutionVariable
-++++++++++++++++
-.. autoclass:: SolutionVariable
+variable
+++++++++
+.. autoclass:: variable
    :members:
    :undoc-members:
    :show-inheritance:

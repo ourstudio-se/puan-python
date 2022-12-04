@@ -20,14 +20,18 @@ sys.path.insert(0, os.path.abspath('../..'))
 project = 'Puan'
 copyright = '2022, OurStudio'
 author = 'OurStudio'
-
+import re
+with open("../../pyproject.toml", "r") as f:
+    for l in f:
+        if "version" in l:
+            version = re.search(r'(?<=\")(.*?)(?=\")', l).group(0)
 
 # -- General configuration ---------------------------------------------------
 
 # Add any Sphinx extension module names here, as strings. They can be
 # extensions coming with Sphinx (named 'sphinx.ext.*') or your custom
 # ones.
-extensions = ["sphinx.ext.autodoc", "numpydoc", "sphinx.ext.autosectionlabel"
+extensions = ["sphinx.ext.autodoc", "numpydoc", "sphinx.ext.autosectionlabel", "sphinx_design"
 ]
 
 # Add any paths that contain templates here, relative to this directory.
@@ -58,4 +62,6 @@ autodoc_typehints_format = "short"
 numpydoc_show_class_members = False
 numpydoc_class_members_toctree = False
 autodoc_mock_imports = ["puan.npufunc", "numpy"]
+html_static_path=["_static"]
+html_css_files = ["puan.css"]
 

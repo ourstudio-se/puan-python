@@ -11,7 +11,7 @@ import math
 import puan
 import puan.npufunc as npufunc
 import sys
-import puan_rspy as prs
+import puan_rspy as pr
 from enum import IntEnum
 
 from collections import Counter
@@ -1996,7 +1996,7 @@ class ge_polyhedron_config(ge_polyhedron):
         self, 
         *prios: typing.List[typing.Dict[str, int]], 
         solver: typing.Callable[[ge_polyhedron, typing.Dict[str, int]], typing.Iterable[typing.Tuple[typing.List[int], int, int]]] = None,
-    ) -> typing.List[typing.Tuple[typing.Dict[str, int], int, int]]:
+    ) -> itertools.starmap:
 
         """
             Select items to prioritize and receives a solution for each in prios list.
@@ -2027,12 +2027,12 @@ class ge_polyhedron_config(ge_polyhedron):
             Examples
             --------
                 >>> ph = ge_polyhedron_config([[1,1,1,1,0],[-1,-1,-1,-1,0]])
-                >>> ph.select({"1": 1})[0]
+                >>> list(ph.select({"1": 1}))[0]
                 ({1: 1, 2: 0, 3: 0, 4: 0}, -1, 5)
 
                 >>> ph = ge_polyhedron_config([[1,1,1,1,0],[-1,-1,-1,-1,0]])
                 >>> dummy_solver = lambda x, y: list(map(lambda v: (v, 0, 5), y))
-                >>> ph.select({"1": 1}, solver=dummy_solver)[0]
+                >>> list(ph.select({"1": 1}, solver=dummy_solver))[0]
                 ({1: -1, 2: -1, 3: -1, 4: -1}, 0, 5)
 
             Raises
@@ -2043,7 +2043,7 @@ class ge_polyhedron_config(ge_polyhedron):
 
             Returns
             -------
-                out : List[List[:class:`SolutionVariable<puan.SolutionVariable>`]]
+                out : :class:`itertools.starmap`
         """
         try:
             variables = self.A.variables
@@ -2063,15 +2063,15 @@ class ge_polyhedron_config(ge_polyhedron):
                             int_sol.z, 
                             int_sol.status_code,
                         ),
-                        prs.PolyhedronPy(
-                            prs.MatrixPy(
+                        pr.PolyhedronPy(
+                            pr.MatrixPy(
                                 self.A.flatten().tolist(),
                                 *self.A.shape
                             ),
                             self.b.tolist(),
                             list(
                                 map(
-                                    lambda variable: prs.VariableFloatPy(
+                                    lambda variable: pr.VariableFloatPy(
                                         id_map_rev[variable.id],
                                         (
                                             float(variable.bounds.lower),
@@ -2103,23 +2103,22 @@ class ge_polyhedron_config(ge_polyhedron):
                     objectives,
                 )
 
-            return list(
-                itertools.starmap(
-                    lambda solution, objective_value, status_code: (
-                        dict(
-                            zip(
-                                map(
-                                    operator.attrgetter("id"),
-                                    variables
-                                ),
-                                solution
-                            )
-                        ) if solution is not None else {},
-                        objective_value, status_code
-                    ),
-                    solutions,
-                )
+            return itertools.starmap(
+                lambda solution, objective_value, status_code: (
+                    dict(
+                        zip(
+                            map(
+                                operator.attrgetter("id"),
+                                variables
+                            ),
+                            solution
+                        )
+                    ) if solution is not None else {},
+                    objective_value, status_code
+                ),
+                solutions,
             )
+            
         except Exception as e:
             raise InfeasibleError(f"couldn't generate a solution from solver ({e})")
 

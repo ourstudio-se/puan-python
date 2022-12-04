@@ -2343,7 +2343,7 @@ def test_configuring_using_ge_polyhedron_config():
     def dummy_solver_none(x, y):
         return [(None, 0, 1)]
 
-    res = model.select({"a": 1}, solver=dummy_solver_none)
+    res = list(model.select({"a": 1}, solver=dummy_solver_none))
     assert res == [({}, 0, 1)]
 
     def dummy_solver_raises(x,y):
@@ -2664,7 +2664,7 @@ def test_plog_evaluate_method():
             pg.AtMost(propositions=[tomatoes], value=5, variable="tomatoes_le_five"),
             pg.AtMost(propositions=[cucumbers], value=5, variable="cucumbers_le_five"),
             pg.AtLeast(propositions=[cucumbers], value=1, variable="cucumbers_ge_one"),
-            variable="vegestables"
+            variable="vegetables"
         ),
         variable="fridge"
     )

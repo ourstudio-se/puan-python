@@ -5,10 +5,85 @@
 
 Puan documentation
 ==================
-Puan is an open source toolkit for modelling combinatorial optimization problems on a higher level. Combinatorial optimization problems are in general hard and require a lot of both time and effort to
-solve, even for a computer. But not only are they hard to solve they are also hard to define and model. Puan aims to ease the work for problem modelling such that it can
-be worked on for a period of time and to optimize computation complexity for reducing into a linear programming problem.
 
+**Version:** |version|
+
+   Puan is an open source toolkit for modelling combinatorial optimization problems on a higher level. Combinatorial optimization problems are in general hard and require a lot of time and effort to
+   solve, even for a computer. But not only are they hard to solve they are also often hard to define and model. Puan aims to ease the work by offering easy-to-use tools for modelling and advanced algorithms
+   to generate efficient models for optimization.
+
+.. grid:: 2
+
+    .. grid-item-card::
+        :img-top: ../source/_static/tutorial.png
+        
+
+        Get to know Puan
+        ^^^^^^^^^^^^^^^^^
+
+        Curious to learn about Puan and its applications? Check out the tutorials.
+
+        +++
+
+        .. button-ref:: guide/tutorials/index
+            :expand:
+            :color: secondary
+            :click-parent:
+
+            To the tutorials
+
+    .. grid-item-card::
+        :img-top: ../source/_static/book.svg
+
+        User Guide
+        ^^^^^^^^^^
+
+        The user guide provides all you need to get started using Puan.
+
+        +++
+
+        .. button-ref:: guide/index
+            :expand:
+            :color: secondary
+            :click-parent:
+
+            To the user guide
+   
+    .. grid-item-card::
+        :img-top: ../source/_static/api.png
+        
+
+        API reference
+        ^^^^^^^^^^^^^
+
+        Get indepth information about the classes and functions available in Puan
+
+        +++
+
+        .. button-ref:: reference/index
+            :expand:
+            :color: secondary
+            :click-parent:
+
+            To the API reference 
+
+    .. grid-item-card::
+        :img-top: ../source/_static/dev.png
+
+        Contribute
+        ^^^^^^^^^^
+        Contributions to Puan are very much appreciated. Read through the developer guide on how to contribute. 
+
+        +++
+
+        .. button-ref:: dev/index
+            :expand:
+            :color: secondary
+            :click-parent:
+
+            To the developer guide
+
+   
 
 .. Puan API reference
 .. ==================
