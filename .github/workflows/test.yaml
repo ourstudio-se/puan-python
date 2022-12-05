@@ -36,4 +36,4 @@ jobs:
         uses: znittzel/sphinx-action@master
         with:
           docs-folder: "docs/"
-          build-command:  make html SPHINXOPTS+="-W" 
+          build-command:  sphinx-build -b html . _build -W
