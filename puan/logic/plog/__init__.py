@@ -872,11 +872,11 @@ class AtLeast(puan.Proposition):
 
                 >>> AtLeast(propositions=[puan.variable("x", (0, 10))],
                 ... value=10).evaluate_propositions({"x": 9})
-                {'VAR30d4fb455c3588c3639096e581aa2db374e611b8a054332ccf8579d36b757a0a': Bounds(lower=0, upper=0), 'x': Bounds(lower=9, upper=9)}
+                {'VAR2fa10da7075e3abf61065cb37ecd6bb658b38c9fdd0a1b1a69e34d541d32bd2d': Bounds(lower=0, upper=0), 'x': Bounds(lower=9, upper=9)}
 
                 >>> AtLeast(propositions=[puan.variable("x", dtype="int")],
                 ... value=10).evaluate_propositions({"x": 10})
-                {'VAR30d4fb455c3588c3639096e581aa2db374e611b8a054332ccf8579d36b757a0a': Bounds(lower=1, upper=1), 'x': Bounds(lower=10, upper=10)}
+                {'VAR2fa10da7075e3abf61065cb37ecd6bb658b38c9fdd0a1b1a69e34d541d32bd2d': Bounds(lower=1, upper=1), 'x': Bounds(lower=10, upper=10)}
             
             See also
             --------

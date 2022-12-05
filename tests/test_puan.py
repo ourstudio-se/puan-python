@@ -321,8 +321,8 @@ def test_proposition_polyhedron_conversion_specifics():
             if not model_variables == polyhedron_variables:
                 raise Exception("fail variable comparison")
             integers_clipped = list(itertools.starmap(lambda x,i: numpy.clip(i, x.bounds.lower, x.bounds.upper), zip(polyhedron.A.variables, range(polyhedron.A.variables.size))))
-            model_interpretation_evaluated = model.evaluate_propositions(dict(zip(model_variables, integers_clipped)))
-            if not model_interpretation_evaluated[model.id].constant == (polyhedron.A.dot(polyhedron.A.construct(*dict(zip(model_interpretation_evaluated.keys(), map(lambda x: x.constant, model_interpretation_evaluated.values()))).items())) >= polyhedron.b).all():
+            model_interpretation_evaluated = model.evaluate_propositions(dict(zip(model_variables, integers_clipped)), operator.attrgetter("constant"))
+            if not model_interpretation_evaluated[model.id] == (polyhedron.A.dot(polyhedron.A.construct(model_interpretation_evaluated)) >= polyhedron.b).all():
                 raise Exception("fail interpretation comparison")
 
 
@@ -2038,8 +2038,8 @@ def test_multiple_defaults():
     model = cc.StingyConfigurator(pg.All(pg.Imply("a", cc.Xor(*"pq", default="q")), pg.Imply("a", cc.Xor(*"pr", default="r"))))
     config1 = {"a": 1, "p": 0, "q": 1, "r": 1}
     config2 = {"a": 1, "p": 1, "q": 0, "r": 0}
-    full_config1 = model.evaluate_propositions(config1)
-    full_config2 = model.evaluate_propositions(config2)
+    full_config1 = model.evaluate_propositions(config1, operator.attrgetter("constant"))
+    full_config2 = model.evaluate_propositions(config2, operator.attrgetter("constant"))
     int_ndarray1 = model.ge_polyhedron.A.construct(full_config1)
     int_ndarray2 = model.ge_polyhedron.A.construct(full_config2)
     objective_function = puan.ndarray.ndint_compress(model.ge_polyhedron.default_prio_vector, method="shadow")
@@ -2050,7 +2050,7 @@ def test_evaluate_propositions():
     assert pg.All(*"xy", variable="A").evaluate_propositions({"x": 1}, operator.attrgetter("constant")) == {'A': None, 'y': None, 'x': 1}
     
     # Unsatisfiable model
-    assert pg.AtLeast(2, "x").evaluate_propositions({"x": 0}, operator.attrgetter("constant")) == {'VAR9d59599264198c20cfb4a8b1a0802d5f8a59c41563eea15eb6c663c25826d535': 0, "x": 0}
+    assert pg.AtLeast(2, "x").evaluate_propositions({"x": 0}, operator.attrgetter("constant")) == {'VARa7c4c155fe9267e5308123f3d8b4e663ced757f934a47fc023c808b568ae51c4': 0, "x": 0}
 
     # Faulty configuration input
     with pytest.raises(ValueError):
@@ -3142,13 +3142,6 @@ def test_ndarray():
 
     with pytest.raises(ValueError):
         puan.ndarray.boolean_ndarray([1,1,1]).get_neighbourhood(method="ON")
-
-    for sol_iter_actual in [
-        pg.All(sub_model).solve([objective_0]), 
-        cc.StingyConfigurator(sub_model).select(objective_0)
-    ]:
-        for sol_actual, sol_expected in zip(sol_iter_actual, [model_eval]):
-            assert sol_actual[0] == sol_expected
 
 def test_plog_assume():
 
