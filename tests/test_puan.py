@@ -1498,7 +1498,7 @@ def test_ndint_compress():
                 ],
             ]),
             puan.ndarray.integer_ndarray([
-                [0, 3, 4, 2, 1, 1]
+                [0, 2, 3, 4, 1, 1]
             ]),
             0
         ),
@@ -1524,7 +1524,7 @@ def test_ndint_compress():
                 [ 0, 0, 1, 0, 0, 0]
             ]),
             puan.ndarray.integer_ndarray([
-                0, 0, 3, 3, 1, 2
+                0, 0, 4, 3, 1, 2
             ]),
             0
         ),
@@ -1562,23 +1562,114 @@ def test_ndint_compress():
                 ]
             ]),
             puan.ndarray.integer_ndarray([
-                [ 0, 0, 3, 3, 1, 2],
+                [ 0, 0, 4, 3, 1, 2],
                 [ 0, 0, 0, 0, 0, 0],
                 [ 1, 2, 3, 4, 5, 6],
-                [ 0, 0, 1, 1, 1, 1],
-                [ 0, 1, 3, 2, 2, 2]
+                [ 0, 0, 4, 3, 2, 1],
+                [ 0, 2, 3, 1, 1, 1]
             ]),
             0
         ),
     ]
+
     for inpt, expected_output, axis in test_cases:
         actual_output = inpt.ndint_compress(method="rank", axis=axis)
         assert numpy.array_equal(actual_output, expected_output)
     
     with pytest.raises(ValueError):
-        puan.ndarray.integer_ndarray([1, 5, 30]).ndint_compress(method="Rank")
+        # Should raise ValueError since method "Rank" won't be recognized
+        puan.ndarray.integer_ndarray([]).ndint_compress(method="Rank")
     
-        
+    test_cases = [
+        (
+            puan.ndarray.integer_ndarray([1, 2, 3]),
+            puan.ndarray.integer_ndarray([1, 2, 3]),
+            0
+        ),
+        (
+            puan.ndarray.integer_ndarray([
+                [
+                    [-4, 1, 2,-4,-4,-4],
+                    [ 0, 0, 0, 1, 0, 0],
+                ],
+            ]),
+            puan.ndarray.integer_ndarray([
+                [-3, 1, 2, 4,-3,-3]
+            ]),
+            0
+        ),
+        (
+            puan.ndarray.integer_ndarray([
+                [
+                    [ 0, 0, 0, 0, 0, 0],
+                    [ 0, 0, 0, 0, 0, 0],
+                    [ 0, 0, 0, 0, 0, 0],
+                    [ 1, 2, 3, 4, 5, 6]
+                ],
+            ]),
+            puan.ndarray.integer_ndarray([
+                [ 1, 2, 3, 4, 5, 6],
+            ]),
+            0
+        ),
+        (
+            puan.ndarray.integer_ndarray([
+                [ 0, 0, 1, 0, 2, 3],
+                [-1,-1,-1,-1, 0, 0],
+                [ 0, 0, 1, 2, 0, 0],
+                [ 0, 0, 1, 0, 0, 0]
+            ]),
+            puan.ndarray.integer_ndarray([
+                -3, -3, 5, 4, 1, 2
+            ]),
+            0
+        ),
+        (
+            puan.ndarray.integer_ndarray([
+                [
+                    [ 0, 0, 1, 0, 2, 3],
+                    [-1,-1,-1,-1, 0, 0],
+                    [ 0, 0, 1, 2, 0, 0],
+                    [ 0, 0, 1, 0, 0, 0]
+                ],
+                [
+                    [ 0, 0, 0, 0, 0, 0],
+                    [ 0, 0, 0, 0, 0, 0],
+                    [ 0, 0, 0, 0, 0, 0],
+                    [ 0, 0, 0, 0, 0, 0],
+                ],
+                [
+                    [ 0, 0, 0, 0, 0, 0],
+                    [ 0, 0, 0, 0, 0, 0],
+                    [ 0, 0, 0, 0, 0, 0],
+                    [ 1, 2, 3, 4, 5, 6]
+                ],
+                [
+                    [-1,-1,-1,-1, 0, 0],
+                    [ 0, 0, 1, 0, 2, 3],
+                    [ 0, 0, 0, 2, 1, 0],
+                    [ 0, 0, 2, 1, 0, 0]
+                ],
+                [
+                    [ 0, 0, 0, 0, 0, 0],
+                    [ 1, 4, 7, 0, 0, 0],
+                    [ 6, 3,-1, 0, 0, 0],
+                    [-3, 0, 7, 0, 0, 0]
+                ]
+            ]),
+            puan.ndarray.integer_ndarray([
+                [-3,-3, 5, 4, 1, 2],
+                [ 0, 0, 0, 0, 0, 0],
+                [ 1, 2, 3, 4, 5, 6],
+                [-1,-1, 5, 4, 3, 2],
+                [-2, 1, 3, 0, 0, 0]
+            ]),
+            0
+        ),
+    ]
+    for inpt, expected_output, axis in test_cases:
+        actual_output = inpt.ndint_compress(method="prio", axis=axis)
+        assert numpy.array_equal(actual_output, expected_output)
     
 
 def test_bind_relations_to_compound_id():
@@ -2901,7 +2992,8 @@ def test_ndarray():
     with pytest.raises(ValueError):
         puan.ndarray.integer_ndarray([1,1,1,1]).reduce2d()
     with pytest.raises(ValueError):
-        puan.ndarray.integer_ndarray([[1,1,1,1]]).reduce2d(method=["Last"])
+        # Should raise ValueError since method "Last" won't be recognized
+        puan.ndarray.integer_ndarray([[]]).reduce2d(method=["Last"])
     
     assert numpy.array_equal(puan.ndarray.integer_ndarray.from_list([], ["a", "b", "c"]), [])
     assert numpy.array_equal(puan.ndarray.boolean_ndarray.from_list([], ["a", "b", "c"]), [])
