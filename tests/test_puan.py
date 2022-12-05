@@ -1577,7 +1577,8 @@ def test_ndint_compress():
         assert numpy.array_equal(actual_output, expected_output)
     
     with pytest.raises(ValueError):
-        puan.ndarray.integer_ndarray([1, 5, 30]).ndint_compress(method="Rank")
+        # Should raise ValueError since method "Rank" won't be recognized
+        puan.ndarray.integer_ndarray([]).ndint_compress(method="Rank")
     
     test_cases = [
         (
@@ -2991,7 +2992,8 @@ def test_ndarray():
     with pytest.raises(ValueError):
         puan.ndarray.integer_ndarray([1,1,1,1]).reduce2d()
     with pytest.raises(ValueError):
-        puan.ndarray.integer_ndarray([[1,1,1,1]]).reduce2d(method=["Last"])
+        # Should raise ValueError since method "Last" won't be recognized
+        puan.ndarray.integer_ndarray([[]]).reduce2d(method=["Last"])
     
     assert numpy.array_equal(puan.ndarray.integer_ndarray.from_list([], ["a", "b", "c"]), [])
     assert numpy.array_equal(puan.ndarray.boolean_ndarray.from_list([], ["a", "b", "c"]), [])
