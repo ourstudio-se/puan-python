@@ -787,77 +787,96 @@ class AtLeast(puan.Proposition):
         # When the highest sum from equation still not satisfied inequality, this is a contradition
         return self.equation_bounds[1] < 0
 
-    def evaluate(self, interpretation: typing.Dict[typing.Union[str, puan.variable], int]) -> bool:
+    def evaluate(self, interpretation: typing.Dict[str, typing.Union[puan.Bounds, typing.Tuple[int,int], int]]) -> puan.Bounds:
 
         """
             Evaluates ``interpretation`` on this model. It will evaluate sub propositions
             bottoms-up and propagate results upwards. This means that even though 
-            intermediate variables are not set in ``interpretation``, they receive a value
+            intermediate variables are not set in ``interpretation``, they (may) receive a new bound
             based on the evaluation of its ``propositions``.
 
             Parameters
             ----------
-                interpretation : Dict[Union[str, :class:`puan.variable`], int]
+                interpretation : Dict[str, Union[puan.Bounds, Tuple[int,int], int]]
                     the values of the variables in the model to evaluate it for
 
             Examples
             --------
                 >>> All(*"xy", variable="A").evaluate({"x": 1})
-                False
+                Bounds(lower=0, upper=1)
+
+                >>> All(*"xy", variable="A").evaluate({"x": (1,1)})
+                Bounds(lower=0, upper=1)
+
+                >>> All(*"xy", variable="A").evaluate({"x": puan.Bounds(1,1)})
+                Bounds(lower=0, upper=1)
 
                 >>> All(*"xy", variable="A").evaluate({"x": 1, "y": 1})
-                True
+                Bounds(lower=1, upper=1)
 
                 >>> AtLeast(propositions=[puan.variable("x", dtype="int")],
                 ... value=10).evaluate({"x": 9})
-                False
+                Bounds(lower=0, upper=0)
 
                 >>> AtLeast(propositions=[puan.variable("x", dtype="int")],
                 ... value=10).evaluate({"x": 10})
-                True
+                Bounds(lower=1, upper=1)
             
             See also
             --------
-                evaluate_propositions      : Evaluates propositions on this model given a ``dict`` with variables and their values.
+                evaluate_propositions : Evaluates propositions on this model given a ``dict`` with variables and their bounds/constants.
             
             Returns
             -------
                 out : bool
         """
 
-        return self.evaluate_propositions(interpretation)[self.variable.id] > 0
+        return self.evaluate_propositions(interpretation)[self.variable.id]
 
-    def evaluate_propositions(self, interpretation: typing.Dict[str, int]) -> typing.Dict[str, int]:
+    def evaluate_propositions(
+        self, 
+        interpretation: typing.Dict[str, typing.Union[puan.Bounds, typing.Tuple[int,int], int]],
+        out: typing.Callable[[puan.Bounds], typing.Union[puan.Bounds, typing.Tuple[int,int], int]] = lambda x: x,
+    ) -> typing.Dict[str, puan.Bounds]:
         """
-            Evaluates propositions on this model given a ``dict`` with variables and their values.
+            Evaluates propositions on this model given a ``dict`` with variables and their bounds/constants.
 
             Parameters
             ----------
                 interpretation : Dict[Union[str, :class:`puan.variable`], int]
                     the values of the variables in the model to evaluate it for
-            
+                out : Callback[[puan.Bounds], Union[puan.Bounds, Tuple[int,int], int]]
+                    a callback function for changing output data type
+
             Notes
             -----
-            ``Bounds`` and ``dtypes`` of :class:`puan.variables<puan.variable>` in the interpretation are neglected, those values are only considered for the variables of the model.
-
-            A variable which is not included in the initial dict is calculated from its sub propositions or
-            defaulted to its lower bound (if variable doesn't have any subpropositions).
+                A variable's new bound, which is not included in the initial dict, is calculated from its sub proposition's bounds or
+                kept unchanged. 
 
             Examples
             --------
                 >>> All(*"xy", variable="A").evaluate_propositions({"x": 1})
-                {'x': 1, 'y': 0, 'A': 0}
+                {'A': Bounds(lower=0, upper=1), 'x': Bounds(lower=1, upper=1), 'y': Bounds(lower=0, upper=1)}
 
                 >>> All(*"xy", variable="A").evaluate_propositions({"x": 1, "y": 1})
-                {'x': 1, 'y': 1, 'A': 1}
+                {'A': Bounds(lower=1, upper=1), 'x': Bounds(lower=1, upper=1), 'y': Bounds(lower=1, upper=1)}
 
-                >>> AtLeast(propositions=[puan.variable("x", dtype="int")],
+                >>> All(*"xy", variable="A").evaluate_propositions({"x": 1, "y": (1,1)})
+                {'A': Bounds(lower=1, upper=1), 'x': Bounds(lower=1, upper=1), 'y': Bounds(lower=1, upper=1)}
+
+                >>> All(*"xy", variable="A").evaluate_propositions({"x": puan.Bounds(1,1), "y": (1,1)})
+                {'A': Bounds(lower=1, upper=1), 'x': Bounds(lower=1, upper=1), 'y': Bounds(lower=1, upper=1)}
+
+                >>> All(*"xy", variable="A").evaluate_propositions({"x": puan.Bounds(1,1), "y": (1,1)}, out=lambda x: x.constant)
+                {'A': 1, 'x': 1, 'y': 1}
+
+                >>> AtLeast(propositions=[puan.variable("x", (0, 10))],
                 ... value=10).evaluate_propositions({"x": 9})
-                {'x': 9, 'VAR2fa10da7075e3abf61065cb37ecd6bb658b38c9fdd0a1b1a69e34d541d32bd2d': 0}
+                {'VAR30d4fb455c3588c3639096e581aa2db374e611b8a054332ccf8579d36b757a0a': Bounds(lower=0, upper=0), 'x': Bounds(lower=9, upper=9)}
 
                 >>> AtLeast(propositions=[puan.variable("x", dtype="int")],
                 ... value=10).evaluate_propositions({"x": 10})
-                {'x': 10, 'VAR2fa10da7075e3abf61065cb37ecd6bb658b38c9fdd0a1b1a69e34d541d32bd2d': 1}
+                {'VAR30d4fb455c3588c3639096e581aa2db374e611b8a054332ccf8579d36b757a0a': Bounds(lower=1, upper=1), 'x': Bounds(lower=10, upper=10)}
             
             See also
             --------
@@ -865,89 +884,25 @@ class AtLeast(puan.Proposition):
 
             Returns
             -------
-                out : Dict[Union[str, :class:`puan.variable`], int]
-            
-            Raises
-            ------
-                ValueError
-                    If variable is out of bounds
+                out : Dict[str, Union[puan.Bounds, Tuple[int,int], int]]
         """
-        def _check_and_get_variable_in_bounds(_interpretation: dict, variable: puan.variable):
-            val = _interpretation.get(variable.id, variable.bounds.lower) # Default value is the lower bound
-            if val not in range(variable.bounds.lower, variable.bounds.upper+1):
-                raise ValueError("Variable {} is out of bounds, value: {}, bounds: {}".format(variable.id, val, variable.bounds))
-            return val
-    
-        _interpretation = functools.reduce(
-            lambda a,b: dict(
-                itertools.chain(
-                    b.items(),
-                    a.items(),
-                )
-            ),
-            itertools.chain(
-                map(
-                    operator.methodcaller(
-                        "evaluate_propositions", 
-                        interpretation=interpretation,
+        return dict(
+            zip(
+                *maz.fnmap(
+                    functools.partial(
+                        map,
+                        operator.attrgetter("id"),
                     ),
-                    filter(
-                        lambda x: not x.id in interpretation,
-                        self.compound_propositions
-                    )
-                ),
-                [
-                    dict(
-                        zip(
-                            map(
-                                operator.attrgetter("id"), 
-                                itertools.chain(
-                                    self.atomic_propositions,
-                                    filter(
-                                        lambda x: x.id in interpretation,
-                                        self.compound_propositions
-                                    )
-                                )
-                            ),
-                            map(
-                                functools.partial(
-                                    _check_and_get_variable_in_bounds,
-                                    interpretation,
-                                ),
-                                itertools.chain(
-                                    self.atomic_propositions,
-                                    filter(
-                                        lambda x: x.id in interpretation,
-                                        self.compound_propositions
-                                    )
-                                )
-                            ),
-                        ),
-                    )
-                ]
-            ),
-            {},
-        )
-        int_value = 1*(
-            (
-                sum(
-                    map(
+                    functools.partial(
+                        map,
                         maz.compose(
-                            functools.partial(
-                                operator.mul,
-                                self.sign
-                            ),
-                            _interpretation.get, 
-                            operator.attrgetter("id")
-                        ), 
-                        self.propositions
-                    )
-                ) - self.value
-            ) >= 0
+                            out,
+                            operator.attrgetter("bounds")
+                        ),
+                    ),
+                )(self.assume(interpretation).flatten())
+            )
         )
-        _interpretation[self.id] = int_value*(int_value in range(self.variable.bounds.lower, self.variable.bounds.upper+1))
-
-        return _interpretation
 
     def to_short(self) -> typing.Tuple[str, int, typing.List[str], int, typing.List[int]]:
 
@@ -1236,7 +1191,7 @@ class AtLeast(puan.Proposition):
             )
             
 
-    def assume(self, fixed: typing.Dict[str, int]) -> "AtLeast":
+    def assume(self, fixed: typing.Dict[str, typing.Union[int, typing.Tuple[int, int], puan.Bounds]]) -> puan.Proposition:
 
         """
             Assumes something about variables value in this proposition and returns a new 
@@ -1245,13 +1200,14 @@ class AtLeast(puan.Proposition):
 
             Parameters
             ----------
-                fixed : typing.Dict[str, int]
+                fixed : typing.Dict[str, Union[int, Tuple[int, int], puan.Bounds]]
+                    A dict of id's and either int, tuple or puan.Bounds as bounds for the variable.
 
             Examples
             --------
                 >>> model = Imply("a", Xor(*"xyz"))
                 >>> assumed = model.assume({"a": 1})
-                >>> type(assumed) == Xor
+                >>> type(assumed) == Imply
                 True
 
             Returns
@@ -1261,10 +1217,7 @@ class AtLeast(puan.Proposition):
         if self.id in fixed:
             return puan.variable(
                 id=self.id,
-                bounds=(
-                    fixed[self.id],
-                    fixed[self.id],
-                )
+                bounds=fixed[self.id],
             )
         
         assumed_propositions = list(
