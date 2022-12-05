@@ -1216,7 +1216,7 @@ class AtLeast(puan.Proposition):
                 ),
                 solver(
                     polyhedron, 
-                    polyhedron.A.construct(*map(lambda x: x.items(), objectives)),
+                    map(polyhedron.A.construct, objectives),
                 )
             )
             

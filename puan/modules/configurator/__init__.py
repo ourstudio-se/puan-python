@@ -241,7 +241,7 @@ class StingyConfigurator(pg.All):
         ge_polyhedron = self.to_ge_polyhedron(True)
         return pnd.ge_polyhedron_config(
             ge_polyhedron, 
-            default_prio_vector=ge_polyhedron.A.construct(*self.default_prios.items()),
+            default_prio_vector=ge_polyhedron.A.construct(self.default_prios),
             variables=ge_polyhedron.variables, 
             index=ge_polyhedron.index, 
         )
