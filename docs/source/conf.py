@@ -61,7 +61,7 @@ add_module_names = False
 autodoc_typehints_format = "short"
 numpydoc_show_class_members = False
 numpydoc_class_members_toctree = False
-autodoc_mock_imports = ["puan.npufunc", "numpy"]
+autodoc_mock_imports = ["puan.npufunc", "numpy", "maz", "puan.rspy"]
 html_static_path=["_static"]
 html_css_files = ["puan.css"]
 
