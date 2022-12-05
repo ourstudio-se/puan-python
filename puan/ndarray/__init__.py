@@ -184,33 +184,28 @@ class variable_ndarray(numpy.ndarray):
 
         return self.variable_indices(puan.Dtype.INT)
 
-    def construct(self, *variable_values: typing.List[typing.Tuple[str, int]], default_value: int = 0, dtype: typing.Type = numpy.int64) -> numpy.ndarray:
+    def construct(self, variable_values: typing.Dict[str, int], default_value: typing.Optional[typing.Callable[["puan.variable"], typing.Union[int, float]]] = None, dtype: typing.Type = numpy.int64) -> numpy.ndarray:
 
         """
-            Constructs a :class:`variable_ndarray` from a list of tuples of variable ids and integers.
+            Constructs a :class:`variable_ndarray` from a dict of variable ids and integers.
 
             Parameters
             ----------
-                variable_values: List[Tuple[str, int]]
+                variable_values: Dict[str, int]
                     List of tuples with variable id and value
-                default_value : int
-                    Default value of variable if not in `variable_values`. Default is ``0``.
+                default_value : Callable
+                    function taking self and returning a :class:`numpy.ndarray` with default values with shape equal to the number of variables.
+                    Default is 0 when dtype is :class:`numpy.int64` and ``numpy.nan`` otherwise.
                 dtype : Type
-                    Type of resulting :class:`numpy.ndarray`. Default is ``numpy.int64``.
+                    Type of resulting :class:`numpy.ndarray`. Default is :class:`numpy.int64`.
 
             Examples
             --------
 
             Constructing a new 1d variable ndarray shadow from this array and setting ``x = 5``
                 >>> vnd = variable_ndarray([[1,2,3], [2,3,4]], [puan.variable("x"), puan.variable("y"), puan.variable("z")])
-                >>> vnd.construct(("x", 5))
+                >>> vnd.construct({"x": 5})
                 array([5, 0, 0])
-
-            Constructing a new 2d variable ndarray shadow from this array and setting ``x0 = 5``, ``y0 = 4`` and ``y1 = 3``
-                >>> vnd = variable_ndarray([[1,2,3], [2,3,4]], [puan.variable("x"), puan.variable("y"), puan.variable("z")])
-                >>> vnd.construct([("x", 5), ("y", 4)], [("y", 3)])
-                array([[5, 4, 0],
-                       [0, 3, 0]])
 
             Notes
             -----
@@ -220,41 +215,54 @@ class variable_ndarray(numpy.ndarray):
             -------
                 out : :class:`numpy.ndarray`
         """
-        variable_ids = list(map(lambda x: x.id, self.variables))
-        if len(variable_values) == 0:
-            return numpy.ones((self.shape[1]), dtype=dtype)*default_value
-        elif isinstance(variable_values[0], tuple):
-            filtered_variable_values = list(
-                filter(
-                    lambda x: x[0] in variable_ids,
-                    variable_values
-                )
-            )
-            variable_indices = list(
+        return numpy.array(
+            list(
                 map(
-                    maz.compose(
-                        variable_ids.index,
-                        operator.itemgetter(0),
-                    ),
-                    filtered_variable_values
-                )
-            )
-            v = numpy.ones(len(self.variables), dtype=dtype) * default_value
-            v[variable_indices] = list(map(operator.itemgetter(1), filtered_variable_values))
-            return v
-        else:
-            return numpy.array(
-                list(
-                    itertools.starmap(
-                        functools.partial(
-                            self.construct,
-                            default_value=default_value
+                    maz.ifttt(
+
+                        # If variable is in variable_values, 
+                        maz.compose(
+                            functools.partial(
+                                operator.contains,
+                                variable_values
+                            ),
+                            operator.attrgetter("id"),
                         ),
-                        variable_values
-                    )
-                ),
-                dtype=dtype
-            )
+
+                        # then get the value
+                        maz.compose(
+                            variable_values.get,
+                            operator.attrgetter("id"),
+                        ),
+
+                        # else, pick a default value depending
+                        # on default_value function and dtype
+                        maz.ifttt(
+                            # if default value is a function
+                            lambda _: callable(default_value),
+
+                            # then let that function decide the variable value
+                            default_value,
+
+                            # else pick a value based dtype
+                            maz.ifttt(
+                                
+                                # if dtype is inherited from int,
+                                lambda _: issubclass(dtype, (int, numpy.integer)),
+                                
+                                # then select the variable's lower bound.
+                                operator.attrgetter("bounds.lower"),
+
+                                # else, choose np.nan
+                                lambda _: numpy.nan,
+                            )
+                        ),
+                    ),
+                    self.variables,
+                )
+            ),
+            dtype=dtype,
+        )
 
 class ge_polyhedron(variable_ndarray):
     """
