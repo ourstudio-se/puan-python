@@ -1279,8 +1279,8 @@ class AtLeast(puan.Proposition):
 
         """
             Assumes something about variable's bounds and returns a new proposition with these new bounds set.
-            Other variables, not declared in `new_variable_bounds`, may also get new bounds as a consequence from the ones set
-            in `new_variable_bounds`.
+            Other variables, not declared in ``new_variable_bounds``, may also get new bounds as a consequence from the ones set
+            in ``new_variable_bounds``.
 
             Parameters
             ----------
@@ -1298,14 +1298,15 @@ class AtLeast(puan.Proposition):
 
             Examples
             --------
-                Notice in this example that `x`'s bounds are changed from (0,1) to (1,1). Also that the
+                Notice in this example that x bounds are changed from (0,1) to (1,1). Also that the
                 model is a tautology after the assumptions.
+                
                 >>> model = Any(*"xy", variable="A")
                 >>> model.propositions
                 [variable(id='x', bounds=Bounds(lower=0, upper=1)), variable(id='y', bounds=Bounds(lower=0, upper=1))]
                 >>> model.is_tautology
                 False
-                >>> model_assumed = model.assume({"x": 1}) # fixes `x`'s bounds to (1,1)
+                >>> model_assumed = model.assume({"x": 1}) # fixes x bounds to (1,1)
                 >>> model_assumed.propositions
                 [variable(id='x', bounds=Bounds(lower=1, upper=1)), variable(id='y', bounds=Bounds(lower=0, upper=1))]
                 >>> model_assumed.is_tautology
@@ -1313,7 +1314,7 @@ class AtLeast(puan.Proposition):
 
             Returns
             -------
-                out : AtLeast
+                out : :class:`puan.Proposition`
         """
         if self.id in new_variable_bounds:
             self.variable = puan.variable(
