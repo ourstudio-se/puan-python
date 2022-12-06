@@ -1200,6 +1200,9 @@ class AtLeast(puan.Proposition):
             --------
                 >>> All(puan.variable("x", (1,1)), *"yz", variable="A").reduce()
                 A: +(y,z)>=2
+                # Note that x is no longer part of the proposition and
+                # the value of the proposition is updated from 3 to 2
+                # as a result of x being 1
 
                 >>> All(puan.variable("x", (1,1)), puan.variable("y", (0,0)), variable="A").reduce()
                 variable(id='A', bounds=Bounds(lower=0, upper=0))
