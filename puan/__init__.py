@@ -262,7 +262,7 @@ class variable(Proposition):
                 interpretation : Dict[Union[str, :class:`variable`], int]
                     the values of the variables in the model to evaluate it for
                 out : Callback[[Bounds], Union[Bounds, Tuple[int,int], int]]
-                    a callback function for changing output data type. Default is to keep original output data.
+                    an optional callback function for changing output data type.
 
             Examples
             --------
