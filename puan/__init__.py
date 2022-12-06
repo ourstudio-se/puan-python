@@ -26,34 +26,17 @@ class Dtype(str, Enum):
 
 class Proposition:
 
-    # @property
-    # def id(self) -> str:
-    #     raise NotImplementedError()
-
-    # @property
-    # def bounds(self) -> typing.Tuple[int,int]:
-
-    #     """
-    #         Variable bounds of where this variable can obtain a value.
-    #         A tuple of two integers decides the bounds where the lower bound
-    #         is on index 0 and upper bound on index 1. Both lower and upper
-    #         bound are inclusive.
-
-    #         Returns
-    #         -------
-    #             out : Tuple[int, int]
-    #     """
-
-    #     raise NotImplementedError()
-
     def assume(self, fixed: typing.Dict[str, int]) -> "Proposition":
         
         """
-            Fixes variables to a constant value and resolves consequences.
+            Assumes something about variable's bounds and returns a new proposition with these new bounds set.
+            Other variables, not declared in `new_variable_bounds`, may also get new bounds as a consequence from the ones set
+            in `new_variable_bounds`.
 
             Parameters
             ----------
-                fixed : typing.Dict[str, int]
+                new_variable_bounds : typing.Dict[str, Union[int, Tuple[int, int], puan.Bounds]]
+                    A dict of ids and either ``int``, ``tuple`` or :class:`puan.Bounds` as bounds for the variable.
 
             Returns
             -------
@@ -279,7 +262,7 @@ class variable(Proposition):
                 interpretation : Dict[Union[str, :class:`variable`], int]
                     the values of the variables in the model to evaluate it for
                 out : Callback[[Bounds], Union[Bounds, Tuple[int,int], int]]
-                    a callback function for changing output data type
+                    a callback function for changing output data type. Default is to keep original output data.
 
             Examples
             --------

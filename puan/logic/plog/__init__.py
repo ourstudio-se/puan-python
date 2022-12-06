@@ -82,7 +82,7 @@ class AtLeast(puan.Proposition):
         from_short
         id
         is_contradiction
-        is_tautologi
+        is_tautology
         negate
         solve
         to_b64
@@ -713,7 +713,7 @@ class AtLeast(puan.Proposition):
         return (mn-self.value, mx-self.value)
 
     @property
-    def is_tautologi(self) -> bool:
+    def is_tautology(self) -> bool:
 
         """
             Returns wheather or not this proposition is true, no matter the interpretation of its propositions.
@@ -725,23 +725,23 @@ class AtLeast(puan.Proposition):
             Examples
             --------
                 >>> model = AtLeast(1,["x","y"])
-                >>> model.is_tautologi
+                >>> model.is_tautology
                 False
 
                 >>> model = AtMost(1,["x","y"])
-                >>> model.is_tautologi
+                >>> model.is_tautology
                 False
 
                 >>> model = AtMost(3,["x","y","z"])
-                >>> model.is_tautologi
+                >>> model.is_tautology
                 True
 
                 >>> model = AtLeast(0, ["x"], sign=1)
-                >>> model.is_tautologi
+                >>> model.is_tautology
                 True
 
                 >>> model = AtMost(2,["x","y"])
-                >>> model.is_tautologi
+                >>> model.is_tautology
                 True
 
             Returns
@@ -846,7 +846,7 @@ class AtLeast(puan.Proposition):
                 interpretation : Dict[Union[str, :class:`puan.variable`], int]
                     the values of the variables in the model to evaluate it for
                 out : Callback[[puan.Bounds], Union[puan.Bounds, Tuple[int,int], int]]
-                    a callback function for changing output data type
+                    a callback function for changing output data type. Default is to keep original output data.
 
             Notes
             -----
@@ -1191,38 +1191,51 @@ class AtLeast(puan.Proposition):
             )
             
 
-    def assume(self, fixed: typing.Dict[str, typing.Union[int, typing.Tuple[int, int], puan.Bounds]]) -> puan.Proposition:
+    def assume(self, new_variable_bounds: typing.Dict[str, typing.Union[int, typing.Tuple[int, int], puan.Bounds]]) -> puan.Proposition:
 
         """
-            Assumes something about variables value in this proposition and returns a new 
-            proposition without those variables along side with a list of all variables that
-            were set as a consequence.
+            Assumes something about variable's bounds and returns a new proposition with these new bounds set.
+            Other variables, not declared in `new_variable_bounds`, may also get new bounds as a consequence from the ones set
+            in `new_variable_bounds`.
 
             Parameters
             ----------
-                fixed : typing.Dict[str, Union[int, Tuple[int, int], puan.Bounds]]
+                new_variable_bounds : typing.Dict[str, Union[int, Tuple[int, int], puan.Bounds]]
                     A dict of ids and either ``int``, ``tuple`` or :class:`puan.Bounds` as bounds for the variable.
+
+            Notes
+            -----
+                All propositions are still kept within this proposition after assume. What may
+                have happen is that proposition's bounds have tightened.
 
             Examples
             --------
-                >>> model = Imply("a", Xor(*"xyz"))
-                >>> assumed = model.assume({"a": 1})
-                >>> type(assumed) == Imply
+                Notice in this example that `x`'s bounds are changed from (0,1) to (1,1). Also that the
+                model is a tautology after the assumptions.
+                >>> model = Any(*"xy", variable="A")
+                >>> model.propositions
+                [variable(id='x', bounds=Bounds(lower=0, upper=1)), variable(id='y', bounds=Bounds(lower=0, upper=1))]
+                >>> model.is_tautology
+                False
+                >>> model_assumed = model.assume({"x": 1}) # fixes `x`'s bounds to (1,1)
+                >>> model_assumed.propositions
+                [variable(id='x', bounds=Bounds(lower=1, upper=1)), variable(id='y', bounds=Bounds(lower=0, upper=1))]
+                >>> model_assumed.is_tautology
                 True
 
             Returns
             -------
                 out : AtLeast
         """
-        if self.id in fixed:
+        if self.id in new_variable_bounds:
             return puan.variable(
                 id=self.id,
-                bounds=fixed[self.id],
+                bounds=new_variable_bounds[self.id],
             )
         
         assumed_propositions = list(
             map(
-                lambda prop: prop.assume(fixed),
+                lambda prop: prop.assume(new_variable_bounds),
                 self.propositions,
             )
         )
@@ -1231,7 +1244,7 @@ class AtLeast(puan.Proposition):
             value=self.value,
             propositions=maz.filter_map_concat(
                 # If proposition has a constant bound after evaluating it
-                lambda prop: prop.id in fixed,
+                lambda prop: prop.id in new_variable_bounds,
                 # If is a constant, just keep the variable from the proposition
                 # else, keep the proposition as is
                 lambda prop: prop if issubclass(prop.__class__, puan.variable) else prop.variable,

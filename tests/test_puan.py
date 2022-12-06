@@ -335,7 +335,7 @@ def test_model_properties_hypothesis(propositions):
     # Properties that should never fail when accessing
     model.variables
     model.is_contradiction
-    model.is_tautologi
+    model.is_tautology
     model.id
     model.bounds
     model.equation_bounds
@@ -2192,7 +2192,7 @@ def test_puan_variable(id, lower, upper, dtype):
 #     )
 
 #     assumed_model, assumed_items = model.assume({"t": 12})
-#     assert assumed_model.is_tautologi
+#     assert assumed_model.is_tautology
 #     assert assumed_items['t'] == 12
 #     assert assumed_items['x'] == 1
 #     assert assumed_items['y'] == 1
@@ -3147,7 +3147,7 @@ def test_plog_assume():
 
     # Test that different interpretations results in same evaluation
     # both before and after assumption has been made.
-    for model, inters, fixes in [
+    for model, inters, fixes, should_raise in [
         (
             pg.All(*"xyz", variable="A"),
             [
@@ -3155,7 +3155,8 @@ def test_plog_assume():
             ],
             [
                 {"A": 1}
-            ]
+            ],
+            False
         ),
         (
             pg.All(
@@ -3174,7 +3175,8 @@ def test_plog_assume():
                 {"y": 1},
                 {"B": 1},
                 {"x": 1},
-            ]
+            ],
+            False
         ),
         (
             pg.All(
@@ -3194,7 +3196,8 @@ def test_plog_assume():
             ],
             [
                 {"a": -3}
-            ]
+            ],
+            False
         ),
         (
             pg.AtLeast(
@@ -3218,7 +3221,8 @@ def test_plog_assume():
             ],
             [
                 {"a": 1},
-            ]
+            ],
+            False
         ),
         (
             pg.AtMost(
@@ -3231,7 +3235,8 @@ def test_plog_assume():
             ],
             [
                 {"a": 1},
-            ]
+            ],
+            False
         ),
         (
             pg.AtMost(
@@ -3255,11 +3260,22 @@ def test_plog_assume():
             ],
             [
                 {"a": 1},
-            ]
+            ],
+            False
+        ),
+        (
+            pg.All(*"xyz", variable="A"),
+            [{},],
+            [{"y": "1"}],
+            True
         ),
     ]:
         for i, (inter, fix) in enumerate(zip(inters, fixes)):
-            assumed_model = model.assume(fix)
-            result = model.evaluate({**inter, **fix}) == assumed_model.evaluate(inter)
-            assert result
+            if not should_raise:
+                assumed_model = model.assume(fix)
+                result = model.evaluate({**inter, **fix}) == assumed_model.evaluate(inter)
+                assert result
+            else:
+                with pytest.raises(ValueError):
+                    model.assume(fix)
 
