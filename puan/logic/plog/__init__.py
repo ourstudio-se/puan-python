@@ -1201,7 +1201,7 @@ class AtLeast(puan.Proposition):
             Parameters
             ----------
                 fixed : typing.Dict[str, Union[int, Tuple[int, int], puan.Bounds]]
-                    A dict of id's and either int, tuple or puan.Bounds as bounds for the variable.
+                    A dict of ids and either ``int``, ``tuple`` or :class:`puan.Bounds` as bounds for the variable.
 
             Examples
             --------
