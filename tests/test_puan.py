@@ -168,7 +168,7 @@ def cc_propositions_strategy():
 
 @settings(deadline=None)
 @given(propositions_strategy())
-def test_plog_reduce(propositions):
+def test_plog_reduce_property_based(propositions):
 
     # All reduced variables should be able to find in model
     # with fixed bounds
@@ -2713,3 +2713,8 @@ def test_puan_bounds():
     # test __iter__ func
     assert all(map(lambda x: x == 1, puan.Bounds(1,1)))
 
+def test_plog_reduce():
+
+    # Test that both end up being the same proposition
+    model = pg.All(*"xyz", variable=puan.variable("A", bounds=(0,0)))
+    assert model.assume({}) == model.reduce()
