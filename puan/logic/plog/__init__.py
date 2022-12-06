@@ -846,7 +846,7 @@ class AtLeast(puan.Proposition):
                 interpretation : Dict[Union[str, :class:`puan.variable`], int]
                     the values of the variables in the model to evaluate it for
                 out : Callback[[puan.Bounds], Union[puan.Bounds, Tuple[int,int], int]]
-                    a callback function for changing output data type. Default is to keep original output data.
+                    an optional callback function for changing output data type.
 
             Notes
             -----
