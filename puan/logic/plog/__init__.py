@@ -1212,6 +1212,8 @@ class AtLeast(puan.Proposition):
 
                 >>> All(puan.variable("x", (1,1)), puan.variable("y", (0,0)), variable="A").reduce()
                 variable(id='A', bounds=Bounds(lower=0, upper=0))
+                >>> # If the remaining proposition is a puan.variable and only a puan.varialbe it is kept with updated bounds
+                >>> # Any other constant proposition will be reduced
 
             Returns
             -------
