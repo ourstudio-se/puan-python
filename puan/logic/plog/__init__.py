@@ -1227,7 +1227,7 @@ class AtLeast(puan.Proposition):
         )
 
         # it may occur that a proposition's new sub proposition list results in a new bound for
-        # this proposition that are constant. So because of that we calculate the new bounds
+        # this proposition to be constant. Because of this we calculate the new bounds
         # always and checks if it makes this proposition getting reduced. 
         new_bounds = puan.Bounds(
             *(
