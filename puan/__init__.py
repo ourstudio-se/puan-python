@@ -26,6 +26,24 @@ class Dtype(str, Enum):
 
 class Proposition:
 
+    def assume(self, fixed: typing.Dict[str, int]) -> "Proposition":
+        
+        """
+            Assumes something about variable's bounds and returns a new proposition with these new bounds set.
+            Other variables, not declared in `new_variable_bounds`, may also get new bounds as a consequence from the ones set
+            in `new_variable_bounds`.
+
+            Parameters
+            ----------
+                new_variable_bounds : typing.Dict[str, Union[int, Tuple[int, int], puan.Bounds]]
+                    A dict of ids and either ``int``, ``tuple`` or :class:`puan.Bounds` as bounds for the variable.
+
+            Returns
+            -------
+                out : Proposition 
+        """
+        raise NotImplementedError()
+
     def to_short(self) -> typing.Tuple[str, int, object, int, typing.Tuple[int, int]]:
         
         """Short data type has (id, sign, propositions, value, bounds)"""
@@ -72,6 +90,32 @@ class Bounds:
     def __iter__(self):
         return iter([self.lower, self.upper])
 
+    def __eq__(self, obj):
+        return self.as_tuple() == (obj.as_tuple() if issubclass(obj.__class__, Bounds) else obj)
+
+    @property
+    def constant(self) -> typing.Optional[int]:
+
+        """
+            If lower and upper bounds are the same, that value is returned.
+            Else None is returned.
+
+            Examples
+            --------
+                >>> Bounds(0, 1).constant
+
+
+                >>> Bounds(-2, -2).constant
+                -2
+
+            Returns
+            -------
+                out : Optional[int]
+        """
+        if self.lower == self.upper:
+            return self.lower
+        return None
+
     def as_tuple(self) -> typing.Tuple[int, int]:
         """
             Bounds as tuple
@@ -107,17 +151,31 @@ class variable(Proposition):
     id: str
     bounds: Bounds
 
-    def __init__(self, id: str, bounds: typing.Tuple[int, int] = None, dtype: Dtype = None):
+    def __init__(
+        self, 
+        id: str, 
+        bounds: typing.Optional[typing.Union[int, typing.Tuple[int, int], Bounds]] = None, 
+        dtype: Dtype = None
+    ):
         self.id = id
-        if dtype is not None:
-            if bounds is not None:
-                if (dtype == "bool") != ((dtype == "bool") and (bounds == (0, 1))):
-                    raise ValueError("Dtype is bool thus bounds must be (0, 1), got: {}".format(bounds))
-            else:
-                bounds = {"int": default_int_bounds, "bool": (0, 1)}.get(dtype, (0, 1))
-        elif bounds is None:
-            bounds = (0, 1)
-        self.bounds = Bounds(*bounds)
+        if issubclass(bounds.__class__, Bounds):
+            self.bounds = bounds
+        elif issubclass(bounds.__class__, (int, numpy.integer)):
+            self.bounds = Bounds(int(bounds), int(bounds))
+        else:
+            if dtype is not None:
+                if bounds is not None:
+                    if (dtype == "bool") != ((dtype == "bool") and (bounds == (0, 1))):
+                        raise ValueError("Dtype is bool thus bounds must be (0, 1), got: {}".format(bounds))
+                else:
+                    bounds = {"int": default_int_bounds, "bool": (0, 1)}.get(dtype, (0, 1))
+            elif bounds is None:
+                bounds = (0, 1)
+            
+            if not issubclass(bounds.__class__, (tuple, numpy.ndarray, list)):
+                raise ValueError(f"invalid data type for bounds, got `{bounds.__class__}`")
+
+            self.bounds = Bounds(*bounds)
 
     def __hash__(self):
         return hash(self.id)+hash(self.bounds)
@@ -127,6 +185,130 @@ class variable(Proposition):
 
     def __eq__(self, other):
         return self.id == getattr(other, "id", other)
+
+    def assume(self, fixed: typing.Dict[str, typing.Union[int, typing.Tuple[int, int], Bounds]]) -> Proposition:
+        
+        if self.id in fixed:
+            return variable(
+                id=self.id,
+                bounds=fixed[self.id],
+            )
+
+        return self
+
+    def evaluate(self, interpretation: typing.Dict[str, typing.Union[Bounds, typing.Tuple[int,int], int]]) -> Bounds:
+
+        """
+            Evaluates ``interpretation`` on this proposition. 
+
+            Parameters
+            ----------
+                interpretation : Dict[str, Union[Bounds, Tuple[int,int], int]]
+                    the values of the variables in the model to evaluate it for
+
+            Examples
+            --------
+                >>> variable("a", bounds=(0,1)).evaluate({"x": 1})
+                Bounds(lower=0, upper=1)
+
+                >>> variable("a", bounds=(0,2)).evaluate({"a": 2})
+                Bounds(lower=2, upper=2)
+
+                >>> variable("a", bounds=(0,2)).evaluate({"a": (2,3)})
+                Bounds(lower=2, upper=3)
+
+                >>> variable("a", bounds=(0,2)).evaluate({"a": Bounds(1,1)})
+                Bounds(lower=1, upper=1)
+
+                >>> variable("a", bounds=(-1,0)).evaluate({"a": 1})
+                Bounds(lower=1, upper=1)
+
+                >>> variable("a", bounds=(1,1)).evaluate({"a": 0})
+                Bounds(lower=0, upper=0)
+
+                >>> variable("a", bounds=(1,1)).evaluate({"x": 1})
+                Bounds(lower=1, upper=1)
+            
+            Returns
+            -------
+                out : Optional[int]
+        """
+        if self.id in interpretation:
+            val = interpretation.get(self.id)
+            if issubclass(val.__class__, (int, numpy.integer)):
+                return Bounds(
+                    interpretation.get(self.id), 
+                    interpretation.get(self.id)
+                )
+            elif issubclass(val.__class__, tuple):
+                return Bounds(*val)
+            elif issubclass(val.__class__, Bounds):
+                return val
+            else:
+                raise ValueError(f"extracted value from interpretation is not a valid type, got `{val.__class__}` type")
+        return self.bounds
+
+    def evaluate_propositions(
+        self, 
+        interpretation: typing.Dict[str, typing.Union[Bounds, typing.Tuple[int,int], int]],
+        out: typing.Callable[[Bounds], typing.Union[Bounds, typing.Tuple[int,int], int]] = lambda x: x,
+    ) -> typing.Dict[str, Bounds]:
+
+        """
+            Evaluates ``interpretation`` on this proposition. 
+
+            Parameters
+            ----------
+                interpretation : Dict[Union[str, :class:`variable`], int]
+                    the values of the variables in the model to evaluate it for
+                out : Callback[[Bounds], Union[Bounds, Tuple[int,int], int]]
+                    an optional callback function for changing output data type.
+
+            Examples
+            --------
+                >>> variable("a", bounds=(0,1)).evaluate_propositions({"x": 1})
+                {'a': Bounds(lower=0, upper=1)}
+
+                >>> variable("a", bounds=(0,1)).evaluate_propositions({"a": (1,1)})
+                {'a': Bounds(lower=1, upper=1)}
+
+                >>> variable("a", bounds=(0,1)).evaluate_propositions({"a": Bounds(1,1)})
+                {'a': Bounds(lower=1, upper=1)}
+
+                >>> variable("a", bounds=(0,2)).evaluate_propositions({"a": 2})
+                {'a': Bounds(lower=2, upper=2)}
+
+                >>> variable("a", bounds=(-1,0)).evaluate_propositions({"a": 1})
+                {'a': Bounds(lower=1, upper=1)}
+
+                >>> variable("a", bounds=(1,1)).evaluate_propositions({"a": 0})
+                {'a': Bounds(lower=0, upper=0)}
+
+                >>> variable("a", bounds=(1,1)).evaluate_propositions({"x": 1})
+                {'a': Bounds(lower=1, upper=1)}
+            
+            Returns
+            -------
+                out : Optional[int]
+        """
+        return {self.id: out(self.evaluate(interpretation))}
+
+    def flatten(self) -> typing.List[Proposition]:
+
+        """
+            Returns all its propositions and their sub propositions as a unique list of propositions.
+
+            Examples
+            --------
+                >>> variable("a", bounds=(0,2)).flatten()
+                [variable(id='a', bounds=Bounds(lower=0, upper=2))]
+        
+            Returns
+            -------
+                out : List[Proposition]
+        """
+
+        return [self]
 
     def to_json(self) -> typing.Dict[str, typing.Any]:
 

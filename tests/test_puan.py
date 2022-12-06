@@ -13,85 +13,85 @@ import operator
 import maz
 import math
 
-from hypothesis import example, given, strategies as st, settings, assume
+from hypothesis import given, strategies, assume, settings, HealthCheck
 
 def short_proposition_strategy():
     mn,mx = -99,99
-    return st.tuples(
-        st.text(), 
-        st.sampled_from([-1,1]), 
-        st.lists(
-            st.text(),
+    return strategies.tuples(
+        strategies.text(), 
+        strategies.sampled_from([-1,1]), 
+        strategies.lists(
+            strategies.text(),
         ), 
-        st.integers(mn,mx), 
-        st.tuples(
-            st.integers(mn,mx),
-            st.integers(mn,mx),
+        strategies.integers(mn,mx), 
+        strategies.tuples(
+            strategies.integers(mn,mx),
+            strategies.integers(mn,mx),
         )
     )
 
 def atom_proposition_strategy():
-    return st.builds(
+    return strategies.builds(
         puan.variable,
-        id=st.text(), 
-        bounds=st.tuples(
-            st.integers(min_value=-5, max_value=0),
-            st.integers(min_value=0, max_value=5),
+        id=strategies.text(), 
+        bounds=strategies.tuples(
+            strategies.integers(min_value=-5, max_value=0),
+            strategies.integers(min_value=0, max_value=5),
         ),
     )
 
 def atom_boolean_proposition_strategy():
-    return st.builds(
+    return strategies.builds(
         puan.variable,
-        id=st.text(),
+        id=strategies.text(),
     )
 
 def variable_proposition_strategy():
-    return st.one_of(atom_proposition_strategy(), st.none())
+    return strategies.one_of(atom_proposition_strategy(), strategies.none())
 
 def variable_boolean_proposition_strategy():
-    return st.one_of(atom_boolean_proposition_strategy(), st.none())
+    return strategies.one_of(atom_boolean_proposition_strategy(), strategies.none())
 
 def atoms_propositions_strategy(mn_size: int = 1, mx_size: int = 5):
-    return st.iterables(
+    return strategies.iterables(
         atom_proposition_strategy(),
         min_size=mn_size,
         max_size=mx_size,
     )
 
 def atleast_proposition_strategy():
-    return st.builds(
+    return strategies.builds(
         pg.AtLeast, 
         propositions=atoms_propositions_strategy(),
         variable=variable_boolean_proposition_strategy(), 
-        value=st.integers(min_value=-5, max_value=5),
-        sign=st.sampled_from([puan.Sign.POSITIVE, puan.Sign.NEGATIVE])
+        value=strategies.integers(min_value=-5, max_value=5),
+        sign=strategies.sampled_from([puan.Sign.POSITIVE, puan.Sign.NEGATIVE])
     )
 
 def atmost_proposition_strategy():
-    return st.builds(
+    return strategies.builds(
         pg.AtMost, 
         propositions=atoms_propositions_strategy(),
         variable=variable_boolean_proposition_strategy(), 
-        value=st.integers(min_value=-5, max_value=5),
+        value=strategies.integers(min_value=-5, max_value=5),
     )
 
 def all_proposition_strategy():
-    return st.builds(
+    return strategies.builds(
         pg.All.from_list,
         atoms_propositions_strategy(),
         variable=variable_boolean_proposition_strategy(),
     )
 
 def any_proposition_strategy():
-    return st.builds(
+    return strategies.builds(
         pg.Any.from_list,
         atoms_propositions_strategy(),
         variable=variable_boolean_proposition_strategy(),
     )
 
 def any_cc_proposition_strategy():
-    return st.builds(
+    return strategies.builds(
         cc.Any.from_list,
         atoms_propositions_strategy(),
         variable=variable_boolean_proposition_strategy(),
@@ -99,7 +99,7 @@ def any_cc_proposition_strategy():
     )
 
 def imply_proposition_strategy():
-    return st.builds(
+    return strategies.builds(
         pg.Imply,
         condition=atom_proposition_strategy(),
         consequence=atom_proposition_strategy(),
@@ -107,14 +107,14 @@ def imply_proposition_strategy():
     )
 
 def xor_proposition_strategy():
-    return st.builds(
+    return strategies.builds(
         pg.Xor.from_list,
         atoms_propositions_strategy(),
         variable=variable_boolean_proposition_strategy(),
     )
 
 def xor_cc_proposition_strategy():
-    return st.builds(
+    return strategies.builds(
         cc.Xor.from_list,
         atoms_propositions_strategy(),
         variable=variable_boolean_proposition_strategy(),
@@ -122,20 +122,20 @@ def xor_cc_proposition_strategy():
     )
 
 def xnor_proposition_strategy():
-    return st.builds(
+    return strategies.builds(
         pg.XNor.from_list,
         atoms_propositions_strategy(),
         variable=variable_boolean_proposition_strategy(),
     )
 
 def not_proposition_strategy():
-    return st.builds(
+    return strategies.builds(
         pg.Not,
         atom_proposition_strategy(),
     )
 
 def proposition_strategy():
-    return st.one_of(
+    return strategies.one_of(
         atleast_proposition_strategy(),
         atmost_proposition_strategy(),
         all_proposition_strategy(),
@@ -147,7 +147,7 @@ def proposition_strategy():
     )
 
 def cc_proposition_strategy():
-    return st.one_of(
+    return strategies.one_of(
         atleast_proposition_strategy(),
         atmost_proposition_strategy(),
         all_proposition_strategy(),
@@ -161,10 +161,10 @@ def cc_proposition_strategy():
     )
 
 def propositions_strategy():
-    return st.lists(proposition_strategy(), min_size=1)
+    return strategies.lists(proposition_strategy(), min_size=1)
 
 def cc_propositions_strategy():
-    return st.lists(cc_proposition_strategy(), min_size=1)
+    return strategies.lists(cc_proposition_strategy(), min_size=1)
 
 @given(cc_propositions_strategy())
 @settings(deadline=None)
@@ -173,7 +173,7 @@ def test_negated_propositions_are_unique(propositions):
     for prop1, prop2 in zip(propositions, map(operator.methodcaller("negate"), propositions)):
         assert not prop1.generated_id or prop1.id != prop2.id
 
-@given(propositions_strategy(), st.lists(st.integers(min_value=-3, max_value=3), min_size=99))
+@given(propositions_strategy(), strategies.lists(strategies.integers(min_value=-3, max_value=3), min_size=99))
 @settings(deadline=None)
 def test_proposition_polyhedron_conversion(propositions, integers):
 
@@ -201,7 +201,7 @@ def test_proposition_polyhedron_conversion(propositions, integers):
             # However, these cases are skipped
             pass
 
-@given(st.lists(st.text(), min_size=3, max_size=3))
+@given(strategies.lists(strategies.text(), min_size=3, max_size=3))
 @settings(deadline=None)
 def test_polyhedron_construct_function(vrs):
     arr = numpy.zeros((1, len(vrs)))
@@ -321,7 +321,7 @@ def test_proposition_polyhedron_conversion_specifics():
             if not model_variables == polyhedron_variables:
                 raise Exception("fail variable comparison")
             integers_clipped = list(itertools.starmap(lambda x,i: numpy.clip(i, x.bounds.lower, x.bounds.upper), zip(polyhedron.A.variables, range(polyhedron.A.variables.size))))
-            model_interpretation_evaluated = model.evaluate_propositions(dict(zip(model_variables, integers_clipped)))
+            model_interpretation_evaluated = model.evaluate_propositions(dict(zip(model_variables, integers_clipped)), operator.attrgetter("constant"))
             if not model_interpretation_evaluated[model.id] == (polyhedron.A.dot(polyhedron.A.construct(model_interpretation_evaluated)) >= polyhedron.b).all():
                 raise Exception("fail interpretation comparison")
 
@@ -335,7 +335,7 @@ def test_model_properties_hypothesis(propositions):
     # Properties that should never fail when accessing
     model.variables
     model.is_contradiction
-    model.is_tautologi
+    model.is_tautology
     model.id
     model.bounds
     model.equation_bounds
@@ -376,9 +376,9 @@ def test_json_conversion_id_should_be_returned_if_explicitly_defined(proposition
 @settings(deadline=None)
 def test_from_short_wont_crash(short_proposition):
 
-    # Should raise if has sub propositions and bounds are other than (0,1) 
+    # Should raise if has sub propositions and bounds are other than (0,0), (0,1) or (1,1),
     # OR if upper bound is strict lower than lower bound
-    if (len(short_proposition[2]) > 0 and short_proposition[4] != (0,1)) or (short_proposition[4][1] < short_proposition[4][0]):
+    if (len(short_proposition[2]) > 0 and not short_proposition[4] in [(0,0),(0,1),(1,1)]) or (short_proposition[4][1] < short_proposition[4][0]):
         with pytest.raises(Exception):
             pg.AtLeast.from_short(short_proposition)
     else:
@@ -387,6 +387,56 @@ def test_from_short_wont_crash(short_proposition):
                 pg.AtLeast.from_short(short_proposition)
         else:
             pg.AtLeast.from_short(short_proposition)
+
+@settings(deadline=None, suppress_health_check=HealthCheck.all())
+@given(propositions_strategy(), strategies.data())
+def test_plog_assume_property_based(propositions, data):
+    model = pg.All(*propositions)
+    assume(not model.errors())
+    variables = model.flatten()
+    drawn_variables = data.draw(strategies.lists(strategies.sampled_from(variables), max_size=2))
+    fixed = dict(
+        zip(
+            map(
+                operator.attrgetter("id"),
+                drawn_variables
+            ),
+            map(
+                lambda variable: data.draw(
+                    strategies.sampled_from(
+                        variable.bounds.as_tuple()
+                    )
+                ), 
+                drawn_variables
+            )
+        )
+    )
+    assume(len(fixed) != 0)
+    assumed_model = model.assume(fixed)
+    assumed_model_ids = list(map(operator.attrgetter("id"), assumed_model.flatten()))
+    drawn_interpretation_variables = data.draw(strategies.lists(strategies.sampled_from(assumed_model.flatten()), max_size=2))
+    interpretation_assumed = dict(
+        zip(
+            map(
+                operator.attrgetter("id"),
+                drawn_interpretation_variables
+            ),
+            map(
+                lambda variable: data.draw(
+                    strategies.sampled_from(
+                        variable.bounds.as_tuple()
+                    )
+                ), 
+                drawn_interpretation_variables
+            )
+        )
+    )
+
+    # Finally test that they both have the same value on shared keys
+    model_evaluated = model.evaluate({**interpretation_assumed, **fixed})
+    assumed_evaluated = assumed_model.evaluate(interpretation_assumed)
+    assert model_evaluated == assumed_evaluated
+
 
 def test_json_conversion_special_cases():
 
@@ -1987,40 +2037,40 @@ def test_multiple_defaults():
     #a -> p ^ r (r)
     model = cc.StingyConfigurator(pg.All(pg.Imply("a", cc.Xor(*"pq", default="q")), pg.Imply("a", cc.Xor(*"pr", default="r"))))
     config1 = {"a": 1, "p": 0, "q": 1, "r": 1}
-    config2 = {"a": 1, "p": 1}
-    full_config1 = model.evaluate_propositions(config1)
-    full_config2 = model.evaluate_propositions(config2)
+    config2 = {"a": 1, "p": 1, "q": 0, "r": 0}
+    full_config1 = model.evaluate_propositions(config1, operator.attrgetter("constant"))
+    full_config2 = model.evaluate_propositions(config2, operator.attrgetter("constant"))
     int_ndarray1 = model.ge_polyhedron.A.construct(full_config1)
     int_ndarray2 = model.ge_polyhedron.A.construct(full_config2)
     objective_function = puan.ndarray.ndint_compress(model.ge_polyhedron.default_prio_vector, method="shadow")
     assert objective_function.dot(int_ndarray1) > objective_function.dot(int_ndarray2)
 
 def test_evaluate_propositions():
-    # Raises ValueError when configuration variable is out of bounds
-    with pytest.raises(ValueError):
-        pg.All(*"xy", variable="A").evaluate_propositions({"x": 3})
+    # Check that None is constant when nothing can be said
+    assert pg.All(*"xy", variable="A").evaluate_propositions({"x": 1}, operator.attrgetter("constant")) == {'A': None, 'y': None, 'x': 1}
     
     # Unsatisfiable model
-    assert pg.AtLeast(2, "x").evaluate_propositions({"x": 0}) == {'VARa7c4c155fe9267e5308123f3d8b4e663ced757f934a47fc023c808b568ae51c4': 0, "x": 0}
+    assert pg.AtLeast(2, "x").evaluate_propositions({"x": 0}, operator.attrgetter("constant")) == {'VARa7c4c155fe9267e5308123f3d8b4e663ced757f934a47fc023c808b568ae51c4': 0, "x": 0}
 
     # Faulty configuration input
     with pytest.raises(ValueError):
         pg.All(*"xy", variable="A").evaluate_propositions({"x": "str"})
 
-    # Variable defaults to lower bounds when not given as configuration
-    assert pg.AtLeast(1, [puan.variable("x", bounds=(0,1))], variable="A").evaluate_propositions({}) == {"A": 0, "x": 0}
-    assert pg.AtLeast(1, [puan.variable("x", bounds=(1,10))], variable="A").evaluate_propositions({}) == {"A": 1, "x": 1}
+    # 'A' should get a constant 1 if lower bounds on x is 1 (since A = 1 <= x)
+    assert pg.AtLeast(1, [puan.variable("x", bounds=(0,1))], variable="A").evaluate_propositions({}, operator.attrgetter("constant")) == {"A": None, "x": None}
+    assert pg.AtLeast(1, [puan.variable("x", bounds=(1,10))], variable="A").evaluate_propositions({}, operator.attrgetter("constant")) == {"A": 1, "x": None}
 
     # Test giving values to other nodes than the leafs
-    # Each node's value, except leafs, should be evaluated and not got from input
-    assert pg.All(puan.variable("a"), variable="A").evaluate_propositions({"A": 1, "a": 0}) == {'A': 0, 'a': 0}
+    # Since node A is in interpretation, then all underneith A is cut off and A is set to 
+    # whatever is in interpretation.
+    assert pg.All(puan.variable("a"), variable="A").evaluate_propositions({"A": 1, "a": 0}, operator.attrgetter("constant")) == {'A': 1}
 
     # Test such that B is zero and thus A should be zero, even though result from C will say B = 1
     result = pg.All(
         pg.AtMost( 0, [puan.variable('a')], variable="B"),
         pg.AtMost( 0, [puan.variable('b')], variable="C"),
         variable="A",
-    ).evaluate_propositions({'a': 1, 'b': 0, 'A': 1, 'B': 1, 'C': 1})
+    ).evaluate_propositions({'a': 1, 'b': 0}, operator.attrgetter("constant"))
     assert result['A'] == 0
     assert result['B'] == 0
 
@@ -2032,12 +2082,12 @@ def test_evaluate_propositions():
         pg.All(*"Ca", variable="B"),
         variable="A",
     )
-    # We want B to be evaluated to 0 since C's default value is 0
-    # We want (then!) C to be evaluated to 0 since B is 0
-    # We want A to be evaluated to 0 since B and C are zero 
-    assert model.evaluate_propositions({'a': 1, 'B': 1}) == {'A': 0, 'B': 0, 'C': 0, 'a': 1}
-    # while evaluating with C=1 instead, we expects all to be set to 1's
-    assert model.evaluate_propositions({'a': 1, 'C': 1}) == {'A': 1, 'B': 1, 'C': 1, 'a': 1}
+    # We want B to be evaluated to 1 since it is in the interpretation.
+    # We want (then!) C to be evaluated to 1 since B and a are 1
+    # We want A to be evaluated to 1 since B and C are 1 
+    assert model.evaluate_propositions({'a': 1, 'B': 1}, operator.attrgetter("constant")) == {'A': 1, 'B': 1, 'C': 1, 'a': 1}
+    # while evaluating with C=1 instead, we expects same result
+    assert model.evaluate_propositions({'a': 1, 'C': 1}, operator.attrgetter("constant")) == {'A': 1, 'B': 1, 'C': 1, 'a': 1}
 
     # This should in the end evaluate to True
     # Note that the AtMost results in the
@@ -2055,24 +2105,32 @@ def test_evaluate_propositions():
         ], 
         variable=puan.variable('A', (0,1))
     )
-    assert model.evaluate_propositions({'A': 1, 'a': 3, 'b': 1, 'c': -3, 'd': -3, 'e': -3}) == {'A': 1, 'a': 3, 'b': 1, 'c': -3, 'd': -3, 'e': -3}
+    assert model.evaluate_propositions({'a': 3, 'b': 1, 'c': -3, 'd': -3, 'e': -3}, operator.attrgetter("constant")) == {'a': 3, 'b': 1, 'c': -3, 'd': -3, 'e': -3, 'A': 1}
+
+    # Test with constant variable
+    model = pg.Any(
+        pg.Any(
+            puan.variable("a", bounds=(0,0))
+        )
+    )
+    assert model.evaluate({}) == puan.Bounds(0,0)
 
 
 def configuration_dict_strategy():
-    return st.dictionaries(st.text(), st.integers(-2,2))
+    return strategies.dictionaries(strategies.text(), strategies.integers(-2,2))
 
 @given(proposition_strategy(), configuration_dict_strategy())
 def test_propositions_evaluations(proposition, configuration):
     value_error_raised = False
     try:
-        evaluate_propositions_result = proposition.evaluate_propositions(configuration)[proposition.variable.id] > 0
+        evaluate_propositions_result = proposition.evaluate_propositions(configuration)[proposition.variable.id]
         evaluate_result = proposition.evaluate(configuration)
     except ValueError:
         value_error_raised = True
     if not value_error_raised:
         assert evaluate_propositions_result == evaluate_result
 
-@given(st.text(), st.integers(), st.integers(), st.sampled_from([puan.Dtype.BOOL, puan.Dtype.INT, "bool", "int", None]))
+@given(strategies.text(), strategies.integers(), strategies.integers(), strategies.sampled_from([puan.Dtype.BOOL, puan.Dtype.INT, "bool", "int", None]))
 def test_puan_variable(id, lower, upper, dtype):
     
     if lower <= upper:
@@ -2134,7 +2192,7 @@ def test_puan_variable(id, lower, upper, dtype):
 #     )
 
 #     assumed_model, assumed_items = model.assume({"t": 12})
-#     assert assumed_model.is_tautologi
+#     assert assumed_model.is_tautology
 #     assert assumed_items['t'] == 12
 #     assert assumed_items['x'] == 1
 #     assert assumed_items['y'] == 1
@@ -2853,7 +2911,7 @@ def test_plog_evaluate_method():
         cucumbers.id: 0
     }
 
-    assert not fridge_model.evaluate(cart)
+    assert not fridge_model.evaluate(cart).constant == 1
 
     new_cart = {
         chips.id: 1,
@@ -2863,7 +2921,7 @@ def test_plog_evaluate_method():
         cucumbers.id: 1
     }
 
-    assert fridge_model.evaluate(new_cart)
+    assert fridge_model.evaluate(new_cart).constant == 1
 
 def test_duplicated_ids_should_not_result_in_contradiction():
 
@@ -3027,16 +3085,14 @@ def test_constructing_proposition_model_with_variable_sub_classes():
             )
         ),
         pg.Xor(Apple("small"), Apple("big")),
-        pg.Not(Pear("medium"))
     )
 
     # Test that we can evaluate on the items
-    assert not model.evaluate({"Apple-big": 1})
-    assert not model.evaluate({"Pear-medium": 1})
-    assert not model.evaluate({})
-    assert model.evaluate({"Apple-big": 1, "Orange-small": 1})
-    assert model.evaluate({"Apple-big": 1, "Orange-small": 1, "Orange-medium": 1})
-    assert model.evaluate({"Apple-small": 1})
+    assert model.evaluate({"Apple-big": 1}).constant is None
+    assert not model.evaluate({}).constant == 1
+    assert model.evaluate({"Apple-big": 1, "Apple-small": 0, "Orange-small": 1}).constant == 1
+    assert model.evaluate({"Apple-big": 1, "Apple-small": 0, "Orange-small": 1, "Orange-medium": 1}).constant == 1
+    assert model.evaluate({"Apple-small": 1, "Apple-big": 0}).constant == 1
 
 def test_proposition_interface():
     class MyProposition(puan.Proposition):
@@ -3086,4 +3142,140 @@ def test_ndarray():
 
     with pytest.raises(ValueError):
         puan.ndarray.boolean_ndarray([1,1,1]).get_neighbourhood(method="ON")
+
+def test_plog_assume():
+
+    # Test that different interpretations results in same evaluation
+    # both before and after assumption has been made.
+    for model, inters, fixes, should_raise in [
+        (
+            pg.All(*"xyz", variable="A"),
+            [
+                {"A": 1}
+            ],
+            [
+                {"A": 1}
+            ],
+            False
+        ),
+        (
+            pg.All(
+                pg.Any(*"abc", variable="B"),
+                pg.Xor(*"xyz", variable="C"),
+                variable="A"
+            ),
+            [
+                {"x": 1},
+                {"a": 1, "x": 1},
+                {"x": 1},
+                {"a": 1, "y": 1},
+            ],
+            [
+                {"a": 1},
+                {"y": 1},
+                {"B": 1},
+                {"x": 1},
+            ],
+            False
+        ),
+        (
+            pg.All(
+                pg.AtMost(
+                    2, 
+                    [
+                        puan.variable("a", (-3,3)),
+                        puan.variable("b", (-2,2)),
+                        puan.variable("c", (-1,1)),
+                        puan.variable("d", (-1,1)),
+                    ]
+                ),
+                pg.Any(*"xyz")
+            ),
+            [
+                {"b": -2}
+            ],
+            [
+                {"a": -3}
+            ],
+            False
+        ),
+        (
+            pg.AtLeast(
+                1,
+                [
+                    pg.AtLeast(
+                        1,
+                        list("abc"),
+                        variable="B"
+                    ),
+                    pg.AtLeast(
+                        1,
+                        list("xyz"),
+                        variable="C"
+                    )
+                ],
+                variable="A"
+            ),
+            [
+                {"b": 1},
+            ],
+            [
+                {"a": 1},
+            ],
+            False
+        ),
+        (
+            pg.AtMost(
+                0,
+                list("abc"),
+                variable="A"
+            ),
+            [
+                {"b": 1},
+            ],
+            [
+                {"a": 1},
+            ],
+            False
+        ),
+        (
+            pg.AtMost(
+                0,
+                [
+                    pg.AtMost(
+                        1,
+                        list("abc"),
+                        variable="B"
+                    ),
+                    pg.AtLeast(
+                        1,
+                        list("xyz"),
+                        variable="C"
+                    )
+                ],
+                variable="A"
+            ),
+            [
+                {"b": 1},
+            ],
+            [
+                {"a": 1},
+            ],
+            False
+        ),
+        (
+            pg.All(*"xyz", variable="A"),
+            [{},],
+            [{"y": "1"}],
+            True
+        ),
+    ]:
+        for i, (inter, fix) in enumerate(zip(inters, fixes)):
+            if not should_raise:
+                assumed_model = model.assume(fix)
+                result = model.evaluate({**inter, **fix}) == assumed_model.evaluate(inter)
+                assert result
+            else:
+                with pytest.raises(ValueError):
+                    model.assume(fix)
 
