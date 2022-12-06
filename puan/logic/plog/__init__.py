@@ -70,6 +70,7 @@ class AtLeast(puan.Proposition):
         
         Methods
         -------
+        assume
         atomic_propositions
         bounds
         compound_propositions
@@ -84,6 +85,7 @@ class AtLeast(puan.Proposition):
         is_contradiction
         is_tautology
         negate
+        reduce
         solve
         to_b64
         to_ge_polyhedron
@@ -1190,13 +1192,97 @@ class AtLeast(puan.Proposition):
                 )
             )
             
+    def reduce(self) -> puan.Proposition:
+
+        """
+            Reduces proposition by removing all variables with fixed bound.
+            Returns a potentially reduced proposition.
+
+            See also
+            --------
+                assume
+
+            Examples
+            --------
+                >>> All(puan.variable("x", (1,1)), *"yz", variable="A").reduce()
+                A: +(y,z)>=2
+                >>> # Note that x is no longer part of the proposition and
+                >>> # the value of the proposition is updated from 3 to 2
+                >>> # as a result of x being 1
+
+                >>> All(puan.variable("x", (1,1)), puan.variable("y", (0,0)), variable="A").reduce()
+                variable(id='A', bounds=Bounds(lower=0, upper=0))
+                >>> # If the remaining proposition is a puan.variable and only a puan.varialbe it is kept with updated bounds
+                >>> # Any other constant proposition will be reduced
+
+            Returns
+            -------
+                out :  :class:`puan.Proposition`
+        """
+        if self.bounds.constant is not None:
+            return self.variable
+
+        sub_propositions = list(
+            itertools.chain(
+                map(
+                    operator.methodcaller("reduce"),
+                    self.compound_propositions,
+                ),
+                self.atomic_propositions,
+            ),
+        )
+
+        # it may occur that a proposition's new sub proposition list results in a new bound for
+        # this proposition to be constant. Because of this we calculate the new bounds
+        # and reduce the proposition if possible. 
+        new_bounds = puan.Bounds(
+            *(
+                np.array(
+                    list(
+                        map(
+                            # flip bounds and multiply by sign if sign is negative
+                            # eg. if bounds (0,1) then (-1,0)
+                            lambda x: x if self.sign > 0 else (x[1]*self.sign, x[0]*self.sign),
+                            map(
+                                lambda prop: prop.bounds.as_tuple(),
+                                sub_propositions,
+                            )
+                        )
+                    )
+                ).sum(axis=0) >= self.value
+            ) * 1
+        )
+
+        if new_bounds.constant is not None:
+            return puan.variable(
+                id=self.id,
+                bounds=new_bounds,
+            )
+        
+        return AtLeast(
+            self.value - sum(
+                map(
+                    lambda x: x.bounds.constant, 
+                    filter(
+                        lambda x: x.bounds.constant is not None,
+                        sub_propositions,
+                    )
+                )
+            ) * self.sign,
+            list(filter(lambda x: x.bounds.constant is None, sub_propositions)),
+            variable=puan.variable(
+                id=self.id,
+                bounds=new_bounds,
+            ),
+            sign=self.sign,
+        )
 
     def assume(self, new_variable_bounds: typing.Dict[str, typing.Union[int, typing.Tuple[int, int], puan.Bounds]]) -> puan.Proposition:
 
         """
             Assumes something about variable's bounds and returns a new proposition with these new bounds set.
-            Other variables, not declared in `new_variable_bounds`, may also get new bounds as a consequence from the ones set
-            in `new_variable_bounds`.
+            Other variables, not declared in ``new_variable_bounds``, may also get new bounds as a consequence from the ones set
+            in ``new_variable_bounds``.
 
             Parameters
             ----------
@@ -1208,16 +1294,21 @@ class AtLeast(puan.Proposition):
                 All propositions are still kept within this proposition after assume. What may
                 have happen is that proposition's bounds have tightened.
 
+            See also
+            --------
+                reduce
+
             Examples
             --------
-                Notice in this example that `x`'s bounds are changed from (0,1) to (1,1). Also that the
+                Notice in this example that x bounds are changed from (0,1) to (1,1). Also that the
                 model is a tautology after the assumptions.
+                
                 >>> model = Any(*"xy", variable="A")
                 >>> model.propositions
                 [variable(id='x', bounds=Bounds(lower=0, upper=1)), variable(id='y', bounds=Bounds(lower=0, upper=1))]
                 >>> model.is_tautology
                 False
-                >>> model_assumed = model.assume({"x": 1}) # fixes `x`'s bounds to (1,1)
+                >>> model_assumed = model.assume({"x": 1}) # fixes x bounds to (1,1)
                 >>> model_assumed.propositions
                 [variable(id='x', bounds=Bounds(lower=1, upper=1)), variable(id='y', bounds=Bounds(lower=0, upper=1))]
                 >>> model_assumed.is_tautology
@@ -1225,52 +1316,55 @@ class AtLeast(puan.Proposition):
 
             Returns
             -------
-                out : AtLeast
+                out : :class:`puan.Proposition`
         """
         if self.id in new_variable_bounds:
-            return puan.variable(
+            self.variable = puan.variable(
                 id=self.id,
-                bounds=new_variable_bounds[self.id],
+                bounds=new_variable_bounds.get(self.id),
             )
-        
-        assumed_propositions = list(
-            map(
-                lambda prop: prop.assume(new_variable_bounds),
-                self.propositions,
-            )
-        )
 
-        result = AtLeast(
-            value=self.value,
-            propositions=maz.filter_map_concat(
-                # If proposition has a constant bound after evaluating it
-                lambda prop: prop.id in new_variable_bounds,
-                # If is a constant, just keep the variable from the proposition
-                # else, keep the proposition as is
-                lambda prop: prop if issubclass(prop.__class__, puan.variable) else prop.variable,
-            )(assumed_propositions),
-            variable=puan.variable(
-                self.id,
-                bounds=(
-                    np.array(
-                        list(
-                            map(
-                                # flip bounds and multiply by sign if sign is negative
-                                # eg. if bounds (0,1) then (-1,0)
-                                lambda x: x if self.sign > 0 else (x[1]*self.sign, x[0]*self.sign),
+        if self.bounds.constant is not None:
+            return self.variable
+        else:
+            assumed_propositions = list(
+                map(
+                    lambda prop: prop.assume(new_variable_bounds),
+                    self.propositions,
+                )
+            )
+
+            result = AtLeast(
+                value=self.value,
+                propositions=maz.filter_map_concat(
+                    # If proposition has a constant bound after evaluating it
+                    lambda prop: prop.id in new_variable_bounds,
+                    # If is a constant, just keep the variable from the proposition
+                    # else, keep the proposition as is
+                    lambda prop: prop if issubclass(prop.__class__, puan.variable) else prop.variable,
+                )(assumed_propositions),
+                variable=puan.variable(
+                    self.id,
+                    bounds=(
+                        np.array(
+                            list(
                                 map(
-                                    lambda prop: prop.bounds.as_tuple(),
-                                    assumed_propositions,
+                                    # flip bounds and multiply by sign if sign is negative
+                                    # eg. if bounds (0,1) then (-1,0)
+                                    lambda x: x if self.sign > 0 else (x[1]*self.sign, x[0]*self.sign),
+                                    map(
+                                        lambda prop: prop.bounds.as_tuple(),
+                                        assumed_propositions,
+                                    )
                                 )
                             )
-                        )
-                    ).sum(axis=0) >= self.value
-                ) * 1,
-            ),
-            sign=self.sign,
-        )
-        result.__class__ = self.__class__
-        return result
+                        ).sum(axis=0) >= self.value
+                    ) * 1,
+                ),
+                sign=self.sign,
+            )
+            result.__class__ = self.__class__
+            return result
 
 
 class AtMost(AtLeast):
