@@ -170,7 +170,7 @@ def cc_propositions_strategy():
 @given(propositions_strategy())
 def test_plog_reduce(propositions):
 
-    # All reduced variables should be able to find in model
+    # It should be possible to find all reduced variables in model
     # with fixed bounds
     model = pg.All(*propositions)
     assume(len(model.errors()) == 0)
