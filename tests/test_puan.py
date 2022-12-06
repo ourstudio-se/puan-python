@@ -166,6 +166,25 @@ def propositions_strategy():
 def cc_propositions_strategy():
     return strategies.lists(cc_proposition_strategy(), min_size=1)
 
+@settings(deadline=None)
+@given(propositions_strategy())
+def test_plog_reduce(propositions):
+
+    # All reduced variables should be able to find in model
+    # with fixed bounds
+    model = pg.All(*propositions)
+    assume(len(model.errors()) == 0)
+    assumed = model.assume({})
+    reduced = model.reduce()
+    # If reduced is a just a puan.variable, 
+    # then assumed must be either a tautology or a contradiction
+    if isinstance(reduced, puan.variable):
+        assert assumed.is_contradiction or assumed.is_tautology
+    else:
+        n_assumed_left = sum(map(lambda x: x.bounds.lower != x.bounds.upper, assumed.flatten()))
+        n_reduced_left = len(reduced.flatten())
+        assert n_assumed_left >= n_reduced_left
+
 @given(cc_propositions_strategy())
 @settings(deadline=None)
 def test_negated_propositions_are_unique(propositions):
@@ -1482,7 +1501,7 @@ def test_evaluate_propositions():
     # We want A to be evaluated to 1 since B and C are 1 
     assert model.evaluate_propositions({'a': 1, 'B': 1}, operator.attrgetter("constant")) == {'A': 1, 'B': 1, 'C': 1, 'a': 1}
     # while evaluating with C=1 instead, we expects same result
-    assert model.evaluate_propositions({'a': 1, 'C': 1}, operator.attrgetter("constant")) == {'A': 1, 'B': 1, 'C': 1, 'a': 1}
+    assert model.evaluate_propositions({'a': 1, 'C': 1}, operator.attrgetter("constant")) == {'A': 1, 'B': 1, 'C': 1}
 
     # This should in the end evaluate to True
     # Note that the AtMost results in the
@@ -1539,6 +1558,9 @@ def test_puan_variable(id, lower, upper, dtype):
         # should raise ValueError from Bounds
         with pytest.raises(ValueError):
             puan.variable(id, (lower, upper), dtype)
+
+    with pytest.raises(ValueError):
+        puan.variable("some-id", (0,1)).evaluate({"some-id": str})
 
 # def test_assuming_integer_variables():
 
@@ -2499,6 +2521,8 @@ def test_proposition_interface():
         MyProposition().to_json()
     with pytest.raises(NotImplementedError):
         MyProposition().from_json([],[])
+    with pytest.raises(NotImplementedError):
+        MyProposition().assume({})
 
 def test_misc():
     with pytest.raises(KeyError):
@@ -2660,10 +2684,20 @@ def test_plog_assume():
         ),
         (
             pg.All(*"xyz", variable="A"),
-            [{},],
+            [{}],
             [{"y": "1"}],
             True
         ),
+        (
+            pg.All(
+                pg.Any(*"ab", variable="B"),
+                pg.Any(*"cd", variable="C"),
+                variable="A",
+            ),
+            [{"a": 1}],
+            [{"B": 1}],
+            False,
+        )
     ]:
         for i, (inter, fix) in enumerate(zip(inters, fixes)):
             if not should_raise:
@@ -2673,4 +2707,9 @@ def test_plog_assume():
             else:
                 with pytest.raises(ValueError):
                     model.assume(fix)
+
+def test_puan_bounds():
+
+    # test __iter__ func
+    assert all(map(lambda x: x == 1, puan.Bounds(1,1)))
 

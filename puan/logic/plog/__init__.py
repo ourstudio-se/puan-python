@@ -1190,6 +1190,81 @@ class AtLeast(puan.Proposition):
                 )
             )
             
+    def reduce(self) -> puan.Proposition:
+
+        """
+            Reduces this proposition by removing all variables with fixed bound.
+            Returned is maybe a smaller proposition.
+
+            Examples
+            --------
+                >>> All(puan.variable("x", (1,1)), *"yz", variable="A").reduce()
+                A: +(y,z)>=2
+
+                >>> All(puan.variable("x", (1,1)), puan.variable("y", (0,0)), variable="A").reduce()
+                variable(id='A', bounds=Bounds(lower=0, upper=0))
+
+            Returns
+            -------
+                out :  puan.Proposition
+        """
+        if self.bounds.constant is not None:
+            return self.variable
+
+        sub_propositions = list(
+            itertools.chain(
+                map(
+                    operator.methodcaller("reduce"),
+                    self.compound_propositions,
+                ),
+                self.atomic_propositions,
+            ),
+        )
+
+        # it may occur that a proposition's new sub proposition list results in a new bound for
+        # this proposition that are constant. So because of that we calculate the new bounds
+        # always and checks if it makes this proposition getting reduced. 
+        new_bounds = puan.Bounds(
+            *(
+                np.array(
+                    list(
+                        map(
+                            # flip bounds and multiply by sign if sign is negative
+                            # eg. if bounds (0,1) then (-1,0)
+                            lambda x: x if self.sign > 0 else (x[1]*self.sign, x[0]*self.sign),
+                            map(
+                                lambda prop: prop.bounds.as_tuple(),
+                                sub_propositions,
+                            )
+                        )
+                    )
+                ).sum(axis=0) >= self.value
+            ) * 1
+        )
+
+        if new_bounds.constant is not None:
+            return puan.variable(
+                id=self.id,
+                bounds=new_bounds,
+            )
+        
+        return AtLeast(
+            self.value - sum(
+                map(
+                    lambda x: x.bounds.constant, 
+                    filter(
+                        lambda x: x.bounds.constant is not None,
+                        sub_propositions,
+                    )
+                )
+            ) * self.sign,
+            list(filter(lambda x: x.bounds.constant is None, sub_propositions)),
+            variable=puan.variable(
+                id=self.id,
+                bounds=new_bounds,
+            ),
+            sign=self.sign,
+        )
 
     def assume(self, new_variable_bounds: typing.Dict[str, typing.Union[int, typing.Tuple[int, int], puan.Bounds]]) -> puan.Proposition:
 
@@ -1228,49 +1303,52 @@ class AtLeast(puan.Proposition):
                 out : AtLeast
         """
         if self.id in new_variable_bounds:
-            return puan.variable(
+            self.variable = puan.variable(
                 id=self.id,
-                bounds=new_variable_bounds[self.id],
+                bounds=new_variable_bounds.get(self.id),
             )
-        
-        assumed_propositions = list(
-            map(
-                lambda prop: prop.assume(new_variable_bounds),
-                self.propositions,
-            )
-        )
 
-        result = AtLeast(
-            value=self.value,
-            propositions=maz.filter_map_concat(
-                # If proposition has a constant bound after evaluating it
-                lambda prop: prop.id in new_variable_bounds,
-                # If is a constant, just keep the variable from the proposition
-                # else, keep the proposition as is
-                lambda prop: prop if issubclass(prop.__class__, puan.variable) else prop.variable,
-            )(assumed_propositions),
-            variable=puan.variable(
-                self.id,
-                bounds=(
-                    np.array(
-                        list(
-                            map(
-                                # flip bounds and multiply by sign if sign is negative
-                                # eg. if bounds (0,1) then (-1,0)
-                                lambda x: x if self.sign > 0 else (x[1]*self.sign, x[0]*self.sign),
+        if self.bounds.constant is not None:
+            return self.variable
+        else:
+            assumed_propositions = list(
+                map(
+                    lambda prop: prop.assume(new_variable_bounds),
+                    self.propositions,
+                )
+            )
+
+            result = AtLeast(
+                value=self.value,
+                propositions=maz.filter_map_concat(
+                    # If proposition has a constant bound after evaluating it
+                    lambda prop: prop.id in new_variable_bounds,
+                    # If is a constant, just keep the variable from the proposition
+                    # else, keep the proposition as is
+                    lambda prop: prop if issubclass(prop.__class__, puan.variable) else prop.variable,
+                )(assumed_propositions),
+                variable=puan.variable(
+                    self.id,
+                    bounds=(
+                        np.array(
+                            list(
                                 map(
-                                    lambda prop: prop.bounds.as_tuple(),
-                                    assumed_propositions,
+                                    # flip bounds and multiply by sign if sign is negative
+                                    # eg. if bounds (0,1) then (-1,0)
+                                    lambda x: x if self.sign > 0 else (x[1]*self.sign, x[0]*self.sign),
+                                    map(
+                                        lambda prop: prop.bounds.as_tuple(),
+                                        assumed_propositions,
+                                    )
                                 )
                             )
-                        )
-                    ).sum(axis=0) >= self.value
-                ) * 1,
-            ),
-            sign=self.sign,
-        )
-        result.__class__ = self.__class__
-        return result
+                        ).sum(axis=0) >= self.value
+                    ) * 1,
+                ),
+                sign=self.sign,
+            )
+            result.__class__ = self.__class__
+            return result
 
 
 class AtMost(AtLeast):
