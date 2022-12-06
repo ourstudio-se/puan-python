@@ -1193,7 +1193,7 @@ class AtLeast(puan.Proposition):
     def reduce(self) -> puan.Proposition:
 
         """
-            Reduces this proposition by removing all variables with fixed bound.
+            Reduces proposition by removing all variables with fixed bound.
             Returned is maybe a smaller proposition.
 
             Examples
