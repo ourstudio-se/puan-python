@@ -1200,9 +1200,9 @@ class AtLeast(puan.Proposition):
             --------
                 >>> All(puan.variable("x", (1,1)), *"yz", variable="A").reduce()
                 A: +(y,z)>=2
-                # Note that x is no longer part of the proposition and
-                # the value of the proposition is updated from 3 to 2
-                # as a result of x being 1
+                >>> # Note that x is no longer part of the proposition and
+                >>> # the value of the proposition is updated from 3 to 2
+                >>> # as a result of x being 1
 
                 An example where the subpropositions x and y are reduced since their bounds results in constant values
                 The bounds of the proposition A is updated accordingly
