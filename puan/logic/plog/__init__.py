@@ -1194,7 +1194,7 @@ class AtLeast(puan.Proposition):
 
         """
             Reduces proposition by removing all variables with fixed bound.
-            Returned is maybe a smaller proposition.
+            Returns a potentially reduced proposition.
 
             Examples
             --------
