@@ -70,6 +70,7 @@ class AtLeast(puan.Proposition):
         
         Methods
         -------
+        assume
         atomic_propositions
         bounds
         compound_propositions
@@ -84,6 +85,7 @@ class AtLeast(puan.Proposition):
         is_contradiction
         is_tautology
         negate
+        reduce
         solve
         to_b64
         to_ge_polyhedron
@@ -1196,6 +1198,10 @@ class AtLeast(puan.Proposition):
             Reduces proposition by removing all variables with fixed bound.
             Returns a potentially reduced proposition.
 
+            See also
+            --------
+                assume
+
             Examples
             --------
                 >>> All(puan.variable("x", (1,1)), *"yz", variable="A").reduce()
@@ -1287,6 +1293,10 @@ class AtLeast(puan.Proposition):
             -----
                 All propositions are still kept within this proposition after assume. What may
                 have happen is that proposition's bounds have tightened.
+
+            See also
+            --------
+                reduce
 
             Examples
             --------
