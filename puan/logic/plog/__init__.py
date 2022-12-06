@@ -1211,7 +1211,7 @@ class AtLeast(puan.Proposition):
 
             Returns
             -------
-                out :  puan.Proposition
+                out :  :class:`puan.Proposition`
         """
         if self.bounds.constant is not None:
             return self.variable
