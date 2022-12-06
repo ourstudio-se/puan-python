@@ -1204,7 +1204,6 @@ class AtLeast(puan.Proposition):
                 >>> # the value of the proposition is updated from 3 to 2
                 >>> # as a result of x being 1
 
-                An example where the subpropositions x and y are reduced since their bounds results in constant values
                 >>> All(puan.variable("x", (1,1)), puan.variable("y", (0,0)), variable="A").reduce()
                 variable(id='A', bounds=Bounds(lower=0, upper=0))
 
