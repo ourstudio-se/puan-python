@@ -1193,20 +1193,25 @@ class AtLeast(puan.Proposition):
     def reduce(self) -> puan.Proposition:
 
         """
-            Reduces this proposition by removing all variables with fixed bound.
-            Returned is maybe a smaller proposition.
+            Reduces proposition by removing all variables with fixed bound.
+            Returns a potentially reduced proposition.
 
             Examples
             --------
                 >>> All(puan.variable("x", (1,1)), *"yz", variable="A").reduce()
                 A: +(y,z)>=2
+                # Note that x is no longer part of the proposition and
+                # the value of the proposition is updated from 3 to 2
+                # as a result of x being 1
 
+                An example where the subpropositions x and y are reduced since their bounds results in constant values
+                The bounds of the proposition A is updated accordingly
                 >>> All(puan.variable("x", (1,1)), puan.variable("y", (0,0)), variable="A").reduce()
                 variable(id='A', bounds=Bounds(lower=0, upper=0))
 
             Returns
             -------
-                out :  puan.Proposition
+                out :  :class:`puan.Proposition`
         """
         if self.bounds.constant is not None:
             return self.variable
@@ -1222,8 +1227,8 @@ class AtLeast(puan.Proposition):
         )
 
         # it may occur that a proposition's new sub proposition list results in a new bound for
-        # this proposition that are constant. So because of that we calculate the new bounds
-        # always and checks if it makes this proposition getting reduced. 
+        # this proposition to be constant. Because of this we calculate the new bounds
+        # and reduce the proposition if possible. 
         new_bounds = puan.Bounds(
             *(
                 np.array(
