@@ -13,7 +13,6 @@ import numpy as np
 import puan
 import puan.ndarray as pnd
 import puan_rspy as pr
-import dictdiffer
 import more_itertools
 from dataclasses import dataclass
 from collections import Counter
@@ -1074,8 +1073,9 @@ class AtLeast(puan.Proposition):
     def solve(
         self, 
         objectives: typing.List[typing.Dict[typing.Union[str, puan.variable], int]], 
-        solver: typing.Callable[[pnd.ge_polyhedron, typing.Dict[str, int]], typing.Iterable[typing.Tuple[np.ndarray, int, int]]] = None,
+        solver: typing.Callable[[pnd.ge_polyhedron, typing.Iterable[np.ndarray]], typing.Iterable[typing.Tuple[typing.Optional[np.ndarray], typing.Optional[int], int]]] = None,
         try_reduce_before: bool = False,
+        include_virtual_variables: bool = False,
     ) -> itertools.starmap:
 
         """
@@ -1109,6 +1109,9 @@ class AtLeast(puan.Proposition):
                     If true, then methods will be applied to try and reduce size of this model before
                     running solve function.
 
+                include_virtual_variables : bool = False
+                    If true, then virtual/artificial variables that has automatically been generated creating the model will included in solutions
+
             Examples
             --------
                 >>> dummy_solver = lambda x,y: list(map(lambda v: (v, 0, 5), y))
@@ -1132,35 +1135,57 @@ class AtLeast(puan.Proposition):
         if solver is None:
             pyrs_theory, variable_id_map = self._to_pyrs_theory()
             id_map = dict(variable_id_map.values())
-            return list(
-                itertools.starmap(
-                    lambda solution, objective_value, status_code: (
-                        dict(
-                            itertools.starmap(
-                                lambda k,v: (id_map[k].id, v), 
-                                solution.items()
-                            )
-                        ),
-                        objective_value, status_code
-                    ),
-                    pyrs_theory.solve(
-                        list(
-                            map(
-                                lambda objective: dict(
-                                    zip(
-                                        map(
-                                            lambda k: variable_id_map[k][0],
-                                            objective, 
+            return itertools.starmap(
+                lambda solution, objective_value, status_code: (
+                    dict(
+                        itertools.starmap(
+                            lambda k,v: (id_map[k].id, v), 
+                            filter(
+                                maz.ifttt(
+                                    # If is puan.variable
+                                    lambda x: issubclass(id_map[x[0]].__class__, puan.variable),
+                                    
+                                    # then include it
+                                    lambda _: True,
+
+                                    # else if variable id is generated
+                                    maz.ifttt(
+                                        maz.compose(
+                                            operator.attrgetter("generated_id"),
+                                            id_map.get,
+                                            operator.itemgetter(0),
                                         ),
-                                        objective.values(),
+
+                                        # then check also that we should include those variables
+                                        lambda _: include_virtual_variables,
+
+                                        # else include it
+                                        lambda _: True
                                     )
                                 ),
-                                objectives, 
-                            ),
-                        ),
-                        False,
+                                solution.items()
+                            )
+                        )
                     ),
-                )
+                    objective_value, status_code
+                ),
+                pyrs_theory.solve(
+                    list(
+                        map(
+                            lambda objective: dict(
+                                zip(
+                                    map(
+                                        lambda k: variable_id_map[k][0],
+                                        objective, 
+                                    ),
+                                    objective.values(),
+                                )
+                            ),
+                            objectives, 
+                        ),
+                    ),
+                    False,
+                ),
             )
         else:
             polyhedron = self.to_ge_polyhedron(
@@ -1176,13 +1201,36 @@ class AtLeast(puan.Proposition):
             return itertools.starmap(
                 lambda solution, objective_value, status_code: (
                     dict(
-                        zip(
-                            map(
-                                operator.attrgetter("id"),
-                                polyhedron.A.variables
-                            ),
-                            solution
-                        )
+                        map(
+                            lambda x: (x[0].id, x[1]),
+                            filter(
+                                maz.ifttt(
+                                    # if variable is a puan.variable
+                                    lambda x: issubclass(x[0].__class__, puan.variable),
+                                    
+                                    # then keep it 
+                                    lambda _: True,
+
+                                    # else if variable id is generated
+                                    maz.ifttt(
+                                        maz.compose(
+                                            operator.attrgetter("generated_id"),
+                                            operator.itemgetter(0),
+                                        ),
+
+                                        # then check also that we should include those variables
+                                        lambda _: include_virtual_variables,
+
+                                        # else include it
+                                        lambda _: True
+                                    )
+                                ),
+                                zip(
+                                    polyhedron.A.variables,
+                                    solution
+                                )
+                            )
+                        ),
                     ) if solution is not None else {},
                     objective_value, status_code
                 ),
@@ -1794,7 +1842,7 @@ class Xor(All):
                 out : :class:`Xor`
         """
         propositions = data.get('propositions', [])
-        return Xor(
+        return self.__class__(
             *map(functools.partial(from_json, class_map=class_map), propositions),
             variable=data.get('id', None)
         )
@@ -1816,7 +1864,7 @@ class Xor(All):
                 out : :class:`Xor`
         """
 
-        return Xor(*propositions, variable=variable)
+        return self.__class__(*propositions, variable=variable)
 
     def to_json(self) -> typing.Dict[str, typing.Any]:
 
@@ -1839,6 +1887,10 @@ class Xor(All):
         if not self.generated_id:
             d['id'] = self.id
         return d
+
+
+class ExactlyOne(Xor):    
+    pass
 
 
 class Not():
@@ -1971,7 +2023,7 @@ class XNor(Any):
             d['id'] = self.id
         return d
 
-def from_json(data: dict, class_map: list = [puan.variable,AtLeast,AtMost,All,Any,Xor,Not,XNor,Imply]) -> typing.Any:
+def from_json(data: dict, class_map: list = [puan.variable,AtLeast,AtMost,All,Any,Xor,ExactlyOne,Not,XNor,Imply]) -> typing.Any:
 
     """
         Convert from json data to a proposition.

@@ -2025,6 +2025,116 @@ def test_dump_load_ge_polyhedron_config():
 
     assert list(actual) == list(expected)
 
+def test_solve_select():
+
+    def dummy_solver(polyhedron, objectives):
+        return map(
+            lambda x: (x, x.sum(), 5),
+            numpy.ones((len(list(objectives)), polyhedron.A.shape[1]))
+        )
+
+    assert all(
+        itertools.starmap(
+            lambda model, expected, inc_virt: next(model.solve([{}], solver=dummy_solver, include_virtual_variables=inc_virt))[0] == expected,
+            [
+                (
+                    pg.All(
+                        pg.Any(*"ab"),
+                        pg.Any(*"xy"),
+                    ),
+                    {
+                        "a": 1,
+                        "b": 1,
+                        "x": 1,
+                        "y": 1,
+                    },
+                    False,
+                ),
+                (
+                    pg.All(
+                        pg.Any(*"ab", variable="B"),
+                        pg.Any(*"xy", variable="C"),
+                    ),
+                    {
+                        "B": 1,
+                        "C": 1,
+                        "a": 1,
+                        "b": 1,
+                        "x": 1,
+                        "y": 1,
+                    },
+                    False,
+                ),
+                (
+                    pg.All(
+                        pg.Any(*"ab"),
+                        pg.Any(*"xy"),
+                    ),
+                    {
+                        "VARbe8d74d8fa4921a5b81b2aac8134ab779c2c68235100ac45f5b33779da3c647c": 1,
+                        "VARf4ee25a75ae7daf40eefdd224ace61603dd2df6a77015889d190d878057b54d4": 1,
+                        "a": 1,
+                        "b": 1,
+                        "x": 1,
+                        "y": 1,
+                    },
+                    True,
+                ),
+            ]
+        )
+    )
+
+    assert all(
+        itertools.starmap(
+            lambda model, expected, inc_virt: next(model.solve([{}], include_virtual_variables=inc_virt))[0] == expected,
+            [
+                (
+                    pg.All(
+                        pg.Any(*"ab"),
+                        pg.Any(*"xy"),
+                    ),
+                    {
+                        "a": 1,
+                        "b": 0,
+                        "x": 1,
+                        "y": 0,
+                    },
+                    False,
+                ),
+                (
+                    pg.All(
+                        pg.Any(*"ab", variable="B"),
+                        pg.Any(*"xy", variable="C"),
+                    ),
+                    {
+                        "B": 1,
+                        "C": 1,
+                        "a": 1,
+                        "b": 0,
+                        "x": 1,
+                        "y": 0,
+                    },
+                    False,
+                ),
+                (
+                    pg.All(
+                        pg.Any(*"ab"),
+                        pg.Any(*"xy"),
+                    ),
+                    {
+                        "VARbe8d74d8fa4921a5b81b2aac8134ab779c2c68235100ac45f5b33779da3c647c": 1,
+                        "VARf4ee25a75ae7daf40eefdd224ace61603dd2df6a77015889d190d878057b54d4": 1,
+                        "a": 1,
+                        "b": 0,
+                        "x": 1,
+                        "y": 0,
+                    },
+                    True,
+                ),
+            ]
+        )
+    )
+
 def test_default_prio_vector_weights():
 
     """
