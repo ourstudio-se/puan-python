@@ -106,10 +106,10 @@ class AtLeast(puan.Proposition):
             raise Exception(f"`sign` of AtLeast proposition must be either -1 or 1, got: {sign}")
 
 
-        propositions_list = list(propositions)
-        if propositions is None or len(propositions_list) == 0:
+        if propositions is None:
             raise Exception("Sub propositions cannot be `None`")
 
+        propositions_list = list(propositions)
         self.propositions = sorted(
             itertools.chain(
                 filter(
@@ -1832,8 +1832,8 @@ class Xor(All):
             variable=variable,
         )
 
-    @staticmethod
-    def from_json(data: dict, class_map) -> "Xor":
+    @classmethod
+    def from_json(cls, data: dict, class_map) -> "Xor":
         """
             Convert from JSON data to a proposition.
 
@@ -1842,13 +1842,13 @@ class Xor(All):
                 out : :class:`Xor`
         """
         propositions = data.get('propositions', [])
-        return self.__class__(
+        return cls(
             *map(functools.partial(from_json, class_map=class_map), propositions),
             variable=data.get('id', None)
         )
 
-    @staticmethod
-    def from_list(propositions: typing.List[typing.Union["AtLeast", puan.variable]], variable: typing.Union[str, puan.variable] = None) -> "Xor":
+    @classmethod
+    def from_list(cls, propositions: typing.List[typing.Union["AtLeast", puan.variable]], variable: typing.Union[str, puan.variable] = None) -> "Xor":
 
         """
             Convert from list of propositions to an object of this proposition class.
@@ -1864,7 +1864,7 @@ class Xor(All):
                 out : :class:`Xor`
         """
 
-        return self.__class__(*propositions, variable=variable)
+        return cls(*propositions, variable=variable)
 
     def to_json(self) -> typing.Dict[str, typing.Any]:
 

@@ -2378,9 +2378,6 @@ def test_at_leasts():
 
     with pytest.raises(Exception):
         pg.AtLeast(value=1, propositions=None, variable="A")
-
-    with pytest.raises(Exception):
-        pg.AtLeast(propositions=[], value=1, variable="A")
     
     with pytest.raises(Exception):
         pg.AtLeast(propositions=["a"], value=1, sign=-2)
