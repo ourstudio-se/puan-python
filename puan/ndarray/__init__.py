@@ -2055,7 +2055,7 @@ class ge_polyhedron_config(ge_polyhedron):
     def select(
         self, 
         *prios: typing.List[typing.Dict[str, int]], 
-        solver: typing.Callable[[ge_polyhedron, typing.Dict[str, int]], typing.Iterable[typing.Tuple[typing.List[int], int, int]]] = None,
+        solver: typing.Callable[[ge_polyhedron, typing.Iterable[numpy.ndarray]], typing.Iterable[typing.Tuple[typing.Optional[numpy.ndarray], typing.Optional[int], int]]] = None,
     ) -> itertools.starmap:
 
         """
