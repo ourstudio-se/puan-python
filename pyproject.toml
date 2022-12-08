@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "puan"
 requires-python = ">=3.8"
-version = "0.4.9"
+version = "0.5.0"
 authors = [
   { name="Our Studio Void AB", email="moa@ourstudio.se" },
 ]
