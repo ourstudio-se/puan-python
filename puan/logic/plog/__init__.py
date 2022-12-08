@@ -1110,7 +1110,7 @@ class AtLeast(puan.Proposition):
                     running solve function.
 
                 include_virtual_variables : bool = False
-                    If true, then virtual/artificial variables that has automatically been generated creating the model will included in solutions
+                    If true, the virtual/artificial variables that has automatically been generated creating the model will be included in solutions
 
             Examples
             --------
