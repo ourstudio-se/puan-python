@@ -1156,7 +1156,7 @@ class AtLeast(puan.Proposition):
                                             operator.itemgetter(0),
                                         ),
 
-                                        # then check also that we should include those variables
+                                        # then also check that we should include those variables
                                         lambda _: include_virtual_variables,
 
                                         # else include it
