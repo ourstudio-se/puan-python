@@ -123,7 +123,8 @@ We head to the store and check our model with the current shopping cart after we
 
     # ... and evaluate if it satisfies the model
     print(fridge_model.evaluate(cart))
-    # >>> False
+    # >>> Bounds(lower=0, upper=0) 
+    # Meaning that this cart evaluates fridge_model to a constant 0 (or false)
 
 As expected, the current cart is not valid (we don't have *chips* nor *cucumbers*). Let's pick them from the store and
 check again if we're ok
@@ -141,6 +142,7 @@ check again if we're ok
 
     # ... and evaluate if it satisfies the model
     print(fridge_model.evaluate(new_cart))
-    # >>> True
+    # >>> Bounds(lower=1, upper=1)
+    # Meaning that this cart evaluates fridge_model to a constant 1 (or true)
 
 The model is satisfied and we are ready to checkout and go home.

@@ -19,6 +19,7 @@ We define the logic model using the :ref:`PLog modelling system<PLOG>`:
     import puan
     import puan.logic.plog as pg
     import puan.modules.configurator as cc
+    import puan_solvers as ps # pip install puan-solvers
 
     model = cc.StingyConfigurator(
         pg.Xor(
@@ -64,16 +65,22 @@ The polyhedron defines the logical model as linear inequalities, such that :math
     solution = next(
         model.select(
             {"jeans-black": 1}, 
+            solver=ps.glpk_solver,
             only_leafs=True # <- only leafs excludes any artificial variable value, which may not be interesting for you as a user
         )
     )
 
     print(solution)
-    # [
-    #    (variable(id='jeans-black', dtype=0, virtual=False), 1), 
-    #    (variable(id='shoes-black', dtype=0, virtual=False), 1), 
-    #    (variable(id='t-thirt-black', dtype=0, virtual=False), 1)
-    # ]
+    # {
+    #     'jeans-black': 1, 
+    #     'jeans-blue': 0, 
+    #     'shoes-black': 1, 
+    #     'shoes-white': 0, 
+    #     'sweater-black': 0, 
+    #     'sweater-green': 0, 
+    #     't-thirt-black': 1, 
+    #     't-thirt-blue': 0
+    # }
 
 
 We get our black jeans along with black shoes, black t-shirt and no sweater. Seams resonable. But... it could be the case that you didn't get the same solution. Sure, you did get
@@ -87,9 +94,6 @@ Instead of using the Xor (or Any) class from :ref:`puan.logic.plog<PLOG>`, we us
 (**Notice the cc.Xor instead of pg.Xor**)
 
 .. code:: python
-
-    import puan.logic.plog as pg
-    import puan.modules.configurator as cc
 
     model = cc.StingyConfigurator(
         cc.Xor(
@@ -129,16 +133,21 @@ Running the new model, we are guaranteed to get our cool black outfit when none 
     solution = next(
         model.select(
             {"jeans-black": 1}, 
-            solver=solve_outfit,
+            solver=ps.glpk_solver,
             only_leafs=True
         ),
     )
     print(solution)
-    # [
-    #    (variable(id='jeans-black', dtype=0, virtual=False), 1), 
-    #    (variable(id='shoes-black', dtype=0, virtual=False), 1), 
-    #    (variable(id='t-thirt-black', dtype=0, virtual=False), 1)
-    # ]
+    # {
+    #     'jeans-black': 1, 
+    #     'jeans-blue': 0, 
+    #     'shoes-black': 1, 
+    #     'shoes-white': 0, 
+    #     'sweater-black': 0, 
+    #     'sweater-green': 0, 
+    #     't-thirt-black': 1, 
+    #     't-thirt-blue': 0
+    # }
 
 More on select
 --------------
@@ -153,17 +162,21 @@ the black sweater
                 "jeans-black": 1,
                 "sweater-black": 1,
             }, 
-            solver=solve_outfit,
+            solver=ps.glpk_solver,
             only_leafs=True
         ),
     )
     print(solution)
-    # [
-    #    (variable(id='jeans-black', dtype=0, virtual=False), 1), 
-    #    (variable(id='shoes-black', dtype=0, virtual=False), 1), 
-    #    (variable(id='sweater-black', dtype=0, virtual=False), 1), 
-    #    (variable(id='t-thirt-black', dtype=0, virtual=False), 1)
-    # ]
+    # {
+    #     'jeans-black': 1, 
+    #     'jeans-blue': 0, 
+    #     'shoes-black': 1, 
+    #     'shoes-white': 0, 
+    #     'sweater-black': 1, 
+    #     'sweater-green': 0, 
+    #     't-thirt-black': 1, 
+    #     't-thirt-blue': 0
+    # }
 
 But here both are set to have the same priority. Let's add another logic relationship saying that they cannot be selected together:
 
@@ -174,7 +187,7 @@ But here both are set to have the same priority. Let's add another logic relatio
     )
 
 
-And solve again solve with same prioritization
+And solve again with same prioritization
 
 .. code:: python
 
@@ -184,16 +197,21 @@ And solve again solve with same prioritization
                 "jeans-black": 1,
                 "sweater-black": 1,
             }, 
-            solver=solve_outfit,
+            solver=ps.glpk_solver,
             only_leafs=True
         ),
     )
     print(solution)
-    # [
-    #    (variable(id='jeans-black', dtype=0, virtual=False), 1), 
-    #    (variable(id='shoes-black', dtype=0, virtual=False), 1), 
-    #    (variable(id='t-thirt-black', dtype=0, virtual=False), 1)
-    # ]
+    # {
+    #     'jeans-black': 1, 
+    #     'jeans-blue': 0, 
+    #     'shoes-black': 1, 
+    #     'shoes-white': 0, 
+    #     'sweater-black': 0, 
+    #     'sweater-green': 0, 
+    #     't-thirt-black': 1, 
+    #     't-thirt-blue': 0
+    # }
 
 And we now did get the black jeans but not the black sweater. The reason for this is that the solution with jeans has three items whereas the solution with a sweater has four, a solution less amount of items
 is more prioritized than a high number of items. If we increase the prioritization of the sweater, we'll instead get the black sweater with another pair of jeans:
@@ -207,17 +225,21 @@ is more prioritized than a high number of items. If we increase the prioritizati
                 "jeans-black": 1,
                 "sweater-black": 2,
             }, 
-            solver=solve_outfit,
+            solver=ps.glpk_solver,
             only_leafs=True
         ),
     )
     print(solution)
-    # [
-    #    (variable(id='jeans-blue', dtype=0, virtual=False), 1), 
-    #    (variable(id='shoes-black', dtype=0, virtual=False), 1), 
-    #    (variable(id='sweater-black', dtype=0, virtual=False), 1), 
-    #    (variable(id='t-thirt-black', dtype=0, virtual=False), 1)
-    # ]
+    # {
+    #     'jeans-black': 0, 
+    #     'jeans-blue': 1, 
+    #     'shoes-black': 1, 
+    #     'shoes-white': 0, 
+    #     'sweater-black': 1, 
+    #     'sweater-green': 0, 
+    #     't-thirt-black': 1, 
+    #     't-thirt-blue': 0
+    # }
 
 You can also select with **negative prio**. For instance, you could go with any shoes but the black ones:
 
@@ -230,14 +252,18 @@ You can also select with **negative prio**. For instance, you could go with any 
                 "jeans-black": 1,
                 "sweater-black": 2,
             }, 
-            solver=solve_outfit,
+            solver=ps.glpk_solver,
             only_leafs=True
         ),
     )
     print(solution)
-    # [
-    #    (variable(id='jeans-blue', dtype=0, virtual=False), 1), 
-    #    (variable(id='shoes-white', dtype=0, virtual=False), 1), 
-    #    (variable(id='sweater-black', dtype=0, virtual=False), 1), 
-    #    (variable(id='t-thirt-black', dtype=0, virtual=False), 1)
-    # ]
+    # {
+    #     'jeans-black': 0, 
+    #     'jeans-blue': 1, 
+    #     'shoes-black': 0, 
+    #     'shoes-white': 1, 
+    #     'sweater-black': 1, 
+    #     'sweater-green': 0, 
+    #     't-thirt-black': 1, 
+    #     't-thirt-blue': 0
+    # }
