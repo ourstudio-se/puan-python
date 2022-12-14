@@ -29,8 +29,6 @@ jobs:
           flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
       - name: Test with pytest
         run: |
-          python setup.py install
-          mv build/lib.linux-x86_64-3.9/puan/*.so puan
           pytest
       - name: Test build docs
         uses: znittzel/sphinx-action@master
