@@ -196,6 +196,16 @@ class variable(Proposition):
 
         return self
 
+    def assume_time(self, fixed: typing.Dict[str, typing.Union[int, typing.Tuple[int, int], Bounds]]) -> Proposition:
+        
+        if self.id in fixed:
+            return variable(
+                id=self.id,
+                bounds=fixed[self.id],
+            )
+
+        return self, {}
+
     def evaluate(self, interpretation: typing.Dict[str, typing.Union[Bounds, typing.Tuple[int,int], int]]) -> Bounds:
 
         """

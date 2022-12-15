@@ -1,3 +1,4 @@
+import tm
 import enum
 import hashlib
 import maz
@@ -615,6 +616,106 @@ class AtLeast(puan.Proposition):
             ),
         )
 
+    def to_ge_polyhedron_time(self, active: bool = False, reduced: bool = False) -> dict:
+
+        """
+            Converts into a :class:`ge_polyhedron<puan.ndarray.ge_polyhedron>`.
+
+            Parameters
+            ----------
+                active : bool = False
+                    If true, then the top node id will be assumed to be true.
+
+                reduced : bool = False
+                    If true, then methods will be applied to the polyhedron in an attempt to reduce its size. 
+
+            Returns
+            -------
+                out : :class:`puan.ndarray.ge_polyhedron`
+        """
+        time_obj = {}
+        with tm.measure_time("flatten", time_obj):
+            flatten = self.flatten()
+
+        with tm.measure_time("flatten_dict", time_obj):
+            flatten_dict = dict(zip(map(lambda x: x.id, flatten), flatten))
+        
+        with tm.measure_time("variable_id_map", time_obj):
+            variable_id_map = dict(
+                zip(
+                    map(
+                        lambda x: x.id, 
+                        flatten_dict.values()
+                    ), 
+                    zip(
+                        range(len(flatten_dict)), 
+                        flatten_dict.values()
+                    )
+                )
+            )
+
+        with tm.measure_time("polyhedron_theory", time_obj):
+            polyhedron_theory = pr.TheoryPy(
+                list(
+                    map(
+                        lambda x: pr.StatementPy(
+                            variable_id_map[x.id][0],
+                            variable_id_map[x.id][1].bounds.as_tuple(),
+                            pr.AtLeastPy(
+                                list(
+                                    map(
+                                        lambda y: variable_id_map[y.id][0], 
+                                        x.propositions
+                                    )
+                                ),
+                                bias=-1*x.value,
+                                sign=pr.SignPy.Positive if x.sign == puan.Sign.POSITIVE else pr.SignPy.Negative
+                            ) if not issubclass(x.__class__, puan.variable) else None,
+                        ),
+                        flatten_dict.values()
+                    )
+                )
+            )
+
+        with tm.measure_time("to_ge_polyhedron", time_obj):
+            polyhedron_rs = polyhedron_theory.to_ge_polyhedron(active, reduced)
+
+        with tm.measure_time("id_variable_map", time_obj):
+            id_variable_map = dict(variable_id_map.values())
+
+        with tm.measure_time("array_split", time_obj):
+            split = np.array_split(polyhedron_rs.a.val, polyhedron_rs.a.nrows)
+
+        with tm.measure_time("construct_ndarrays", time_obj):
+            polyhedron_ndarrays = (
+                np.array(polyhedron_rs.b).reshape(-1,1), 
+                split
+            )
+        
+        with tm.measure_time("hstack_into_polyhedron", time_obj):
+            polyedron_array = np.hstack(
+                polyhedron_ndarrays
+            )
+        
+        with tm.measure_time("ge_polyhedron", time_obj):
+            pnd.ge_polyhedron(
+                polyedron_array, 
+                variables=[puan.variable.support_vector_variable()]+list(
+                    map(
+                        maz.compose(
+                            id_variable_map.get,
+                            operator.attrgetter("id")
+                        ), 
+                        polyhedron_rs.variables
+                    )
+                ),
+            )
+
+        return time_obj
+
+    def to_ge_polyhedron_python(self):
+        pass
+
     def negate(self) -> puan.Proposition:
 
         """
@@ -1128,10 +1229,6 @@ class AtLeast(puan.Proposition):
                 out : :class:`itertools.starmap`:
         """
 
-        ph = self.to_ge_polyhedron(
-            active=True, 
-            reduced=try_reduce_before,
-        )
         if solver is None:
             pyrs_theory, variable_id_map = self._to_pyrs_theory()
             id_map = dict(variable_id_map.values())
@@ -1236,9 +1333,200 @@ class AtLeast(puan.Proposition):
                 ),
                 solver(
                     polyhedron, 
-                    map(polyhedron.A.construct, objectives),
+                    list(
+                        map(
+                            polyhedron.A.construct, 
+                            objectives
+                        )
+                    ),
                 )
             )
+            
+    def solve_time(
+        self, 
+        objectives: typing.List[typing.Dict[typing.Union[str, puan.variable], int]], 
+        solver: typing.Callable[[pnd.ge_polyhedron, typing.Iterable[np.ndarray]], typing.Iterable[typing.Tuple[typing.Optional[np.ndarray], typing.Optional[int], int]]] = None,
+        try_reduce_before: bool = False,
+        include_virtual_variables: bool = False,
+    ) -> itertools.starmap:
+
+        """
+            Maximises objective in objectives such that this model's constraints are fulfilled and returns a solution for each objective.
+
+            Parameters
+            ----------
+                objectives : List[Dict[Union[str, :class:`puan.variable`], int]]
+                    A list of objectives as dictionaries. Keys are either variable ids as strings or a :class:`puan.variable`.
+                    Values are objective value for the key.
+
+                solver : Callable[[:class:`puan.ndarray.ge_polyhedron`, Dict[str, int]], List[(:class:`np.ndarray`, int, int)]] = None
+                    If None is provided puan's own (beta) solver is used. If you want to provide another solver
+                    you have to send a function as solver parameter. That function has to take a :class:`puan.ndarray.ge_polyhedron` and
+                    a 2d numpy array representing all objectives, as input. NOTE that the polyhedron DOES NOT provide constraints for variable
+                    bounds. Variable bounds are found under each variable under `polyhedron.variables` and constraints for 
+                    these has to manually be created and added to the polyhedron matrix. The function should return a list, one for each
+                    objective, of tuples of (solution vector, objective value, status code). The solution vector is an integer ndarray vector
+                    of size equal to width of ``polyhedron.A``. There are six different status codes from 1-6:
+                    
+                    - 1: solution is undefined
+                    - 2: solution is feasible
+                    - 3: solution is infeasible
+                    - 4: no feasible solution exists
+                    - 5: solution is optimal
+                    - 6: solution is unbounded
+
+                    Checkout https://github.com/ourstudio-se/puan-solvers for quick how-to's for common solvers.
+
+                try_reduce_before : bool = False
+                    If true, then methods will be applied to try and reduce size of this model before
+                    running solve function.
+
+                include_virtual_variables : bool = False
+                    If true, the virtual/artificial variables that has automatically been generated creating the model will be included in solutions
+
+            Examples
+            --------
+                >>> dummy_solver = lambda x,y: list(map(lambda v: (v, 0, 5), y))
+                >>> list(All(*"ab").solve([{"a": 1, "b": 1}], dummy_solver))
+                [({'a': 1, 'b': 1}, 0, 5)]
+
+            Notes
+            -----
+                Currently a beta solver is used, *DO NOT USE THIS IN PRODUCTION*.
+                If no solution could be found, ``None`` is returned.
+
+            Returns
+            -------
+                out : :class:`itertools.starmap`:
+        """
+        time_obj = {}
+        if solver is None:
+            with tm.measure_time("pyrs_theory", time_obj):
+                pyrs_theory, variable_id_map = self._to_pyrs_theory()
+            id_map = dict(variable_id_map.values())
+
+            with tm.measure_time("solve", time_obj):
+                solutions = pyrs_theory.solve(
+                    list(
+                        map(
+                            lambda objective: dict(
+                                zip(
+                                    map(
+                                        lambda k: variable_id_map[k][0],
+                                        objective, 
+                                    ),
+                                    objective.values(),
+                                )
+                            ),
+                            objectives, 
+                        ),
+                    ),
+                    False,
+                )
+
+            with tm.measure_time("map_solutions", time_obj):
+                result = itertools.starmap(
+                    lambda solution, objective_value, status_code: (
+                        dict(
+                            itertools.starmap(
+                                lambda k,v: (id_map[k].id, v), 
+                                filter(
+                                    maz.ifttt(
+                                        # If is puan.variable
+                                        lambda x: issubclass(id_map[x[0]].__class__, puan.variable),
+                                        
+                                        # then include it
+                                        lambda _: True,
+
+                                        # else if variable id is generated
+                                        maz.ifttt(
+                                            maz.compose(
+                                                operator.attrgetter("generated_id"),
+                                                id_map.get,
+                                                operator.itemgetter(0),
+                                            ),
+
+                                            # then also check that we should include those variables
+                                            lambda _: include_virtual_variables,
+
+                                            # else include it
+                                            lambda _: True
+                                        )
+                                    ),
+                                    solution.items()
+                                )
+                            )
+                        ),
+                        objective_value, status_code
+                    ),
+                    solutions,
+                )
+            return time_obj
+        else:
+            with tm.measure_time("to_polyhedron", time_obj):
+                polyhedron = self.to_ge_polyhedron(
+                    active=True, 
+                    reduced=try_reduce_before,
+                )
+            id_map = dict(
+                zip(
+                    range(polyhedron.A.shape[1]), 
+                    polyhedron.A.variables
+                )
+            )
+            with tm.measure_time("solve", time_obj):
+                solutions = list(
+                    solver(
+                        polyhedron, 
+                        list(
+                            map(
+                                polyhedron.A.construct, 
+                                objectives
+                            )
+                        ),
+                    )
+                )
+
+            with tm.measure_time("map_solutions", time_obj):
+                result = itertools.starmap(
+                    lambda solution, objective_value, status_code: (
+                        dict(
+                            map(
+                                lambda x: (x[0].id, x[1]),
+                                filter(
+                                    maz.ifttt(
+                                        # if variable is a puan.variable
+                                        lambda x: issubclass(x[0].__class__, puan.variable),
+                                        
+                                        # then keep it 
+                                        lambda _: True,
+
+                                        # else if variable id is generated
+                                        maz.ifttt(
+                                            maz.compose(
+                                                operator.attrgetter("generated_id"),
+                                                operator.itemgetter(0),
+                                            ),
+
+                                            # then check also that we should include those variables
+                                            lambda _: include_virtual_variables,
+
+                                            # else include it
+                                            lambda _: True
+                                        )
+                                    ),
+                                    zip(
+                                        polyhedron.A.variables,
+                                        solution
+                                    )
+                                )
+                            ),
+                        ) if solution is not None else {},
+                        objective_value, status_code
+                    ),
+                    solutions
+                )
+            return time_obj
             
     def reduce(self) -> puan.Proposition:
 
@@ -1324,6 +1612,103 @@ class AtLeast(puan.Proposition):
             ),
             sign=self.sign,
         )
+
+    def reduce_time(self) -> puan.Proposition:
+
+        """
+            Reduces proposition by removing all variables with fixed bound.
+            Returns a potentially reduced proposition.
+
+            See also
+            --------
+                assume
+
+            Examples
+            --------
+                >>> All(puan.variable("x", (1,1)), *"yz", variable="A").reduce()
+                A: +(y,z)>=2
+                >>> # Note that x is no longer part of the proposition and
+                >>> # the value of the proposition is updated from 3 to 2
+                >>> # as a result of x being 1
+
+                >>> All(puan.variable("x", (1,1)), puan.variable("y", (0,0)), variable="A").reduce()
+                variable(id='A', bounds=Bounds(lower=0, upper=0))
+                >>> # If the remaining proposition is a puan.variable and only a puan.varialbe it is kept with updated bounds
+                >>> # Any other constant proposition will be reduced
+
+            Returns
+            -------
+                out :  :class:`puan.Proposition`
+        """
+        time_obj = {}
+        if self.bounds.constant is not None:
+            return self.variable, time_obj
+
+        with tm.measure_time("sub_propositions", time_obj):
+            sub_propositions = list(
+                itertools.chain(
+                    map(
+                        maz.compose(
+                            operator.itemgetter(0),
+                            operator.methodcaller("reduce_time"),
+                        ),
+                        self.compound_propositions,
+                    ),
+                    self.atomic_propositions,
+                ),
+            )
+
+        # it may occur that a proposition's new sub proposition list results in a new bound for
+        # this proposition to be constant. Because of this we calculate the new bounds
+        # and reduce the proposition if possible. 
+        with tm.measure_time("new_bounds", time_obj):
+            new_bounds = puan.Bounds(
+                *(
+                    np.array(
+                        list(
+                            map(
+                                # flip bounds and multiply by sign if sign is negative
+                                # eg. if bounds (0,1) then (-1,0)
+                                lambda x: x if self.sign > 0 else (x[1]*self.sign, x[0]*self.sign),
+                                map(
+                                    lambda prop: prop.bounds.as_tuple(),
+                                    sub_propositions,
+                                )
+                            )
+                        )
+                    ).sum(axis=0) >= self.value
+                ) * 1
+            )
+
+        if new_bounds.constant is not None:
+            return puan.variable(
+                id=self.id,
+                bounds=new_bounds,
+            ), time_obj
+
+        with tm.measure_time("new_val", time_obj):
+            new_val = self.value - sum(
+                    map(
+                        lambda x: x.bounds.constant, 
+                        filter(
+                            lambda x: x.bounds.constant is not None,
+                            sub_propositions,
+                        )
+                    )
+                ) * self.sign,
+        
+        with tm.measure_time("proposition_construction", time_obj):
+            result = AtLeast(
+                new_val,
+                list(filter(lambda x: x.bounds.constant is None, sub_propositions)),
+                variable=puan.variable(
+                    id=self.id,
+                    bounds=new_bounds,
+                ),
+                sign=self.sign,
+            )
+
+        return result, time_obj
 
     def assume(self, new_variable_bounds: typing.Dict[str, typing.Union[int, typing.Tuple[int, int], puan.Bounds]]) -> puan.Proposition:
 
@@ -1413,6 +1798,106 @@ class AtLeast(puan.Proposition):
             )
             result.__class__ = self.__class__
             return result
+
+    def assume_time(self, new_variable_bounds: typing.Dict[str, typing.Union[int, typing.Tuple[int, int], puan.Bounds]]) -> puan.Proposition:
+
+        """
+            Assumes something about variable's bounds and returns a new proposition with these new bounds set.
+            Other variables, not declared in ``new_variable_bounds``, may also get new bounds as a consequence from the ones set
+            in ``new_variable_bounds``.
+
+            Parameters
+            ----------
+                new_variable_bounds : typing.Dict[str, Union[int, Tuple[int, int], puan.Bounds]]
+                    A dict of ids and either ``int``, ``tuple`` or :class:`puan.Bounds` as bounds for the variable.
+
+            Notes
+            -----
+                All propositions are still kept within this proposition after assume. What may
+                have happen is that proposition's bounds have tightened.
+
+            See also
+            --------
+                reduce
+
+            Examples
+            --------
+                Notice in this example that x bounds are changed from (0,1) to (1,1). Also that the
+                model is a tautology after the assumptions.
+                
+                >>> model = Any(*"xy", variable="A")
+                >>> model.propositions
+                [variable(id='x', bounds=Bounds(lower=0, upper=1)), variable(id='y', bounds=Bounds(lower=0, upper=1))]
+                >>> model.is_tautology
+                False
+                >>> model_assumed = model.assume({"x": 1}) # fixes x bounds to (1,1)
+                >>> model_assumed.propositions
+                [variable(id='x', bounds=Bounds(lower=1, upper=1)), variable(id='y', bounds=Bounds(lower=0, upper=1))]
+                >>> model_assumed.is_tautology
+                True
+
+            Returns
+            -------
+                out : :class:`puan.Proposition`
+        """
+        time_obj = {}
+        if self.id in new_variable_bounds:
+            with tm.measure_time("variable_construction", time_obj):
+                self.variable = puan.variable(
+                    id=self.id,
+                    bounds=new_variable_bounds.get(self.id),
+                )
+
+        if self.bounds.constant is not None:
+            return self.variable, time_obj
+        else:
+            with tm.measure_time("sub_propositions", time_obj):
+                assumed_propositions = list(
+                    map(
+                        lambda prop: prop.assume_time(new_variable_bounds)[0],
+                        self.propositions,
+                    )
+                )
+            
+            with tm.measure_time("bounds_construction", time_obj):
+                new_bounds = (
+                    np.array(
+                        list(
+                            map(
+                                # flip bounds and multiply by sign if sign is negative
+                                # eg. if bounds (0,1) then (-1,0)
+                                lambda x: x if self.sign > 0 else (x[1]*self.sign, x[0]*self.sign),
+                                map(
+                                    lambda prop: prop.bounds.as_tuple(),
+                                    assumed_propositions,
+                                )
+                            )
+                        )
+                    ).sum(axis=0) >= self.value
+                ) * 1
+
+            with tm.measure_time("bounds_construction", time_obj):
+                new_propositions = maz.filter_map_concat(
+                    # If proposition has a constant bound after evaluating it
+                    lambda prop: prop.id in new_variable_bounds,
+                    # If is a constant, just keep the variable from the proposition
+                    # else, keep the proposition as is
+                    lambda prop: prop if issubclass(prop.__class__, puan.variable) else prop.variable,
+                )(assumed_propositions)
+
+            with tm.measure_time("proposition_construction", time_obj):
+                result = AtLeast(
+                    value=self.value,
+                    propositions=new_propositions,
+                    variable=puan.variable(
+                        self.id,
+                        bounds=new_bounds,
+                    ),
+                    sign=self.sign,
+                )
+                result.__class__ = self.__class__
+            
+            return result, time_obj
 
 
 class AtMost(AtLeast):
