@@ -20,7 +20,7 @@ for what to buy in the grocery store given the containments of our fridge. Those
 
 To model this, we need first to recognize our variables and their type (boolean or integer).
 
-- **milk_home**     : bool   - a boolean variable representing if we have milk (true/1) home or not (false/0).
+- **milk_home**     : bool   - a boolean variable representing if we have milk at home (true/1) or not (false/0).
 - **milk_bought**   : bool   - a boolean variable representing if we have milk in our cart (true/1) or not (false/0).
 - **chips**         : bool   - a boolean variable representing if we have chips in our cart (true/1) or not (false/0).
 - **tomatoes**      : int    - an integer variable we'll later restrict being between 4-5.
