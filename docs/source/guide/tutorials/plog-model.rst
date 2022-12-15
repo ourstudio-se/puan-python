@@ -39,7 +39,7 @@ Let's see what those definitions looks like in code
     cucumbers   = puan.variable(id="cucumbers",  dtype="int")
 
 Now we need to define the logical relationships between the items. We start by taking a look at the **milk**. 
-We were waying that if we have milt at home, i.e `milk_home` is true, then `milk_bought` should be false. We can check the truth table to figure out
+We decided that if have milk at home, i.e `milk_home` is true, then `milk_bought` should be false. We can check the truth table to figure out
 the logical relationship we should construct:
 
 milk_home   milk_bought  milk_satisfied 
