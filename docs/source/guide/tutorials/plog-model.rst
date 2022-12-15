@@ -24,7 +24,7 @@ To model this, we need first to recognize our variables and their type (boolean 
 - **milk_bought**   : bool   - a boolean variable representing if we have milk in our cart (true/1) or not (false/0).
 - **chips**         : bool   - a boolean variable representing if we have chips in our cart (true/1) or not (false/0).
 - **tomatoes**      : int    - an integer variable we'll later restrict being between 4-5.
-- **cucumbers**     : int    - an integer variable we'll later restrict being between 1-5.
+- **cucumbers**     : int    -  an integer variable representing the number of cucumbers at home plus those in our cart.
 
 Let's see what those definitions looks like in code
 
