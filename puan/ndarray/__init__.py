@@ -9,7 +9,6 @@ import operator
 import maz
 import math
 import puan
-import puan.npufunc as npufunc
 import sys
 import puan_rspy as pr
 from enum import IntEnum
@@ -1673,20 +1672,20 @@ class integer_ndarray(variable_ndarray):
                     return numpy.zeros(self.shape[1], dtype=self.dtype)
                 # Prepare input to optimized bit allocation
                 # Values of each row must be sorted and later converted back
-                ufunc_inp_sorted_args = numpy.argsort(self_reduced_abs)
-                self_reduced_abs_sorted = self_reduced_abs[numpy.arange(self_reduced_abs.shape[0]).reshape(-1,1), ufunc_inp_sorted_args]
+                oba_inp_sorted_args = numpy.argsort(self_reduced_abs)
+                self_reduced_abs_sorted = self_reduced_abs[numpy.arange(self_reduced_abs.shape[0]).reshape(-1,1), oba_inp_sorted_args]
                 # Multiply every second row with -1, this will distinguish the rows
-                ufunc_inp = self_reduced_abs * numpy.array(list(map(lambda x: math.pow(-1, x), range(self_reduced_abs.shape[0]))), dtype=self.dtype).reshape(-1,1)
+                oba_inp = self_reduced_abs * numpy.array(list(map(lambda x: math.pow(-1, x), range(self_reduced_abs.shape[0]))), dtype=self.dtype).reshape(-1,1)
                 # Sort values of each row and omit zero values
-                ufunc_inp = ufunc_inp[numpy.arange(self_reduced_abs.shape[0]).reshape(-1,1), ufunc_inp_sorted_args]
-                ufunc_inp = ufunc_inp[ufunc_inp != 0].flatten()
-                values = npufunc.optimized_bit_allocation_64(ufunc_inp.astype(numpy.int64))
+                oba_inp = oba_inp[numpy.arange(self_reduced_abs.shape[0]).reshape(-1,1), oba_inp_sorted_args]
+                oba_inp = oba_inp[oba_inp != 0].flatten()
+                values = pr.py_optimized_bit_allocation_64(oba_inp.astype(numpy.int64))
                 # Update values with optimized bit allocation values
                 self_reduced_abs_sorted[self_reduced_abs_sorted != 0] = values
                 # Get reversed sorting
-                ufunc_inp_sorted_args_rev = numpy.argsort(ufunc_inp_sorted_args)
+                oba_inp_sorted_args_rev = numpy.argsort(oba_inp_sorted_args)
                 # Convert back to original sorting
-                self_reduced_abs = self_reduced_abs_sorted[numpy.arange(self_reduced_abs.shape[0]).reshape(-1,1), ufunc_inp_sorted_args_rev]
+                self_reduced_abs = self_reduced_abs_sorted[numpy.arange(self_reduced_abs.shape[0]).reshape(-1,1), oba_inp_sorted_args_rev]
                 # Truncate matrix and convert back to original negatives
                 compressed = self_reduced_abs.max(axis=0)
                 compressed_neg = self_reduced.min(axis=0)
