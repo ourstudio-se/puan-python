@@ -62,7 +62,7 @@ We see from the table that this is an `ExactlyOne` relationship between `milk_ho
         milk_bought,
     )
 
-The number of tomatoes and cucumbers must not be larger than 5 each, and the number of tomatoes should not be less than 2.
+The number of tomatoes and cucumbers must not be larger than 5 each, and the number of tomatoes should not be less than 4 since if the number of tomatoes are less than or equal to 3 then we should buy more. The smallest amount to buy is 1, therefore the total amount of tomatoes must be 4 or 5. 
 We model this using the proposition classes :class:`AtLeast<puan.logic.plog.AtLeast>` and :class:`AtMost<puan.logic.plog.AtMost>`.
 Those classes takes :class:`proposition<puan.Proposition>` as input together with a ``value`` defining the upper and lower bound of the propostion respectively.  
 
