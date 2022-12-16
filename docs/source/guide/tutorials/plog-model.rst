@@ -12,19 +12,19 @@ The Fridge Example
 A logical system can be constructed or applied in a vast variety of fields. In this example we create a logical system
 for what to buy in the grocery store given the containments of our fridge. Those are the instructions
 
-- if the milk is less than half full, then buy new pack of milk
+- if the milk at home is less than half full, then buy new pack of milk
 - always buy a small bag of chips (we eat a lot of chips)
-- if tomatos are less than or equal to 3, then buy more
+- if tomatoes are less than or equal to 3, then buy more
 - if no cucumber, then buy more
 - the amount of tomatoes and cucumbers should not be more than 5 each
 
 To model this, we need first to recognize our variables and their type (boolean or integer).
 
-- **milk_half**     : bool   - since saying if it is less than half full (in fridge) is a yes or no question
-- **milk_bought**   : bool   - since saying if it is milk was bought is a yes or no question
-- **chips**         : bool   - just says bag of chips, no quantity
-- **tomatoes**      : int    - they are restricted in a range between 4-5
-- **cucumbers**     : int    - they are restricted in a range between 1-5
+- **milk_home**     : bool   - a boolean variable representing if we have milk at home (true/1) or not (false/0).
+- **milk_bought**   : bool   - a boolean variable representing if we have milk in our cart (true/1) or not (false/0).
+- **chips**         : bool   - a boolean variable representing if we have chips in our cart (true/1) or not (false/0).
+- **tomatoes**      : int    - an integer variable representing the number of tomatoes at home plus those in our cart.
+- **cucumbers**     : int    -  an integer variable representing the number of cucumbers at home plus those in our cart.
 
 Let's see what those definitions looks like in code
 
@@ -32,37 +32,37 @@ Let's see what those definitions looks like in code
 
     import puan
 
-    milk_home   = puan.variable(id="milk_home")
+    milk_home   = puan.variable(id="milk_home") # default value for dtype is bool
     milk_bought = puan.variable(id="milk_bought")
     chips       = puan.variable(id="chips")
     tomatoes    = puan.variable(id="tomatoes",   dtype="int")
     cucumbers   = puan.variable(id="cucumbers",  dtype="int")
 
 Now we need to define the logical relationships between the items. We start by taking a look at the **milk**. 
-We were waying that if the milk in the fridge is half full, i.e milk_home is False or not milk_home is True, then it is implied that also the milk is bought, i.e milk_bought is True. 
-This is called an implication:
+We decided that if have milk at home, i.e `milk_home` is true, then `milk_bought` should be false. We can check the truth table to figure out
+the logical relationship we should construct:
 
-.. math::
+milk_home   milk_bought  milk_satisfied 
+    0           0            0
+    0           1            1
+    1           0            1
+    1           1            0
 
-   \text{milk_done_right} = \text{not milk_home} \rightarrow \text{milk_bought} 
-   
-There is a proposition class for this expression called :class:`Imply<puan.logic.plog.Imply>` which models an implication. 
-The implication-proposition has two properties; a condition and a consequence where imply is the relation between the condition and the consequence. 
-For instance, we can define *if milk is half* (condition), then buy more milk (consequence). 
-
-Let's put it into code.
+To clarify, if we do not have milk at home and do not have milk in our cart to buy, then our model should say that this is incorrect.
+If we do not have milk at home, but we have milk in our cart to buy, then everything is fine. Likewise, if we have milk at home already
+and do not have milk in our cart. But if we do have milk at home AND in our cart, then it is incorrect (since we don't want to buy unnecessary milk).
+We see from the table that this is an `ExactlyOne` relationship between `milk_home` and `milk_bought`. So let's construct that.
 
 .. code:: python
 
     import puan.logic.plog as pg
 
-    milk_done_right = pg.Imply(
-        condition=pg.Not(milk_home),
-        consequence=milk_bought,
-        variable="milk_done_right"
+    milk_done_right = pg.ExactlyOne(
+        milk_home, 
+        milk_bought,
     )
 
-The number of tomatoes and cucumbers must not be larger than 5 each, and the number of tomatoes should not be less than 2.
+The number of tomatoes and cucumbers must not be larger than 5 each, and the number of tomatoes should not be less than 4 since if the number of tomatoes are less than or equal to 3 then we should buy more. The smallest amount to buy is 1, therefore the total amount of tomatoes must be 4 or 5. 
 We model this using the proposition classes :class:`AtLeast<puan.logic.plog.AtLeast>` and :class:`AtMost<puan.logic.plog.AtMost>`.
 Those classes takes :class:`proposition<puan.Proposition>` as input together with a ``value`` defining the upper and lower bound of the propostion respectively.  
 
@@ -71,7 +71,7 @@ Those classes takes :class:`proposition<puan.Proposition>` as input together wit
     # tomatoes greater or equal to 4
     tomatoes_ge_four = pg.AtLeast(propositions=[tomatoes], value=4, variable="tomatoes_ge_four")
 
-    # tomatoes and cucumbers less or equal to 5
+    # tomatoes and cucumbers less or equal to 5, each
     tomatoes_le_five = pg.AtMost(propositions=[tomatoes], value=5, variable="tomatoes_le_five")
     cucumbers_le_five = pg.AtMost(propositions=[cucumbers], value=5, variable="cucumbers_le_five")
 
@@ -89,7 +89,6 @@ To tie these two expressions we need to plug them into a so called All-propositi
         tomatoes_le_five,
         cucumbers_le_five,
         cucumbers_ge_one,
-        variable="vegetables"
     )
 
 Now we can put it all together in a single plog-model
@@ -100,7 +99,6 @@ Now we can put it all together in a single plog-model
         chips,
         milk_done_right,
         vegetables_ok,
-        variable="fridge"
     )
 
 *Note how we can create propositions by combining booleans like chips_is_true with more advanced propositions, such as the vegetables_ok, to create a logical system*.
