@@ -1476,6 +1476,7 @@ class AtMost(AtLeast):
         d['value'] = -1*self.value
         return d
 
+
 class All(AtLeast):
 
     """
@@ -1560,6 +1561,36 @@ class All(AtLeast):
             )
         )
         return d
+
+class Equal(All):
+
+    """ 
+        ``Equal`` proposition is a combination of an :class:`AtLeast` proposition and an :class:`AtMost` proposition
+        (e.g. :math:`x+y+z-1 = 0`). Sub propositions may take on any value given by their equation bounds
+
+        Parameters
+        ----------
+        value : integer value constraint constant - right hand side of the equality
+        propositions : a list of :class:`puan.Proposition` instances or ``str``
+        variable : variable connected to this proposition
+
+        Notes
+        -----
+            - Propositions may be of type ``str``, :class:`puan.variable` or :class:`AtLeast` (or other inheriting :class:`AtLeast`) 
+            - Propositions list cannot be empty.
+
+        Examples
+        --------
+        Meaning exactly two of x, y and z.
+            >>> Equal(2, list("xyz"), variable='A').propositions
+            [A: +(x,y,z)>=2, A: -(x,y,z)>=-2]
+    """
+    
+    def __init__(self, value: int, propositions: typing.List[typing.Union[str, puan.variable]], variable: typing.Union[str, puan.variable] = None):
+        super().__init__(
+            AtLeast(value=value, propositions=propositions, variable=variable),
+            AtMost(value=value, propositions=propositions, variable=variable))
+    
 
 class Any(AtLeast):
 
