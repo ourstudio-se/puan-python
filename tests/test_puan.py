@@ -1320,6 +1320,9 @@ def test_json_conversion():
     
     json_model = {"type": "AtMost", "value": 1, "propositions": [{"id": "x", "bounds": {"lower": -10, "upper": 10}}]}
     assert json_model == pg.AtMost.from_json(json_model, [puan.variable]).to_json()
+
+    json_model = {"type": "Equal", "value": 1, "id": "A", "propositions": [{"id": "x", "bounds": {"lower": -10, "upper": 10}}]}
+    assert pg.from_json(json_model).to_json() == pg.Equal.from_json(json_model, [puan.variable]).to_json()
     
 
 

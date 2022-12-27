@@ -1582,14 +1582,55 @@ class Equal(All):
         Examples
         --------
         Meaning exactly two of x, y and z.
+            >>> Equal(2, list("xyz"), variable='A')
+            A: +(VAR658adc74c6913fb83b42c3968866f4bdb967fcad34692fc71d3de5f9a94b6970,VARe4568f4a0e4e55b7e3afa57b3527153272b53fde10f6e292b510a5c3bf797d3d)>=2
             >>> Equal(2, list("xyz"), variable='A').propositions
-            [A: +(x,y,z)>=2, A: -(x,y,z)>=-2]
+            [VAR658adc74c6913fb83b42c3968866f4bdb967fcad34692fc71d3de5f9a94b6970: -(x,y,z)>=-2, VARe4568f4a0e4e55b7e3afa57b3527153272b53fde10f6e292b510a5c3bf797d3d: +(x,y,z)>=2]
     """
     
     def __init__(self, value: int, propositions: typing.List[typing.Union[str, puan.variable]], variable: typing.Union[str, puan.variable] = None):
         super().__init__(
             AtLeast(value=value, propositions=propositions),
             AtMost(value=value, propositions=propositions), variable=variable)
+    
+    @staticmethod
+    def from_json(data: dict, class_map) -> "Equal":
+        """
+            Convert from JSON data to a proposition.
+
+            Returns
+            -------
+                out : :class:`Equal`
+        """
+        propositions = data.get('propositions', [])
+        return Equal(
+            value=data.get('value', 1),
+            propositions=list(map(functools.partial(from_json, class_map=class_map), propositions)),
+            variable=data.get('id', None)
+        )
+
+    def to_json(self) -> typing.Dict[str, typing.Any]:
+
+        """
+            Returns proposition as a readable JSON.
+
+            Returns
+            -------
+                out : Dict[str, Any]
+        """
+        d = {
+            'type': self.__class__.__name__,
+            'value': self.propositions[0].sign*self.propositions[0].value,
+            'propositions': list(
+                map(
+                    operator.methodcaller("to_json"),
+                    self.propositions[0].propositions
+                )
+            ) if len(self.propositions) > 0 else [],
+        }
+        if not self.generated_id:
+            d['id'] = self.id
+        return d
     
 
 class Any(AtLeast):
@@ -2054,7 +2095,7 @@ class XNor(Any):
             d['id'] = self.id
         return d
 
-def from_json(data: dict, class_map: list = [puan.variable,AtLeast,AtMost,All,Any,Xor,ExactlyOne,Not,XNor,Imply]) -> typing.Any:
+def from_json(data: dict, class_map: list = [puan.variable,AtLeast,AtMost,Equal,All,Any,Xor,ExactlyOne,Not,XNor,Imply]) -> typing.Any:
 
     """
         Convert from json data to a proposition.
