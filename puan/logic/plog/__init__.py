@@ -1236,7 +1236,7 @@ class AtLeast(puan.Proposition):
                 ),
                 solver(
                     polyhedron, 
-                    map(polyhedron.A.construct, objectives),
+                    map(maz.pospartial(polyhedron.A.construct, [(1, lambda x: 0)]), objectives),
                 )
             )
             
