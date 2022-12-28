@@ -1128,10 +1128,6 @@ class AtLeast(puan.Proposition):
                 out : :class:`itertools.starmap`:
         """
 
-        ph = self.to_ge_polyhedron(
-            active=True, 
-            reduced=try_reduce_before,
-        )
         if solver is None:
             pyrs_theory, variable_id_map = self._to_pyrs_theory()
             id_map = dict(variable_id_map.values())
@@ -1184,7 +1180,7 @@ class AtLeast(puan.Proposition):
                             objectives, 
                         ),
                     ),
-                    False,
+                    try_reduce_before,
                 ),
             )
         else:
