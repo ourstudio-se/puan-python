@@ -2159,7 +2159,7 @@ class ge_polyhedron_config(ge_polyhedron):
             else:
                 solutions = solver(
                     self,
-                    objectives,
+                    list(objectives),
                 )
 
             return itertools.starmap(

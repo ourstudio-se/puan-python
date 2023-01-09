@@ -2016,7 +2016,7 @@ def test_dump_load_ge_polyhedron_config():
     )
 
     def dummy_solver(x, y):
-        return list(map(lambda x: (x, 0, 5), numpy.ones((y.shape[0], x.A.shape[1]))))
+        return list(map(lambda x: (x, 0, 5), numpy.ones((len(y), x.A.shape[1]))))
 
     expected = puan.ndarray.ge_polyhedron_config.from_b64(
         model.ge_polyhedron.to_b64()
