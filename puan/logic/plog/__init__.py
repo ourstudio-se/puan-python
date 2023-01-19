@@ -1472,6 +1472,7 @@ class AtMost(AtLeast):
         d['value'] = -1*self.value
         return d
 
+
 class All(AtLeast):
 
     """
@@ -1556,6 +1557,79 @@ class All(AtLeast):
             )
         )
         return d
+
+class Equal(All):
+
+    """ 
+        ``Equal`` proposition is a combination of an :class:`AtLeast` proposition and an :class:`AtMost` proposition
+        (e.g. :math:`x+y+z-1 = 0`). Sub propositions may take on any value given by their equation bounds
+
+        Parameters
+        ----------
+        value : integer value constraint constant - right hand side of the equality
+        propositions : a list of :class:`puan.Proposition` instances or ``str``
+        variable : variable connected to this proposition
+
+        Notes
+        -----
+            - Propositions may be of type ``str``, :class:`puan.variable` or :class:`AtLeast` (or other inheriting :class:`AtLeast`) 
+            - Propositions list cannot be empty.
+
+        Examples
+        --------
+        Meaning exactly two of x, y and z.
+            >>> Equal(2, list("xyz"), variable='A')
+            A: +(VAR658adc74c6913fb83b42c3968866f4bdb967fcad34692fc71d3de5f9a94b6970,VARe4568f4a0e4e55b7e3afa57b3527153272b53fde10f6e292b510a5c3bf797d3d)>=2
+            >>> Equal(2, list("xyz"), variable='A').propositions
+            [VAR658adc74c6913fb83b42c3968866f4bdb967fcad34692fc71d3de5f9a94b6970: -(x,y,z)>=-2, VARe4568f4a0e4e55b7e3afa57b3527153272b53fde10f6e292b510a5c3bf797d3d: +(x,y,z)>=2]
+    """
+    
+    def __init__(self, value: int, propositions: typing.List[typing.Union[str, puan.variable]], variable: typing.Union[str, puan.variable] = None):
+        super().__init__(
+            AtLeast(value=value, propositions=propositions),
+            AtMost(value=value, propositions=propositions), 
+            variable=variable,
+        )
+    
+    @staticmethod
+    def from_json(data: dict, class_map) -> "Equal":
+        """
+            Convert from JSON data to a proposition.
+
+            Returns
+            -------
+                out : :class:`Equal`
+        """
+        propositions = data.get('propositions', [])
+        return Equal(
+            value=data.get('value', 1),
+            propositions=list(map(functools.partial(from_json, class_map=class_map), propositions)),
+            variable=data.get('id', None)
+        )
+
+    def to_json(self) -> typing.Dict[str, typing.Any]:
+
+        """
+            Returns proposition as a readable JSON.
+
+            Returns
+            -------
+                out : Dict[str, Any]
+        """
+        d = {
+            'type': self.__class__.__name__,
+            'value': self.propositions[0].sign*self.propositions[0].value,
+            'propositions': list(
+                map(
+                    operator.methodcaller("to_json"),
+                    self.propositions[0].propositions
+                )
+            ) if len(self.propositions) > 0 else [],
+        }
+        if not self.generated_id:
+            d['id'] = self.id
+        return d
+    
 
 class Any(AtLeast):
 
@@ -2019,7 +2093,7 @@ class XNor(Any):
             d['id'] = self.id
         return d
 
-def from_json(data: dict, class_map: list = [puan.variable,AtLeast,AtMost,All,Any,Xor,ExactlyOne,Not,XNor,Imply]) -> typing.Any:
+def from_json(data: dict, class_map: list = [puan.variable,AtLeast,AtMost,Equal,All,Any,Xor,ExactlyOne,Not,XNor,Imply]) -> typing.Any:
 
     """
         Convert from json data to a proposition.
