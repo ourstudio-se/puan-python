@@ -2671,6 +2671,9 @@ def test_ndarray():
 
 def test_plog_assume():
 
+    model = pg.Xor(*"abcd")
+    assert model.assume({"a": 1}).reduce().bounds == (1,1)
+
     # Test that different interpretations results in same evaluation
     # both before and after assumption has been made.
     for model, inters, fixes, should_raise in [
@@ -2814,6 +2817,7 @@ def test_plog_assume():
             else:
                 with pytest.raises(ValueError):
                     model.assume(fix)
+    
 
 def test_puan_bounds():
 

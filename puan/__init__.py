@@ -116,7 +116,7 @@ class Bounds:
             return self.lower
         return None
 
-    def as_tuple(self) -> typing.Tuple[int, int]:
+    def as_tuple(self, flip: bool = False) -> typing.Tuple[int, int]:
         """
             Bounds as tuple
 
@@ -124,7 +124,7 @@ class Bounds:
             -------
                 out : Tuple[int, int]
         """
-        return (self.lower, self.upper)
+        return (self.upper*-1, self.lower*-1) if flip else (self.lower, self.upper)
 
 @dataclasses.dataclass
 class variable(Proposition):
