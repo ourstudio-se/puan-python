@@ -380,6 +380,7 @@ class StingyConfigurator(pg.All):
             pg.Not,
             pg.XNor,
             pg.Imply,
+            pg.Equal,
         ]
         return StingyConfigurator(
             *map(

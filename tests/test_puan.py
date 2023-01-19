@@ -134,6 +134,14 @@ def not_proposition_strategy():
         atom_proposition_strategy(),
     )
 
+def equal_proposition_strategy():
+    return strategies.builds(
+        pg.Equal,
+        propositions=atoms_propositions_strategy(),
+        variable=variable_boolean_proposition_strategy(), 
+        value=strategies.integers(min_value=-5, max_value=5),
+    )
+
 def proposition_strategy():
     return strategies.one_of(
         atleast_proposition_strategy(),
@@ -144,6 +152,7 @@ def proposition_strategy():
         xor_proposition_strategy(),
         xnor_proposition_strategy(),
         not_proposition_strategy(),
+        equal_proposition_strategy()
     )
 
 def cc_proposition_strategy():
@@ -158,6 +167,7 @@ def cc_proposition_strategy():
         xor_cc_proposition_strategy(),
         xnor_proposition_strategy(),
         not_proposition_strategy(),
+        equal_proposition_strategy()
     )
 
 def propositions_strategy():

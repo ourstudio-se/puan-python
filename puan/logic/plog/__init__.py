@@ -1591,7 +1591,9 @@ class Equal(All):
     def __init__(self, value: int, propositions: typing.List[typing.Union[str, puan.variable]], variable: typing.Union[str, puan.variable] = None):
         super().__init__(
             AtLeast(value=value, propositions=propositions),
-            AtMost(value=value, propositions=propositions), variable=variable)
+            AtMost(value=value, propositions=propositions), 
+            variable=variable,
+        )
     
     @staticmethod
     def from_json(data: dict, class_map) -> "Equal":
