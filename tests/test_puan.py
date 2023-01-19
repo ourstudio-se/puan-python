@@ -774,44 +774,99 @@ def test_reducable_columns_approx():
 
 def test_cicJE_to_implication_proposition():
 
-    actual_output = pg.Imply.from_cicJE({
-        "condition": {
-            "relation": "ALL",
-            "subConditions": [
-                {
-                    "relation": "ANY",
-                    "components": [
-                        {"id": "x"},
-                        {"id": "y"}
+    for inpt, outp in [
+        (
+            {
+                "condition": {
+                    "relation": "ALL",
+                    "subConditions": [
+                        {
+                            "relation": "ANY",
+                            "components": [
+                                {"id": "x"},
+                                {"id": "y"}
+                            ]
+                        },
+                        {
+                            "relation": "ANY",
+                            "components": [
+                                {"id": "a"},
+                                {"id": "b"}
+                            ]
+                        }
                     ]
                 },
-                {
-                    "relation": "ANY",
+                "consequence": {
+                    "ruleType": "REQUIRES_ALL",
                     "components": [
-                        {"id": "a"},
-                        {"id": "b"}
+                        {"id": "m"},
+                        {"id": "n"},
+                        {"id": "o"},
                     ]
                 }
-            ]
-        },
-        "consequence": {
-            "ruleType": "REQUIRES_ALL",
-            "components": [
-                {"id": "m"},
-                {"id": "n"},
-                {"id": "o"},
-            ]
-        }
-    })
-
-    expected_output = pg.Imply(
-        pg.All(
-            pg.Any(*"xy"),
-            pg.Any(*"ab"),
+            },
+            pg.Imply(
+                pg.All(
+                    pg.Any(*"xy"),
+                    pg.Any(*"ab"),
+                ),
+                pg.All(*"mno")
+            )
         ),
-        pg.All(*"mno")
-    )
-    assert actual_output == expected_output
+        (
+            {
+                "consequence": {
+                    "ruleType": "FORBIDS_ALL",
+                    "components": [
+                        {"id": "a"},
+                        {"id": "b"},
+                        {"id": "c"},
+                    ]
+                }
+            },
+            pg.Any(*"abc").negate()
+        ),
+        (
+            {
+                "consequence": {
+                    "ruleType": "REQUIRES_EXCLUSIVELY",
+                    "components": [
+                        {"id": "a"},
+                        {"id": "b"},
+                        {"id": "c"},
+                    ]
+                }
+            },
+            pg.Xor(*"abc")
+        ),
+        (
+            {
+                "consequence": {
+                    "ruleType": "ONE_OR_NONE",
+                    "components": [
+                        {"id": "a"},
+                        {"id": "b"},
+                        {"id": "c"},
+                    ]
+                }
+            },
+            pg.AtMost(1, list("abc"))
+        ),
+        (
+            {
+                "consequence": {
+                    "ruleType": "REQUIRES_ANY",
+                    "components": [
+                        {"id": "a"},
+                        {"id": "b"},
+                        {"id": "c"},
+                    ]
+                }
+            },
+            pg.Any(*"abc")
+        ),
+    ]:
+        assert pg.Imply.from_cicJE(inpt) == outp
 
 def test_neglect_columns():
     inputs = (
