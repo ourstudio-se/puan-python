@@ -1232,7 +1232,15 @@ class AtLeast(puan.Proposition):
                 ),
                 solver(
                     polyhedron, 
-                    map(maz.pospartial(polyhedron.A.construct, [(1, lambda x: 0)]), objectives),
+                    list(
+                        map(
+                            maz.pospartial(
+                                polyhedron.A.construct, 
+                                [(1, lambda x: 0)]
+                            ), 
+                            objectives,
+                        )
+                    ),
                 )
             )
             
@@ -1407,7 +1415,6 @@ class AtLeast(puan.Proposition):
                 ),
                 sign=self.sign,
             )
-            result.__class__ = self.__class__
             return result
 
 
