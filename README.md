@@ -24,3 +24,6 @@ Given a predefined matrix, you construct a polyhedron as you would with a numpy 
 ge_polytope([[ 0, -2,  1,  1]])
 ```
 
+### Tutorials
+How to minimize time and cost for multi-origin shipments: <br>
+https://medium.com/@rikard_12995/minimizing-time-and-cost-for-multi-origin-shipments-using-open-source-python-software-2b1a5cb900fc
