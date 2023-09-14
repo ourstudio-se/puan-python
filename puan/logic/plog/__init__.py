@@ -1724,7 +1724,7 @@ class Imply(Any):
         return d
 
     @staticmethod
-    def from_cicJE(data: typing.Dict[str, typing.Any], id_ident: str = "id") -> "Imply":
+    def from_cicJE(data: typing.Dict[str, typing.Any], id_ident: str = "id", cmp2prop: typing.Optional[typing.Callable[[dict], puan.variable]] = None) -> "Imply":
 
         """
             This function converts a cicJE into an :class:`Imply`.
@@ -1769,11 +1769,12 @@ class Imply(Any):
         rule_type_map = {
             "REQUIRES_ALL": lambda x,id: All(*x,variable=id),
             "REQUIRES_ANY": lambda x,id: Any(*x,variable=id),
-            "ONE_OR_NONE": lambda x,id: AtMost(*x,value=1,variable=id),
-            "FORBIDS_ALL":  lambda x,id: Any(*x,variable=id).invert(),
+            "ONE_OR_NONE": lambda x,id: AtMost(value=1,propositions=x,variable=id),
+            "FORBIDS_ALL":  lambda x,id: Any(*x,variable=id).negate(),
             "REQUIRES_EXCLUSIVELY": lambda x,id: Xor(*x,variable=id)
         }
-        cmp2prop = lambda x: puan.variable(id=x[id_ident], bounds=[(0,1),(puan.default_min_int, puan.default_max_int)]["dtype" in x and x['type'] == "int"])
+        if cmp2prop is None:
+            cmp2prop = lambda x: puan.variable(id=x[id_ident], bounds=[(0,1),(puan.default_min_int, puan.default_max_int)]["dtype" in x and x['type'] == "int"])
         relation_fn = lambda x: [Any, All][x.get("relation", "ALL") == "ALL"]
         consequence = rule_type_map[data.get('consequence', {}).get("ruleType")](
             map(cmp2prop, data.get('consequence',{}).get('components')),
