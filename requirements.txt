@@ -4,3 +4,4 @@ maz==0.0.6
 more_itertools>=8.12.0
 dictdiffer==0.9.0
 puan-rspy==0.3.0
+graphlib>=0.9.5
